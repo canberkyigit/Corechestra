@@ -1,0 +1,135 @@
+/* ═══════════════════════════════════════════════════════════
+   CORECHESTRA — DARK MODE OVERRIDES
+   Applied when <html class="dark"> is set.
+   Uses descendant specificity (.dark .bg-white) to beat
+   Tailwind's single-class specificity without !important.
+═══════════════════════════════════════════════════════════ */
+
+/* ── Backgrounds ── */
+.dark .bg-white          { background-color: #1c2030; }
+.dark .bg-slate-50       { background-color: #141720; }
+.dark .bg-slate-100      { background-color: #232838; }
+.dark .bg-slate-200      { background-color: #2a3044; }
+.dark .bg-gray-50        { background-color: #141720; }
+.dark .bg-gray-100       { background-color: #232838; }
+.dark .bg-gray-200       { background-color: #2a3044; }
+
+/* ── Text ── */
+.dark .text-slate-900    { color: #f1f5f9; }
+.dark .text-slate-800    { color: #e2e8f0; }
+.dark .text-slate-700    { color: #cbd5e1; }
+.dark .text-slate-600    { color: #94a3b8; }
+.dark .text-slate-500    { color: #64748b; }
+.dark .text-slate-400    { color: #475569; }
+.dark .text-gray-800     { color: #e2e8f0; }
+.dark .text-gray-700     { color: #cbd5e1; }
+.dark .text-gray-600     { color: #94a3b8; }
+.dark .text-gray-500     { color: #64748b; }
+.dark .text-gray-400     { color: #475569; }
+
+/* ── Borders ── */
+.dark .border-slate-100  { border-color: #232838; }
+.dark .border-slate-200  { border-color: #2a3044; }
+.dark .border-slate-300  { border-color: #374155; }
+.dark .border-gray-200   { border-color: #2a3044; }
+.dark .border-gray-300   { border-color: #374155; }
+
+/* ── Shadows ── */
+.dark .shadow-sm         { box-shadow: 0 1px 3px rgba(0,0,0,0.5); }
+.dark .shadow            { box-shadow: 0 2px 6px rgba(0,0,0,0.6); }
+.dark .shadow-md         { box-shadow: 0 4px 12px rgba(0,0,0,0.7); }
+.dark .shadow-lg         { box-shadow: 0 8px 24px rgba(0,0,0,0.8); }
+.dark .shadow-xl         { box-shadow: 0 16px 40px rgba(0,0,0,0.9); }
+.dark .shadow-2xl        { box-shadow: 0 24px 48px rgba(0,0,0,0.95); }
+
+/* ── Dividers / hover states ── */
+.dark .divide-slate-100 > * + * { border-color: #232838; }
+.dark .divide-slate-200 > * + * { border-color: #2a3044; }
+
+/* ── Hover backgrounds ── */
+.dark .hover\:bg-slate-50:hover   { background-color: #1c2030; }
+.dark .hover\:bg-slate-100:hover  { background-color: #232838; }
+.dark .hover\:bg-gray-50:hover    { background-color: #1c2030; }
+.dark .hover\:bg-gray-100:hover   { background-color: #232838; }
+.dark .hover\:bg-gray-200:hover   { background-color: #2a3044; }
+
+/* ── Focus rings ── */
+.dark .focus\:bg-white:focus      { background-color: #1c2030; }
+
+/* ── Inputs ── */
+.dark input[type="text"],
+.dark input[type="number"],
+.dark input[type="date"],
+.dark input[type="email"],
+.dark textarea,
+.dark select {
+  background-color: #232838;
+  border-color: #2a3044;
+  color: #e2e8f0;
+}
+.dark input::placeholder,
+.dark textarea::placeholder { color: #475569; }
+
+/* ── Topbar (Layout) ── */
+.dark header.topbar {
+  background-color: #1c2030;
+  border-bottom-color: #2a3044;
+}
+
+/* ── Modal overlay ── */
+.dark .modal-backdrop { background-color: rgba(0,0,0,0.7); }
+
+/* ── Specific component tweaks ── */
+
+/* Task cards */
+.dark .task-card {
+  background-color: #1c2030;
+  border-color: #2a3044;
+}
+.dark .task-card:hover {
+  border-color: #3b82f6;
+  background-color: #202540;
+}
+
+/* Kanban column drop zones */
+.dark .kanban-drop-zone {
+  background-color: #141720;
+}
+
+/* Topbar search */
+.dark .topbar-search {
+  background-color: #232838;
+  border-color: #2a3044;
+  color: #e2e8f0;
+}
+.dark .topbar-search:focus {
+  background-color: #1c2030;
+  border-color: #3b82f6;
+}
+
+/* Listbox dropdowns */
+.dark .listbox-options {
+  background-color: #1c2030;
+  border-color: #2a3044;
+}
+
+/* Sprint banner */
+.dark .sprint-banner {
+  background-color: #1c2030;
+  border-bottom-color: #2a3044;
+}
+
+/* Tab bars */
+.dark .tab-bar {
+  background-color: #1c2030;
+  border-bottom-color: #2a3044;
+}
+
+/* Stat cards in dashboard (bg-blue-50, bg-green-50 etc — keep colored) */
+
+/* ── Headlessui Listbox ── */
+.dark [data-headlessui-state] {
+  background-color: #1c2030;
+  border-color: #2a3044;
+  color: #e2e8f0;
+}
