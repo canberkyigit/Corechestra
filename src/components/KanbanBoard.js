@@ -1,36 +1,52 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import KanbanColumn from "./KanbanColumn";
-import { DragDropContext, Droppable } from "@hello-pangea/dnd";
-import TaskDetailModal from "./TaskDetailModal";
+import { DragDropContext } from "@hello-pangea/dnd";
+import { FaLayerGroup, FaTrash, FaArrowRight, FaUserAlt } from "react-icons/fa";
+import { useApp } from "../context/AppContext";
+import { ASSIGNEE_OPTIONS } from "../constants";
 
-const columnsData = [
-  { id: "todo", title: "To Do" },
-  { id: "inprogress", title: "In Progress" },
-  { id: "review", title: "Review" },
-  { id: "awaiting", title: "Awaiting Customer" },
-  { id: "blocked", title: "Blocked" },
-  { id: "done", title: "Done" },
-];
+export default function KanbanBoard({
+  filter,
+  member,
+  search,
+  tasks,
+  setTasks,
+  idToGlobalIndex,
+  allBadgesOpen,
+  priorityColorsOpen,
+  taskIdsOpen,
+  subtaskButtonsOpen,
+  onTaskClick,
+  columns,
+}) {
+  const { deleteTask } = useApp();
+  const [swimlaneMode, setSwimlaneMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [bulkStatus, setBulkStatus] = useState("");
 
-export default function KanbanBoard({ filter, member, search, tasks, setTasks, idToGlobalIndex, allBadgesOpen, priorityColorsOpen, taskIdsOpen, subtaskButtonsOpen }) {
-  const [modalOpen, setModalOpen] = useState(false);
-  const [selectedTask, setSelectedTask] = useState(null);
+  const boardColumns = columns || [
+    { id: "todo", title: "To Do" },
+    { id: "inprogress", title: "In Progress" },
+    { id: "review", title: "Review" },
+    { id: "awaiting", title: "Awaiting Customer" },
+    { id: "blocked", title: "Blocked" },
+    { id: "done", title: "Done" },
+  ];
+
+  const filteredTasks = useMemo(() => {
+    return tasks.filter((t) => {
+      const matchesType = !filter || t.type === filter;
+      const matchesMember = !member || t.assignedTo === member;
+      const matchesSearch = !search || (
+        t.title?.toLowerCase().includes(search.toLowerCase()) ||
+        t.description?.toLowerCase().includes(search.toLowerCase())
+      );
+      return matchesType && matchesMember && matchesSearch;
+    });
+  }, [tasks, filter, member, search]);
 
   const handleTaskClick = (task) => {
-    // index'i idToGlobalIndex ile bul ve task'a ekle
-    const index = idToGlobalIndex ? idToGlobalIndex[task.id] : undefined;
-    setSelectedTask({ ...task, index });
-    setModalOpen(true);
-  };
-
-  const handleTaskUpdate = (updatedTask) => {
-    // Update the task in the tasks array
-    setTasks(prevTasks => 
-      prevTasks.map(task => 
-        task.id === updatedTask.id ? updatedTask : task
-      )
-    );
-    setSelectedTask(updatedTask);
+    if (onTaskClick) { onTaskClick(task); return; }
   };
 
   const onDragEnd = (result) => {
@@ -39,56 +55,135 @@ export default function KanbanBoard({ filter, member, search, tasks, setTasks, i
     if (destination.droppableId === source.droppableId && destination.index === source.index) return;
 
     setTasks((prev) => {
-      const movedTask = tasks.find((task) => task.id === draggableId);
-      let newTasks = prev.filter((task) => task.id !== draggableId);
+      const movedTask = tasks.find((t) => t.id === draggableId);
+      if (!movedTask) return prev;
+      let newTasks = prev.filter((t) => t.id !== draggableId);
 
       if (destination.droppableId === source.droppableId) {
-        // Aynı kolonda sıralama değişikliği
-        const columnTasks = newTasks.filter((t) => t.status === destination.droppableId);
-        const before = newTasks.filter((t) => t.status !== destination.droppableId);
-        columnTasks.splice(destination.index, 0, movedTask);
-        return [
-          ...before,
-          ...columnTasks
-        ];
+        const colTasks = newTasks.filter((t) => t.status === destination.droppableId);
+        const rest = newTasks.filter((t) => t.status !== destination.droppableId);
+        colTasks.splice(destination.index, 0, movedTask);
+        return [...rest, ...colTasks];
       } else {
-        // Farklı kolona taşınıyorsa, destination.index'e ekle
         const destTasks = newTasks.filter((t) => t.status === destination.droppableId);
-        const before = newTasks.filter((t) => t.status !== destination.droppableId);
-        destTasks.splice(destination.index, 0, { ...movedTask, status: destination.droppableId });
-        return [
-          ...before,
-          ...destTasks
-        ];
+        const rest = newTasks.filter((t) => t.status !== destination.droppableId);
+        const destColId = destination.droppableId.includes("|")
+          ? destination.droppableId.split("|")[0]
+          : destination.droppableId;
+        destTasks.splice(destination.index, 0, { ...movedTask, status: destColId, statusChangedAt: new Date().toISOString() });
+        return [...rest, ...destTasks];
       }
     });
   };
 
+  // Swimlane: group by assignee
+  const swimlaneGroups = useMemo(() => {
+    if (!swimlaneMode) return null;
+    const assignees = [...new Set(filteredTasks.map((t) => t.assignedTo || "unassigned"))];
+    return assignees.map((a) => ({
+      assignee: a,
+      tasks: filteredTasks.filter((t) => (t.assignedTo || "unassigned") === a),
+    }));
+  }, [swimlaneMode, filteredTasks]);
+
+  // Bulk actions
+  const handleBulkMove = () => {
+    if (!bulkStatus || selectedIds.size === 0) return;
+    setTasks((prev) => prev.map((t) => selectedIds.has(t.id) ? { ...t, status: bulkStatus } : t));
+    setSelectedIds(new Set());
+    setBulkStatus("");
+  };
+
+  const handleBulkDelete = () => {
+    selectedIds.forEach((id) => deleteTask(id));
+    setSelectedIds(new Set());
+  };
+
+  const toggleSelect = (id) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const getColTasks = (colId, tasksArr) =>
+    tasksArr.filter((t) => t.status === colId);
+
   return (
-    <>
+    <div className="flex flex-col h-full">
+      {/* Toolbar row */}
+      <div className="flex items-center gap-3 px-4 py-2 mb-2">
+        <button
+          className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded border transition-colors ${
+            swimlaneMode
+              ? "bg-blue-50 border-blue-300 text-blue-600"
+              : "bg-white border-slate-200 text-slate-500 hover:border-slate-300"
+          }`}
+          onClick={() => setSwimlaneMode((v) => !v)}
+        >
+          <FaLayerGroup className="w-3.5 h-3.5" />
+          Swimlane
+        </button>
+
+        {selectedIds.size > 0 && (
+          <div className="flex items-center gap-2 ml-auto bg-blue-600 text-white text-xs rounded-lg px-3 py-1.5 shadow-md">
+            <span className="font-medium">{selectedIds.size} selected</span>
+            <span className="opacity-50">|</span>
+            <select
+              className="bg-transparent border-none outline-none text-white text-xs cursor-pointer"
+              value={bulkStatus}
+              onChange={(e) => setBulkStatus(e.target.value)}
+            >
+              <option value="">Move to...</option>
+              {boardColumns.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
+            </select>
+            <button className="hover:bg-blue-700 rounded px-1.5 py-0.5 flex items-center gap-1" onClick={handleBulkMove} disabled={!bulkStatus}>
+              <FaArrowRight className="w-3 h-3" /> Apply
+            </button>
+            <button className="hover:bg-red-600 rounded px-1.5 py-0.5 flex items-center gap-1" onClick={handleBulkDelete}>
+              <FaTrash className="w-3 h-3" /> Delete
+            </button>
+            <button className="opacity-75 hover:opacity-100" onClick={() => setSelectedIds(new Set())}>✕</button>
+          </div>
+        )}
+      </div>
+
       <DragDropContext onDragEnd={onDragEnd}>
-        <div className="w-full flex justify-center h-full min-h-[calc(100vh-10rem)]">
-          <div className="grid grid-cols-6 gap-4 w-full h-full min-h-[calc(100vh-10rem)] pb-16 bg-white">
-            {columnsData.map((col) => (
-              <Droppable droppableId={col.id} key={col.id}>
-                {(provided) => (
-                  <div
-                    ref={provided.innerRef}
-                    {...provided.droppableProps}
-                    className="flex flex-col min-w-0 h-full"
-                  >
+        {swimlaneMode ? (
+          /* Swimlane view */
+          <div className="flex-1 overflow-auto px-4">
+            {/* Column headers */}
+            <div className="grid gap-4 mb-2 sticky top-0 z-10 bg-slate-50/90 dark:bg-[#141720]/90 py-1"
+              style={{ gridTemplateColumns: `140px repeat(${boardColumns.length}, minmax(0,1fr))` }}
+            >
+              <div />
+              {boardColumns.map((col) => (
+                <div key={col.id} className="text-xs font-semibold uppercase tracking-wider text-slate-500 text-center py-1">
+                  {col.title}
+                </div>
+              ))}
+            </div>
+            {swimlaneGroups.map(({ assignee, tasks: groupTasks }) => (
+              <div key={assignee} className="mb-4">
+                <div
+                  className="grid gap-4 items-start"
+                  style={{ gridTemplateColumns: `140px repeat(${boardColumns.length}, minmax(0,1fr))` }}
+                >
+                  {/* Assignee header */}
+                  <div className="flex items-center gap-2 pt-2 pr-2">
+                    <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                      {assignee !== "unassigned" ? assignee.charAt(0).toUpperCase() : <FaUserAlt className="w-3 h-3" />}
+                    </div>
+                    <span className="text-xs font-medium text-slate-700 capitalize">{assignee}</span>
+                    <span className="text-xs text-slate-400">({groupTasks.length})</span>
+                  </div>
+                  {boardColumns.map((col) => (
                     <KanbanColumn
+                      key={`${assignee}-${col.id}`}
                       title={col.title}
-                      tasks={tasks.filter((t) => {
-                        const matchesType = !filter || t.type === filter;
-                        const matchesMember = !member || t.assignedTo === member;
-                        const matchesSearch = !search || (
-                          t.title.toLowerCase().includes(search.toLowerCase()) ||
-                          t.description.toLowerCase().includes(search.toLowerCase())
-                        );
-                        return t.status === col.id && matchesType && matchesMember && matchesSearch;
-                      })}
-                      columnId={col.id}
+                      tasks={getColTasks(col.id, groupTasks)}
+                      columnId={`${col.id}`}
                       idToGlobalIndex={idToGlobalIndex}
                       allBadgesOpen={allBadgesOpen}
                       priorityColorsOpen={priorityColorsOpen}
@@ -96,21 +191,37 @@ export default function KanbanBoard({ filter, member, search, tasks, setTasks, i
                       subtaskButtonsOpen={subtaskButtonsOpen}
                       onTaskClick={handleTaskClick}
                     />
-                    {provided.placeholder}
-                  </div>
-                )}
-              </Droppable>
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
-        </div>
+        ) : (
+          /* Normal board view */
+          <div className="flex-1 overflow-x-auto px-4 pb-6">
+            <div
+              className="grid gap-4 h-full"
+              style={{ gridTemplateColumns: `repeat(${boardColumns.length}, minmax(210px, 1fr))` }}
+            >
+              {boardColumns.map((col) => (
+                <div key={col.id} className="group flex flex-col">
+                  <KanbanColumn
+                    title={col.title}
+                    tasks={getColTasks(col.id, filteredTasks)}
+                    columnId={col.id}
+                    idToGlobalIndex={idToGlobalIndex}
+                    allBadgesOpen={allBadgesOpen}
+                    priorityColorsOpen={priorityColorsOpen}
+                    taskIdsOpen={taskIdsOpen}
+                    subtaskButtonsOpen={subtaskButtonsOpen}
+                    onTaskClick={handleTaskClick}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </DragDropContext>
-      <TaskDetailModal 
-        open={modalOpen} 
-        onClose={() => setModalOpen(false)} 
-        task={selectedTask} 
-        onTaskUpdate={handleTaskUpdate}
-        allTasks={tasks}
-      />
-    </>
+    </div>
   );
-} 
+}

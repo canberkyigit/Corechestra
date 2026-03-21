@@ -1,0 +1,296 @@
+import React, { useState } from "react";
+import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
+import { FaArrowRight, FaTrash, FaPencilAlt } from "react-icons/fa";
+import TaskRow from "../common/TaskRow";
+import { useApp } from "../../context/AppContext";
+
+function SubtaskList({ task, onToggle }) {
+  return (
+    <div className="ml-8 bg-gray-50 border-l-2 border-blue-200 p-3">
+      <div className="text-sm font-medium text-gray-700 mb-2">Subtasks:</div>
+      <ul className="space-y-2">
+        {task.subtasks.map((sub) => (
+          <li key={sub.id} className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              checked={sub.done}
+              onChange={() => onToggle(sub.id)}
+              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <span className={`text-sm ${sub.done ? "line-through text-gray-500" : "text-gray-700"}`}>
+              {sub.title}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export default function BacklogTab({ onTaskClick, onPokerClick }) {
+  const {
+    activeTasks,
+    setActiveTasks,
+    backlogSections,
+    setBacklogSections,
+    idToGlobalIndex,
+    handleBacklogDragEnd,
+    createBacklogSection,
+    deleteBacklogSection,
+    renameBacklogSection,
+  } = useApp();
+
+  const [expandedSubtasks, setExpandedSubtasks] = useState({});
+  const [editingIdx, setEditingIdx] = useState(null);
+  const [editingTitle, setEditingTitle] = useState("");
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
+
+  const toggleSubtasks = (taskId) =>
+    setExpandedSubtasks((prev) => ({ ...prev, [taskId]: !prev[taskId] }));
+
+  const toggleSubtask = (task, subId, isActive, sectionIdx) => {
+    const updatedSubtasks = task.subtasks.map((s) =>
+      s.id === subId ? { ...s, done: !s.done } : s
+    );
+    if (isActive) {
+      setActiveTasks((prev) =>
+        prev.map((t) => (t.id === task.id ? { ...t, subtasks: updatedSubtasks } : t))
+      );
+    } else {
+      setBacklogSections((prev) =>
+        prev.map((s, i) =>
+          i !== sectionIdx
+            ? s
+            : { ...s, tasks: s.tasks.map((t) => (t.id === task.id ? { ...t, subtasks: updatedSubtasks } : t)) }
+        )
+      );
+    }
+  };
+
+  return (
+    <>
+      <div className="flex justify-end w-full max-w-5xl mx-auto mt-4">
+        <button
+          onClick={createBacklogSection}
+          className="px-4 py-1.5 rounded bg-blue-600 text-white text-xs font-semibold shadow hover:bg-blue-700 transition-colors"
+        >
+          + New Backlog Section
+        </button>
+      </div>
+
+      <DragDropContext onDragEnd={handleBacklogDragEnd}>
+        <div className="w-full max-w-5xl mx-auto flex flex-col gap-8 mt-4 mb-12">
+          {/* Active Sprint section */}
+          <div>
+            <div className="text-lg font-bold text-gray-700 mb-2 flex items-center gap-2">
+              <span>Active Sprint</span>
+              <span className="text-sm font-normal text-gray-500">({activeTasks.length} tasks)</span>
+            </div>
+            <Droppable droppableId="active-sprint">
+              {(provided, snapshot) => (
+                <div
+                  ref={provided.innerRef}
+                  {...provided.droppableProps}
+                  className={`bg-white rounded-lg border-2 shadow-md p-4 mb-4 transition-colors ${
+                    snapshot.isDraggingOver ? "border-blue-400 bg-blue-50" : "border-gray-300"
+                  }`}
+                >
+                  {activeTasks.length === 0 ? (
+                    <div className="text-center py-8 text-gray-400">
+                      <FaArrowRight className="mx-auto mb-2 text-2xl" />
+                      <p>Drag tasks here from Backlog</p>
+                    </div>
+                  ) : (
+                    <ul>
+                      {activeTasks.map((task, idx) => (
+                        <Draggable key={task.id} draggableId={task.id} index={idx}>
+                          {(provided, snapshot) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              {...provided.dragHandleProps}
+                              className={snapshot.isDragging ? "opacity-75" : ""}
+                            >
+                              <TaskRow
+                                task={task}
+                                setTasks={setActiveTasks}
+                                index={idToGlobalIndex[task.id]}
+                                onClick={onTaskClick}
+                                showArrow
+                                onToggleSubtasks={toggleSubtasks}
+                                isExpanded={expandedSubtasks[task.id]}
+                              />
+                              {expandedSubtasks[task.id] && task.subtasks?.length > 0 && (
+                                <SubtaskList
+                                  task={task}
+                                  onToggle={(subId) => toggleSubtask(task, subId, true, null)}
+                                />
+                              )}
+                              {idx !== activeTasks.length - 1 && (
+                                <div className="border-b border-gray-200 -mx-4" />
+                              )}
+                            </div>
+                          )}
+                        </Draggable>
+                      ))}
+                    </ul>
+                  )}
+                  {provided.placeholder}
+                </div>
+              )}
+            </Droppable>
+          </div>
+
+          {/* Backlog sections */}
+          {backlogSections.map((section, sectionIdx) => (
+            <div key={section.id} className="mt-4 mb-12">
+              <div className="text-lg font-bold text-gray-700 mb-2 flex items-center gap-2">
+                {editingIdx === sectionIdx ? (
+                  <input
+                    className="px-2 py-1 rounded border border-gray-300 text-lg font-bold text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    value={editingTitle}
+                    autoFocus
+                    onChange={(e) => setEditingTitle(e.target.value)}
+                    onBlur={() => {
+                      renameBacklogSection(section.id, editingTitle.trim() || section.title);
+                      setEditingIdx(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        renameBacklogSection(section.id, editingTitle.trim() || section.title);
+                        setEditingIdx(null);
+                      }
+                    }}
+                    style={{ minWidth: 120 }}
+                  />
+                ) : (
+                  <span
+                    className="cursor-pointer hover:underline"
+                    onClick={() => {
+                      setEditingIdx(sectionIdx);
+                      setEditingTitle(section.title);
+                    }}
+                  >
+                    {section.title}
+                  </span>
+                )}
+                <span className="text-sm font-normal text-gray-500">({section.tasks.length} tasks)</span>
+                <button
+                  className="ml-2 p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                  title="Rename"
+                  onClick={() => {
+                    setEditingIdx(sectionIdx);
+                    setEditingTitle(section.title);
+                  }}
+                >
+                  <FaPencilAlt className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  className="ml-1 p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-600 transition-colors"
+                  title="Delete section"
+                  onClick={() => setDeleteConfirm(section.id)}
+                >
+                  <FaTrash className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <Droppable droppableId={`backlog-${section.id}`}>
+                {(provided, snapshot) => (
+                  <div
+                    ref={provided.innerRef}
+                    {...provided.droppableProps}
+                    className={`bg-white rounded-lg border-2 shadow-md p-4 pb-8 transition-colors ${
+                      snapshot.isDraggingOver ? "border-green-400 bg-green-50" : "border-gray-300"
+                    }`}
+                  >
+                    {section.tasks.length === 0 ? (
+                      <div className="text-center py-8 text-gray-400">
+                        <p>No tasks in {section.title.toLowerCase()}</p>
+                      </div>
+                    ) : (
+                      <ul>
+                        {section.tasks.map((task, idx) => (
+                          <Draggable key={task.id} draggableId={task.id} index={idx}>
+                            {(provided, snapshot) => (
+                              <div
+                                ref={provided.innerRef}
+                                {...provided.draggableProps}
+                                {...provided.dragHandleProps}
+                                className={snapshot.isDragging ? "opacity-75" : ""}
+                              >
+                                <TaskRow
+                                  task={task}
+                                  setTasks={(updater) =>
+                                    setBacklogSections((prev) =>
+                                      prev.map((s, i) =>
+                                        i !== sectionIdx
+                                          ? s
+                                          : {
+                                              ...s,
+                                              tasks:
+                                                typeof updater === "function"
+                                                  ? updater(s.tasks)
+                                                  : updater,
+                                            }
+                                      )
+                                    )
+                                  }
+                                  index={idToGlobalIndex[task.id]}
+                                  onClick={onTaskClick}
+                                  showArrow
+                                  onToggleSubtasks={toggleSubtasks}
+                                  isExpanded={expandedSubtasks[task.id]}
+                                />
+                                {expandedSubtasks[task.id] && task.subtasks?.length > 0 && (
+                                  <SubtaskList
+                                    task={task}
+                                    onToggle={(subId) => toggleSubtask(task, subId, false, sectionIdx)}
+                                  />
+                                )}
+                                {idx !== section.tasks.length - 1 && (
+                                  <div className="border-b border-gray-200 mx-0" />
+                                )}
+                              </div>
+                            )}
+                          </Draggable>
+                        ))}
+                      </ul>
+                    )}
+                    {provided.placeholder}
+                  </div>
+                )}
+              </Droppable>
+            </div>
+          ))}
+        </div>
+      </DragDropContext>
+
+      {/* Delete confirm modal */}
+      {deleteConfirm !== null && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl p-8 min-w-[320px] flex flex-col items-center gap-4">
+            <div className="text-lg font-semibold text-gray-800">Delete this backlog section?</div>
+            <div className="text-sm text-gray-500">All tasks in this section will be lost.</div>
+            <div className="flex gap-4 mt-2">
+              <button
+                className="px-5 py-2 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-700 transition-colors"
+                onClick={() => {
+                  deleteBacklogSection(deleteConfirm);
+                  setDeleteConfirm(null);
+                }}
+              >
+                Delete
+              </button>
+              <button
+                className="px-5 py-2 rounded-lg bg-gray-100 text-gray-700 font-semibold hover:bg-gray-200 transition-colors"
+                onClick={() => setDeleteConfirm(null)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
