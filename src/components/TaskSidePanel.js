@@ -4,10 +4,11 @@ import {
   FaTimes, FaTrash, FaCheck, FaPlus, FaChevronDown,
   FaBug, FaExclamationCircle, FaUser, FaSearch, FaCheckSquare,
   FaPlusSquare, FaRocket, FaFlag, FaPlay, FaRegDotCircle,
-  FaEye, FaEyeSlash, FaClock, FaTag, FaComment, FaExpand, FaLink,
+  FaEye, FaEyeSlash, FaExpand, FaLink,
 } from "react-icons/fa";
 import { useApp } from "../context/AppContext";
-import { format, parseISO } from "date-fns";
+import { useToast } from "../context/ToastContext";
+import CommentSection from "./CommentSection";
 
 const TYPE_OPTIONS = [
   { value: "task",          label: "Task",           icon: FaCheckSquare,      color: "text-green-500"  },
@@ -80,6 +81,7 @@ function MiniSelect({ value, options, onChange, renderValue, renderOption }) {
 
 export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpenModal }) {
   const { epics, labels, deleteTask, logActivity, allTasks } = useApp();
+  const { addToast } = useToast();
 
   const [title,        setTitle]        = useState("");
   const [description,  setDescription]  = useState("");
@@ -94,8 +96,6 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
   const [watchers,     setWatchers]     = useState([]);
   const [subtasks,     setSubtasks]     = useState([]);
   const [linkedItems,  setLinkedItems]  = useState([]);
-  const [localComments,setLocalComments]= useState([]);
-  const [comment,      setComment]      = useState("");
   const [hasChanges,   setHasChanges]   = useState(false);
   const [confirmDelete,setConfirmDelete]= useState(false);
   const [activeTab,    setActiveTab]    = useState("details");
@@ -108,6 +108,10 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
   const [linkSearchOpen,    setLinkSearchOpen]    = useState(false);
   const [linkSearch,        setLinkSearch]        = useState("");
   const [linkRelationship,  setLinkRelationship]  = useState("relates to");
+
+
+  // Slide animation
+  const [isClosing, setIsClosing] = useState(false);
 
   // Resize
   const [panelWidth, setPanelWidth] = useState(480);
@@ -135,17 +139,27 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
     };
   }, []);
 
+  // ── Slide-out when open becomes false ───────────────────────────────────────
+  useEffect(() => {
+    if (!open && task) {
+      setIsClosing(true);
+      const t = setTimeout(() => setIsClosing(false), 210);
+      return () => clearTimeout(t);
+    }
+    if (open) setIsClosing(false);
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Init state from task ─────────────────────────────────────────────────────
   useEffect(() => {
     if (!open || !task) return;
-    if (task.id === prevId.current) return;
+    const isNewTask = task.id !== prevId.current;
     prevId.current = task.id;
-    setTitle(task.title || "");
-    setDescription(task.description || "");
-    setType(task.type || "task");
+
+    // Always sync action fields so external updates (drag-and-drop, etc.) are reflected
     setStatus(task.status || "todo");
     setPriority((task.priority || "medium").toLowerCase());
     setAssignedTo(task.assignedTo || "unassigned");
+    setType(task.type || "task");
     setDueDate(task.dueDate || "");
     setStoryPoint(task.storyPoint ?? "");
     setEpicId(task.epicId || null);
@@ -153,14 +167,19 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
     setWatchers(task.watchers || []);
     setSubtasks(task.subtasks || []);
     setLinkedItems(task.linkedItems || []);
-    setLocalComments([]);
-    setComment("");
-    setHasChanges(false);
-    setConfirmDelete(false);
-    setActiveTab("details");
-    setInlineSubOpen(false);
-    setLinkSearchOpen(false);
-    setLinkSearch("");
+
+    // Only reset text-edit fields and UI state when switching to a different task,
+    // so that in-progress title/description edits aren't lost on external updates.
+    if (isNewTask) {
+      setTitle(task.title || "");
+      setDescription(task.description || "");
+      setHasChanges(false);
+      setConfirmDelete(false);
+      setActiveTab("details");
+      setInlineSubOpen(false);
+      setLinkSearchOpen(false);
+      setLinkSearch("");
+    }
   }, [open, task]);
 
   const linkSearchResults = useMemo(() => {
@@ -184,7 +203,8 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
     return groups;
   }, [linkedItems, allTasks]);
 
-  if (!open || !task) return null;
+  if (!open && !isClosing) return null;
+  if (!task) return null;
 
   const changed = () => setHasChanges(true);
 
@@ -193,43 +213,49 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
     title, description, type, status, priority, assignedTo,
     dueDate, storyPoint: storyPoint !== "" ? Number(storyPoint) : undefined,
     epicId, labels: taskLabels, watchers, subtasks, linkedItems,
+    comments: task.comments || [],
   });
+
+  // Immediately persist action-field changes without requiring the Save button.
+  // patch overrides any stale local-state values captured by buildUpdated().
+  const autoSave = (patch) => {
+    onTaskUpdate?.({ ...buildUpdated(), ...patch });
+  };
 
   const handleSave = () => {
     if (!title.trim()) return;
     onTaskUpdate?.(buildUpdated());
     if (task.id) logActivity(task.id, "updated task");
     setHasChanges(false);
+    addToast("Changes saved", "success");
   };
 
   const handleDelete = () => {
     if (task.id) deleteTask(task.id);
+    addToast("Task deleted", "error");
     onClose();
   };
 
   const addInlineSub = () => {
     if (!inlineSubTitle.trim()) return;
-    setSubtasks((p) => [...p, { id: Date.now(), title: inlineSubTitle.trim(), done: false, priority: "medium", storyPoint: "", assignedTo: "unassigned" }]);
+    const newSub = { id: Date.now(), title: inlineSubTitle.trim(), done: false, priority: "medium", storyPoint: "", assignedTo: "unassigned" };
+    const newSubs = [...subtasks, newSub];
+    setSubtasks(newSubs);
     setInlineSubTitle("");
     setInlineSubOpen(false);
-    changed();
+    autoSave({ subtasks: newSubs });
   };
 
   const toggleSubtask = (id) => {
-    setSubtasks((p) => p.map((s) => s.id === id ? { ...s, done: !s.done } : s));
-    changed();
+    const newSubs = subtasks.map((s) => s.id === id ? { ...s, done: !s.done } : s);
+    setSubtasks(newSubs);
+    autoSave({ subtasks: newSubs });
   };
 
   const updateSubtask = (id, updates) => {
-    setSubtasks((p) => p.map((s) => s.id === id ? { ...s, ...updates } : s));
-    changed();
-  };
-
-  const postComment = () => {
-    if (!comment.trim()) return;
-    setLocalComments((p) => [{ id: Date.now(), text: comment, user: "You", timestamp: new Date().toISOString() }, ...p]);
-    logActivity(task.id, "commented");
-    setComment("");
+    const newSubs = subtasks.map((s) => s.id === id ? { ...s, ...updates } : s);
+    setSubtasks(newSubs);
+    autoSave({ subtasks: newSubs });
   };
 
   // ── Linked items ────────────────────────────────────────────────────────────
@@ -257,7 +283,7 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
     <div
-      className="fixed top-0 right-0 h-full z-40 bg-white dark:bg-[#1c2030] border-l border-slate-200 dark:border-[#2a3044] shadow-2xl flex flex-col"
+      className={`fixed top-0 right-0 h-full z-40 bg-white dark:bg-[#1c2030] border-l border-slate-200 dark:border-[#2a3044] shadow-2xl flex flex-col ${isClosing ? "animate-slide-out-right" : "animate-slide-in-right"}`}
       style={{ width: panelWidth }}
     >
       {/* ── Resize handle ── */}
@@ -332,7 +358,7 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
         <MiniSelect
           value={status}
           options={STATUS_OPTIONS}
-          onChange={(v) => { setStatus(v); changed(); }}
+          onChange={(v) => { setStatus(v); autoSave({ status: v }); }}
           renderValue={() => <span className="text-slate-500 dark:text-slate-400">Change status</span>}
           renderOption={(opt) => opt.label}
         />
@@ -343,7 +369,6 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
         {[
           { id: "details",  label: "Details" },
           { id: "subtasks", label: `Subtasks (${subtasks.length})` },
-          { id: "comments", label: "Comments" },
         ].map((tab) => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)}
             className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors mr-1 ${
@@ -368,7 +393,7 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
                 <MiniSelect
                   value={priority}
                   options={PRIORITY_OPTIONS}
-                  onChange={(v) => { setPriority(v); changed(); }}
+                  onChange={(v) => { setPriority(v); autoSave({ priority: v }); }}
                   renderValue={(v) => { const o = PRIORITY_OPTIONS.find((p) => p.value === v); return o ? <span className={o.color}>{o.label}</span> : v; }}
                   renderOption={(opt) => <span className={opt.color}>{opt.label}</span>}
                 />
@@ -378,7 +403,7 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
                 <MiniSelect
                   value={assignedTo}
                   options={ASSIGNEE_LIST.map((a) => ({ value: a, label: a.charAt(0).toUpperCase() + a.slice(1) }))}
-                  onChange={(v) => { setAssignedTo(v); changed(); }}
+                  onChange={(v) => { setAssignedTo(v); autoSave({ assignedTo: v }); }}
                   renderValue={(v) => <span className="capitalize">{v}</span>}
                   renderOption={(opt) => <span className="capitalize">{opt.label}</span>}
                 />
@@ -388,7 +413,7 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
                 <MiniSelect
                   value={type}
                   options={TYPE_OPTIONS}
-                  onChange={(v) => { setType(v); changed(); }}
+                  onChange={(v) => { setType(v); autoSave({ type: v }); }}
                   renderValue={(v) => { const o = TYPE_OPTIONS.find((t) => t.value === v); if (!o) return v; const I = o.icon; return <span className="flex items-center gap-1"><I className={`w-3 h-3 ${o.color}`} />{o.label}</span>; }}
                   renderOption={(opt) => { const I = opt.icon; return <><I className={`w-3 h-3 flex-shrink-0 ${opt.color}`} />{opt.label}</>; }}
                 />
@@ -407,12 +432,12 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
                 <input type="date"
                   className="w-full border border-slate-200 dark:border-[#2a3044] rounded-md px-2 py-1 text-xs text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-[#232838] focus:outline-none focus:ring-1 focus:ring-blue-400"
                   value={dueDate}
-                  onChange={(e) => { setDueDate(e.target.value); changed(); }}
+                  onChange={(e) => { setDueDate(e.target.value); autoSave({ dueDate: e.target.value }); }}
                 />
               </div>
               <div>
                 <div className="text-xs text-slate-400 dark:text-slate-500 mb-1">Epic</div>
-                <Listbox value={epicId} onChange={(v) => { setEpicId(v); changed(); }}>
+                <Listbox value={epicId} onChange={(v) => { setEpicId(v); autoSave({ epicId: v }); }}>
                   <div className="relative">
                     <Listbox.Button className="flex items-center gap-1 px-2 py-1 rounded-md text-xs border border-slate-200 dark:border-[#2a3044] bg-slate-50 dark:bg-[#232838] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#2a3044] transition-colors w-full justify-between focus:outline-none">
                       {currentEpic
@@ -764,6 +789,14 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
                 )
               )}
             </div>
+
+            {/* ── Comments ── */}
+            <CommentSection
+              key={task.id}
+              savedComments={task.comments || []}
+              allTasks={allTasks}
+              onUpdate={(newComments) => onTaskUpdate?.({ ...buildUpdated(), comments: newComments })}
+            />
           </div>
         )}
 
@@ -812,45 +845,6 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
           </div>
         )}
 
-        {/* ═══ COMMENTS TAB ═══ */}
-        {activeTab === "comments" && (
-          <div className="p-4">
-            <div className="relative mb-3">
-              <textarea
-                className="w-full border border-slate-200 dark:border-[#2a3044] rounded-lg px-3 py-2 text-sm text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-[#232838] resize-none focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-slate-400 dark:placeholder-slate-600"
-                rows={3}
-                placeholder="Add a comment..."
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter" && e.ctrlKey) { e.preventDefault(); postComment(); } }}
-              />
-            </div>
-            <div className="flex justify-between items-center mb-4">
-              <span className="text-xs text-slate-400">Ctrl+Enter to submit</span>
-              <button className="px-3 py-1 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700" onClick={postComment}>
-                <FaComment className="inline w-2.5 h-2.5 mr-1" />Comment
-              </button>
-            </div>
-            {localComments.length === 0 && (task.comments || []).length === 0 ? (
-              <div className="text-xs text-slate-400 dark:text-slate-500 text-center py-6">No comments yet</div>
-            ) : (
-              <div className="space-y-3">
-                {localComments.map((c) => (
-                  <div key={c.id} className="flex gap-2">
-                    <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">{c.user.charAt(0)}</div>
-                    <div className="bg-slate-50 dark:bg-[#232838] rounded-lg px-3 py-2 flex-1">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className="text-xs font-medium text-slate-700 dark:text-slate-300">{c.user}</span>
-                        <span className="text-xs text-slate-400">{(() => { try { return format(parseISO(c.timestamp), "MMM d, HH:mm"); } catch { return ""; } })()}</span>
-                      </div>
-                      <p className="text-xs text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{c.text}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
       {/* ── Footer ── */}

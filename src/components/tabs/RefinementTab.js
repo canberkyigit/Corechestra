@@ -134,7 +134,7 @@ function TaskEstimationRow({ task, onTaskClick, onPokerClick, onSpUpdate }) {
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 export default function RefinementTab({ onTaskClick, onPokerClick }) {
-  const { activeTasks, setActiveTasks, backlogSections, setBacklogSections, pokerHistory } = useApp();
+  const { activeTasks, setActiveTasks, backlogSections, setBacklogSections, pokerHistory, currentProjectId } = useApp();
 
   const [typeFilter,    setTypeFilter]    = useState("");
   const [search,        setSearch]        = useState("");
@@ -142,9 +142,9 @@ export default function RefinementTab({ onTaskClick, onPokerClick }) {
   const [hideEstimated, setHideEstimated] = useState(false);
 
   const allTasksForEstimation = useMemo(() => [
-    ...activeTasks.map((t) => ({ ...t, _source: "active" })),
+    ...activeTasks.filter((t) => (t.projectId || "proj-1") === currentProjectId).map((t) => ({ ...t, _source: "active" })),
     ...backlogSections.flatMap((s) => s.tasks).map((t) => ({ ...t, _source: "backlog" })),
-  ], [activeTasks, backlogSections]);
+  ], [activeTasks, backlogSections, currentProjectId]);
 
   const { estimatedCount, pendingCount, completionRate } = useMemo(() => {
     let estimated = 0;

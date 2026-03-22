@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import KanbanColumn from "./KanbanColumn";
 import { DragDropContext } from "@hello-pangea/dnd";
-import { FaLayerGroup, FaTrash, FaArrowRight, FaUserAlt } from "react-icons/fa";
+import { FaLayerGroup, FaTrash, FaArrowRight, FaUserAlt, FaChevronDown, FaChevronRight } from "react-icons/fa";
 import { useApp } from "../context/AppContext";
 import { ASSIGNEE_OPTIONS } from "../constants";
 
@@ -21,6 +21,20 @@ export default function KanbanBoard({
 }) {
   const { deleteTask } = useApp();
   const [swimlaneMode, setSwimlaneMode] = useState(false);
+  const [collapsedLanes, setCollapsedLanes] = useState(new Set());
+
+  const toggleLane = (assignee) => {
+    setCollapsedLanes((prev) => {
+      const next = new Set(prev);
+      next.has(assignee) ? next.delete(assignee) : next.add(assignee);
+      return next;
+    });
+  };
+
+  const ASSIGNEE_COLORS = {
+    alice: "#3b82f6", bob: "#7c3aed", carol: "#10b981",
+    dave: "#f59e0b", unassigned: "#94a3b8",
+  };
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [bulkStatus, setBulkStatus] = useState("");
 
@@ -153,48 +167,60 @@ export default function KanbanBoard({
         {swimlaneMode ? (
           /* Swimlane view */
           <div className="flex-1 overflow-auto px-4">
-            {/* Column headers */}
-            <div className="grid gap-4 mb-2 sticky top-0 z-10 bg-slate-50/90 dark:bg-[#141720]/90 py-1"
-              style={{ gridTemplateColumns: `140px repeat(${boardColumns.length}, minmax(0,1fr))` }}
-            >
-              <div />
-              {boardColumns.map((col) => (
-                <div key={col.id} className="text-xs font-semibold uppercase tracking-wider text-slate-500 text-center py-1">
-                  {col.title}
-                </div>
-              ))}
-            </div>
-            {swimlaneGroups.map(({ assignee, tasks: groupTasks }) => (
-              <div key={assignee} className="mb-4">
-                <div
-                  className="grid gap-4 items-start"
-                  style={{ gridTemplateColumns: `140px repeat(${boardColumns.length}, minmax(0,1fr))` }}
-                >
-                  {/* Assignee header */}
-                  <div className="flex items-center gap-2 pt-2 pr-2">
-                    <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+            {swimlaneGroups.map(({ assignee, tasks: groupTasks }) => {
+              const isCollapsed = collapsedLanes.has(assignee);
+              const color = ASSIGNEE_COLORS[assignee] || "#94a3b8";
+              const doneCount = groupTasks.filter((t) => t.status === "done").length;
+              return (
+                <div key={assignee} className="mb-3">
+                  {/* Lane header */}
+                  <div
+                    className="flex items-center gap-3 px-3 py-2 mb-2 rounded-xl cursor-pointer select-none transition-colors hover:bg-slate-100 dark:hover:bg-[#1c2030]"
+                    style={{ borderLeft: `3px solid ${color}` }}
+                    onClick={() => toggleLane(assignee)}
+                  >
+                    {isCollapsed
+                      ? <FaChevronRight className="w-3 h-3 text-slate-400" />
+                      : <FaChevronDown className="w-3 h-3 text-slate-400" />
+                    }
+                    <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 shadow-sm"
+                      style={{ backgroundColor: color }}>
                       {assignee !== "unassigned" ? assignee.charAt(0).toUpperCase() : <FaUserAlt className="w-3 h-3" />}
                     </div>
-                    <span className="text-xs font-medium text-slate-700 capitalize">{assignee}</span>
-                    <span className="text-xs text-slate-400">({groupTasks.length})</span>
+                    <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 capitalize">{assignee}</span>
+                    <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: color + "22", color }}>
+                      {groupTasks.length} task{groupTasks.length !== 1 ? "s" : ""}
+                    </span>
+                    {doneCount > 0 && (
+                      <span className="text-xs text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-2 py-0.5 rounded-full">
+                        {doneCount} done
+                      </span>
+                    )}
                   </div>
-                  {boardColumns.map((col) => (
-                    <KanbanColumn
-                      key={`${assignee}-${col.id}`}
-                      title={col.title}
-                      tasks={getColTasks(col.id, groupTasks)}
-                      columnId={`${col.id}`}
-                      idToGlobalIndex={idToGlobalIndex}
-                      allBadgesOpen={allBadgesOpen}
-                      priorityColorsOpen={priorityColorsOpen}
-                      taskIdsOpen={taskIdsOpen}
-                      subtaskButtonsOpen={subtaskButtonsOpen}
-                      onTaskClick={handleTaskClick}
-                    />
-                  ))}
+
+                  {/* Lane columns */}
+                  {!isCollapsed && (
+                    <div className="grid gap-4 items-start pl-4"
+                      style={{ gridTemplateColumns: `repeat(${boardColumns.length}, minmax(0,1fr))` }}>
+                      {boardColumns.map((col) => (
+                        <KanbanColumn
+                          key={`${assignee}-${col.id}`}
+                          title={col.title}
+                          tasks={getColTasks(col.id, groupTasks)}
+                          columnId={col.id}
+                          idToGlobalIndex={idToGlobalIndex}
+                          allBadgesOpen={allBadgesOpen}
+                          priorityColorsOpen={priorityColorsOpen}
+                          taskIdsOpen={taskIdsOpen}
+                          subtaskButtonsOpen={subtaskButtonsOpen}
+                          onTaskClick={handleTaskClick}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           /* Normal board view */

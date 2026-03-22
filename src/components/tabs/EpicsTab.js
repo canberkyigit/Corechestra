@@ -73,7 +73,7 @@ function EpicForm({ initial = {}, onSave, onCancel }) {
 }
 
 export default function EpicsTab() {
-  const { epics, createEpic, updateEpic, deleteEpic, activeTasks, backlogSections } = useApp();
+  const { epics, createEpic, updateEpic, deleteEpic, activeTasks, backlogSections, currentProjectId } = useApp();
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
@@ -81,7 +81,9 @@ export default function EpicsTab() {
   const allTasks = [
     ...activeTasks,
     ...backlogSections.flatMap((s) => s.tasks),
-  ];
+  ].filter((t) => (t.projectId || "proj-1") === currentProjectId);
+
+  const projectEpics = epics.filter((e) => (e.projectId || "proj-1") === currentProjectId);
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -107,7 +109,7 @@ export default function EpicsTab() {
         </div>
       )}
 
-      {epics.length === 0 && !creating ? (
+      {projectEpics.length === 0 && !creating ? (
         <div className="text-center py-16 text-slate-400">
           <FaRocket className="w-10 h-10 mx-auto mb-3 opacity-30" />
           <p className="font-medium">No epics yet</p>
@@ -115,7 +117,7 @@ export default function EpicsTab() {
         </div>
       ) : (
         <div className="space-y-3">
-          {epics.map((epic) => {
+          {projectEpics.map((epic) => {
             const epicTasks = allTasks.filter((t) => t.epicId === epic.id);
             const done = epicTasks.filter((t) => t.status === "done").length;
             const pct = epicTasks.length > 0 ? Math.round((done / epicTasks.length) * 100) : 0;

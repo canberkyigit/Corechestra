@@ -10,13 +10,14 @@ const PRI_COLOR = {
 };
 
 export default function SprintReviewTab({ onTaskClick }) {
-  const { activeTasks, setActiveTasks, sprint } = useApp();
+  const { activeTasks, setActiveTasks, sprint, currentProjectId } = useApp();
   const [meetingNotes, setMeetingNotes] = useState("");
   const [editingNotes, setEditingNotes] = useState(false);
 
-  const doneTasks = activeTasks.filter((t) => t.status === "done");
-  const notDone   = activeTasks.filter((t) => t.status !== "done");
-  const totalSP   = activeTasks.reduce((s, t) => s + (Number(t.storyPoint) || 0), 0);
+  const projectTasks = activeTasks.filter((t) => (t.projectId || "proj-1") === currentProjectId);
+  const doneTasks = projectTasks.filter((t) => t.status === "done");
+  const notDone   = projectTasks.filter((t) => t.status !== "done");
+  const totalSP   = projectTasks.reduce((s, t) => s + (Number(t.storyPoint) || 0), 0);
   const doneSP    = doneTasks.reduce((s, t) => s + (Number(t.storyPoint) || 0), 0);
   const pct       = totalSP > 0 ? Math.round((doneSP / totalSP) * 100) : 0;
 
@@ -55,7 +56,7 @@ export default function SprintReviewTab({ onTaskClick }) {
         {/* Stats row */}
         <div className="grid grid-cols-4 gap-3">
           {[
-            { label: "Total Tasks", value: activeTasks.length, color: "text-slate-700 dark:text-slate-200", bg: "bg-slate-50 dark:bg-[#232838] border-slate-200 dark:border-[#2a3044]" },
+            { label: "Total Tasks", value: projectTasks.length, color: "text-slate-700 dark:text-slate-200", bg: "bg-slate-50 dark:bg-[#232838] border-slate-200 dark:border-[#2a3044]" },
             { label: "Completed",   value: doneTasks.length,   color: "text-green-600 dark:text-green-400", bg: "bg-green-50 dark:bg-green-900/10 border-green-100 dark:border-green-900/30" },
             { label: "Total SP",    value: totalSP,            color: "text-blue-600 dark:text-blue-400",   bg: "bg-blue-50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900/30" },
             { label: "Completed SP",value: doneSP,             color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-900/10 border-emerald-100 dark:border-emerald-900/30" },

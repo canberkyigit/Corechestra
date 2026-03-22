@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect } from "react";
 import {
-  FaBell, FaCog, FaUserCircle, FaChevronDown, FaChevronLeft, FaChevronRight,
+  FaBell, FaCog, FaUserCircle, FaChevronLeft, FaChevronRight,
   FaColumns, FaTachometerAlt, FaRocket, FaCalendarAlt,
-  FaChartBar, FaSearch, FaPlus, FaCheck, FaMoon, FaSun,
+  FaChartBar, FaSearch, FaPlus, FaMoon, FaSun,
   FaCheckCircle, FaExclamationTriangle, FaComment, FaArrowRight,
-  FaShieldAlt,
+  FaShieldAlt, FaLayerGroup,
 } from "react-icons/fa";
 import { useApp } from "../context/AppContext";
 
@@ -22,6 +22,7 @@ const NAV_ITEMS = [
   { id: "roadmap",   label: "Roadmap",   icon: FaRocket        },
   { id: "reports",   label: "Reports",   icon: FaChartBar      },
   { id: "calendar",  label: "Calendar",  icon: FaCalendarAlt   },
+  { id: "projects",  label: "Projects",  icon: FaLayerGroup    },
 ];
 
 const ADMIN_NAV_ITEMS = [
@@ -33,22 +34,17 @@ export default function Layout({
   darkMode, onToggleDark,
   onCreateClick, onSettingsClick, onProfileClick,
 }) {
-  const { projects, currentProjectId, setCurrentProjectId } = useApp();
+  const [collapsed,  setCollapsed]  = useState(() => localStorage.getItem("sidebar_collapsed") === "true");
+  const [notifOpen,  setNotifOpen]  = useState(false);
+  const [notifs,     setNotifs]     = useState(MOCK_NOTIFS);
 
-  const [collapsed,       setCollapsed]       = useState(() => localStorage.getItem("sidebar_collapsed") === "true");
-  const [projectMenuOpen, setProjectMenuOpen] = useState(false);
-  const [notifOpen,       setNotifOpen]       = useState(false);
-  const [notifs,          setNotifs]          = useState(MOCK_NOTIFS);
-
-  const notifRef = useRef(null);
-  const currentProject = projects.find((p) => p.id === currentProjectId) || projects[0];
+  const notifRef    = useRef(null);
   const unreadCount = notifs.filter((n) => !n.read).length;
 
   const toggleCollapsed = () => {
     const next = !collapsed;
     setCollapsed(next);
     localStorage.setItem("sidebar_collapsed", String(next));
-    if (next) setProjectMenuOpen(false);
   };
 
   useEffect(() => {
@@ -75,9 +71,7 @@ export default function Layout({
     : "text-slate-600 hover:bg-slate-100 hover:text-slate-900";
   const subText        = darkMode ? "text-slate-500" : "text-slate-400";
   const projNameText   = darkMode ? "text-white"     : "text-slate-900";
-  const dropdownBg     = darkMode ? "bg-[#252b3b] border-[#353d50]" : "bg-white border-slate-200 shadow-lg";
   const itemHover      = darkMode ? "hover:bg-white/5" : "hover:bg-slate-50";
-  const itemText       = darkMode ? "text-slate-300" : "text-slate-700";
   const bottomRowClass = darkMode
     ? "text-slate-400 hover:bg-white/5 hover:text-slate-200"
     : "text-slate-600 hover:bg-slate-100 hover:text-slate-900";
@@ -111,57 +105,28 @@ export default function Layout({
         border-r ${borderColor}
       `}>
 
-        {/* Project switcher */}
+        {/* App branding */}
         <div className={`border-b ${borderColor} ${collapsed ? "px-2 py-3" : "px-3 py-3"}`}>
           {collapsed ? (
-            /* Mini: just the project colour square */
             <div className="flex justify-center">
               <div
-                className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold cursor-pointer"
-                style={{ backgroundColor: currentProject?.color || "#2563eb" }}
-                title={currentProject?.name}
+                className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center cursor-pointer"
+                title="Corechestra"
                 onClick={() => { setCollapsed(false); localStorage.setItem("sidebar_collapsed","false"); }}
               >
-                {currentProject?.key?.[0] || "?"}
+                <span className="text-white text-xs font-bold">CO</span>
               </div>
             </div>
           ) : (
-            <>
-              <button
-                className={`w-full flex items-center gap-2.5 rounded-lg p-2 transition-colors ${itemHover} group`}
-                onClick={() => setProjectMenuOpen((v) => !v)}
-              >
-                <div
-                  className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-                  style={{ backgroundColor: currentProject?.color || "#2563eb" }}
-                >
-                  {currentProject?.key || "?"}
-                </div>
-                <div className="flex-1 text-left min-w-0">
-                  <div className={`text-sm font-semibold truncate ${projNameText}`}>{currentProject?.name || "Project"}</div>
-                  <div className={`text-[11px] ${subText}`}>Software project</div>
-                </div>
-                <FaChevronDown className={`w-3 h-3 transition-transform flex-shrink-0 ${subText} ${projectMenuOpen ? "rotate-180" : ""}`} />
-              </button>
-
-              {projectMenuOpen && (
-                <div className={`mt-1 rounded-lg border ${dropdownBg} overflow-hidden`}>
-                  {projects.map((p) => (
-                    <button
-                      key={p.id}
-                      className={`w-full flex items-center gap-2 px-3 py-2 ${itemHover} transition-colors text-left`}
-                      onClick={() => { setCurrentProjectId(p.id); setProjectMenuOpen(false); }}
-                    >
-                      <div className="w-5 h-5 rounded flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0" style={{ backgroundColor: p.color }}>
-                        {p.key?.[0]}
-                      </div>
-                      <span className={`text-sm truncate ${itemText}`}>{p.name}</span>
-                      {p.id === currentProjectId && <FaCheck className="w-3 h-3 text-blue-400 ml-auto flex-shrink-0" />}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </>
+            <div className="flex items-center gap-2.5 px-2 py-1.5">
+              <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center flex-shrink-0">
+                <span className="text-white text-[11px] font-bold">CO</span>
+              </div>
+              <div>
+                <div className={`text-sm font-bold ${projNameText}`}>Corechestra</div>
+                <div className={`text-[11px] ${subText}`}>Workspace</div>
+              </div>
+            </div>
           )}
         </div>
 
@@ -259,7 +224,7 @@ export default function Layout({
         `}>
           {/* Breadcrumb */}
           <div className="flex items-center gap-1 text-sm min-w-0">
-            <span className={`font-medium truncate ${projNameText}`}>{currentProject?.name}</span>
+            <span className={`font-medium truncate ${projNameText}`}>Corechestra</span>
             {activePage && (
               <>
                 <span className={subText}>/</span>
@@ -307,7 +272,7 @@ export default function Layout({
 
               {notifOpen && (
                 <div className={`absolute right-0 top-full mt-2 w-80 rounded-xl border shadow-xl z-50 overflow-hidden ${
-                  darkMode ? "bg-[#1a1f2e] border-[#252b3b]" : "bg-white border-slate-200"
+                  darkMode ? "bg-[#1c2030] border-[#252b3b]" : "bg-white border-slate-200"
                 }`}>
                   <div className={`flex items-center justify-between px-4 py-3 border-b ${borderColor}`}>
                     <span className={`text-sm font-semibold ${projNameText}`}>Notifications</span>
