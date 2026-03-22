@@ -31,19 +31,38 @@ const SEED_SPRINT = {
   goal: "Complete authentication overhaul and UI refinements",
   startDate: "2026-03-10",
   endDate: "2026-03-28",
-  status: "active", // planned | active | completed
+  status: "active",
+};
+
+const SEED_PROJ2_SPRINT = {
+  id: "sprint-mb-13",
+  name: "Sprint 13",
+  goal: "Ship iOS login screen and stabilize crash reporting",
+  startDate: "2026-03-17",
+  endDate: "2026-03-31",
+  status: "active",
 };
 
 const SEED_ACTIVE_TASKS = [
-  { id: "1", title: "Login bug fix", description: "Fix double SSO login.", status: "blocked", priority: "critical", type: "defect", assignedTo: "alice", storyPoint: 3, dueDate: "2026-03-19", epicId: "epic-1", labels: ["lbl-3"], timeEstimate: 4, timeSpent: 2, watchers: ["alice", "bob"] },
-  { id: "2", title: "UWP Regression Test", description: "APAC UWP regression test.", status: "review", priority: "high", type: "defect", assignedTo: "bob", storyPoint: 5, dueDate: "2026-03-22", epicId: "epic-3", labels: ["lbl-2"], timeEstimate: 8, timeSpent: 5, watchers: ["bob"] },
-  { id: "3", title: "Translation update", description: "Essity Finland translations.", status: "inprogress", priority: "medium", type: "task", assignedTo: "carol", storyPoint: 2, dueDate: "2026-03-24", epicId: null, labels: ["lbl-1"], timeEstimate: 3, timeSpent: 1, watchers: [] },
-  { id: "4", title: "Mail Scroll", description: "Fix email preview scroll.", status: "done", priority: "low", type: "feature", assignedTo: "dave", storyPoint: 1, dueDate: "2026-03-15", epicId: "epic-2", labels: ["lbl-1", "lbl-5"], timeEstimate: 2, timeSpent: 2, watchers: [] },
-  { id: "5", title: "Test Payment Flow", description: "Test the new payment integration.", status: "todo", priority: "medium", type: "test", assignedTo: "alice", storyPoint: 8, dueDate: "2026-03-25", epicId: "epic-3", labels: ["lbl-2"], timeEstimate: 12, timeSpent: 0, watchers: ["alice", "carol"] },
-  { id: "6", title: "Set Up Test Set", description: "Create a test set for regression.", status: "awaiting", priority: "low", type: "testset", assignedTo: "bob", storyPoint: 3, dueDate: "2026-03-28", epicId: "epic-3", labels: [], timeEstimate: 4, timeSpent: 0, watchers: [] },
-  { id: "7", title: "Execute Regression Suite", description: "Run all regression tests.", status: "inprogress", priority: "high", type: "testexecution", assignedTo: "carol", storyPoint: 13, dueDate: "2026-03-27", epicId: "epic-3", labels: ["lbl-6"], timeEstimate: 16, timeSpent: 8, watchers: ["carol", "dave"] },
-  { id: "8", title: "Precondition Setup", description: "Prepare preconditions for E2E.", status: "todo", priority: "medium", type: "precondition", assignedTo: "dave", storyPoint: 2, dueDate: "2026-04-02", epicId: null, labels: [], timeEstimate: 3, timeSpent: 0, watchers: [] },
-  { id: "9", title: "UI Polish", description: "Polish UI for better UX.", status: "review", priority: "low", type: "feature", assignedTo: "alice", storyPoint: 1, dueDate: "2026-03-26", epicId: "epic-2", labels: ["lbl-1", "lbl-5"], timeEstimate: 4, timeSpent: 3, watchers: [] },
+  // ── Corechestra (proj-1) ──
+  { id: "1",  title: "Login bug fix",            description: "Fix double SSO login.",                   status: "blocked",    priority: "critical", type: "defect",        assignedTo: "alice", storyPoint: 3,  dueDate: "2026-03-19", epicId: "epic-1", labels: ["lbl-3"],        timeEstimate: 4,  timeSpent: 2, watchers: ["alice", "bob"], projectId: "proj-1" },
+  { id: "2",  title: "UWP Regression Test",      description: "APAC UWP regression test.",               status: "review",     priority: "high",     type: "defect",        assignedTo: "bob",   storyPoint: 5,  dueDate: "2026-03-22", epicId: "epic-3", labels: ["lbl-2"],        timeEstimate: 8,  timeSpent: 5, watchers: ["bob"],          projectId: "proj-1" },
+  { id: "3",  title: "Translation update",       description: "Essity Finland translations.",            status: "inprogress", priority: "medium",   type: "task",          assignedTo: "carol", storyPoint: 2,  dueDate: "2026-03-24", epicId: null,     labels: ["lbl-1"],        timeEstimate: 3,  timeSpent: 1, watchers: [],               projectId: "proj-1" },
+  { id: "4",  title: "Mail Scroll",              description: "Fix email preview scroll.",               status: "done",       priority: "low",      type: "feature",       assignedTo: "dave",  storyPoint: 1,  dueDate: "2026-03-15", epicId: "epic-2", labels: ["lbl-1","lbl-5"], timeEstimate: 2,  timeSpent: 2, watchers: [],               projectId: "proj-1" },
+  { id: "5",  title: "Test Payment Flow",        description: "Test the new payment integration.",       status: "todo",       priority: "medium",   type: "test",          assignedTo: "alice", storyPoint: 8,  dueDate: "2026-03-25", epicId: "epic-3", labels: ["lbl-2"],        timeEstimate: 12, timeSpent: 0, watchers: ["alice","carol"], projectId: "proj-1" },
+  { id: "6",  title: "Set Up Test Set",          description: "Create a test set for regression.",       status: "awaiting",   priority: "low",      type: "testset",       assignedTo: "bob",   storyPoint: 3,  dueDate: "2026-03-28", epicId: "epic-3", labels: [],               timeEstimate: 4,  timeSpent: 0, watchers: [],               projectId: "proj-1" },
+  { id: "7",  title: "Execute Regression Suite", description: "Run all regression tests.",               status: "inprogress", priority: "high",     type: "testexecution", assignedTo: "carol", storyPoint: 13, dueDate: "2026-03-27", epicId: "epic-3", labels: ["lbl-6"],        timeEstimate: 16, timeSpent: 8, watchers: ["carol","dave"],  projectId: "proj-1" },
+  { id: "8",  title: "Precondition Setup",       description: "Prepare preconditions for E2E.",          status: "todo",       priority: "medium",   type: "precondition",  assignedTo: "dave",  storyPoint: 2,  dueDate: "2026-04-02", epicId: null,     labels: [],               timeEstimate: 3,  timeSpent: 0, watchers: [],               projectId: "proj-1" },
+  { id: "9",  title: "UI Polish",                description: "Polish UI for better UX.",                status: "review",     priority: "low",      type: "feature",       assignedTo: "alice", storyPoint: 1,  dueDate: "2026-03-26", epicId: "epic-2", labels: ["lbl-1","lbl-5"], timeEstimate: 4,  timeSpent: 3, watchers: [],               projectId: "proj-1" },
+  // ── Mobile App (proj-2) ──
+  { id: "m1", title: "Push notification service",description: "Integrate FCM for push alerts.",          status: "todo",       priority: "high",     type: "feature",       assignedTo: "bob",   storyPoint: 8,  dueDate: "2026-04-05", epicId: null,     labels: [],               timeEstimate: 12, timeSpent: 0, watchers: ["bob"],          projectId: "proj-2" },
+  { id: "m2", title: "iOS login screen",         description: "Build the native iOS auth UI.",           status: "inprogress", priority: "medium",   type: "task",          assignedTo: "alice", storyPoint: 5,  dueDate: "2026-03-28", epicId: null,     labels: [],               timeEstimate: 8,  timeSpent: 3, watchers: ["alice"],        projectId: "proj-2" },
+  { id: "m3", title: "Android dashboard UI",     description: "Design the main dashboard view.",         status: "review",     priority: "high",     type: "feature",       assignedTo: "carol", storyPoint: 8,  dueDate: "2026-03-30", epicId: null,     labels: [],               timeEstimate: 10, timeSpent: 8, watchers: ["carol","bob"],  projectId: "proj-2" },
+  { id: "m4", title: "Crash reporting",          description: "Integrate Sentry for crash reporting.",   status: "blocked",    priority: "critical", type: "bug",           assignedTo: "bob",   storyPoint: 3,  dueDate: "2026-03-25", epicId: null,     labels: [],               timeEstimate: 4,  timeSpent: 1, watchers: ["bob","dave"],   projectId: "proj-2" },
+  { id: "m5", title: "App store metadata",       description: "Write descriptions & screenshots.",       status: "todo",       priority: "low",      type: "task",          assignedTo: "dave",  storyPoint: 2,  dueDate: "2026-04-10", epicId: null,     labels: [],               timeEstimate: 3,  timeSpent: 0, watchers: [],               projectId: "proj-2" },
+  { id: "m6", title: "Beta testing plan",        description: "Define beta cohort and test strategy.",   status: "inprogress", priority: "medium",   type: "test",          assignedTo: "alice", storyPoint: 5,  dueDate: "2026-04-01", epicId: null,     labels: [],               timeEstimate: 6,  timeSpent: 2, watchers: ["alice"],        projectId: "proj-2" },
+  { id: "m7", title: "Offline mode support",     description: "Cache API responses for offline use.",    status: "todo",       priority: "high",     type: "feature",       assignedTo: "carol", storyPoint: 13, dueDate: "2026-04-15", epicId: null,     labels: [],               timeEstimate: 20, timeSpent: 0, watchers: [],               projectId: "proj-2" },
+  { id: "m8", title: "Biometric authentication", description: "Add Face ID / fingerprint login.",        status: "done",       priority: "medium",   type: "feature",       assignedTo: "dave",  storyPoint: 5,  dueDate: "2026-03-20", epicId: null,     labels: [],               timeEstimate: 6,  timeSpent: 6, watchers: ["dave"],         projectId: "proj-2" },
 ].map((t) => ({ ...t, subtasks: generateSubtasks(t.title), comments: [], activityLog: [] }));
 
 const SEED_BACKLOG_TASKS = [
@@ -64,6 +83,38 @@ const SEED_BACKLOG_SECTIONS = [
     id: 1,
     title: "Backlog",
     tasks: SEED_BACKLOG_TASKS.map((t) => ({
+      ...t,
+      status: "todo",
+      storyPoint: 1,
+      dueDate: "",
+      assignedTo: "unassigned",
+      priority: "medium",
+      subtasks: generateSubtasks(t.title),
+      comments: [],
+      activityLog: [],
+      timeEstimate: 0,
+      timeSpent: 0,
+      watchers: [],
+    })),
+  },
+];
+
+const SEED_PROJ2_BACKLOG_TASKS = [
+  { id: "mb1", title: "Dark mode theme",               description: "Support system-level dark mode toggle.",       epicId: null, labels: [], projectId: "proj-2" },
+  { id: "mb2", title: "Push notification preferences", description: "Let users manage notification settings.",      epicId: null, labels: [], projectId: "proj-2" },
+  { id: "mb3", title: "App localization",              description: "Add i18n support for 5 languages.",             epicId: null, labels: [], projectId: "proj-2" },
+  { id: "mb4", title: "Deep link integration",         description: "Handle deep links for share URLs.",             epicId: null, labels: [], projectId: "proj-2" },
+  { id: "mb5", title: "Analytics integration",         description: "Integrate Mixpanel for user events.",           epicId: null, labels: [], projectId: "proj-2" },
+  { id: "mb6", title: "Onboarding flow",               description: "Build welcome screens for new users.",          epicId: null, labels: [], projectId: "proj-2" },
+  { id: "mb7", title: "In-app payment",                description: "Integrate Stripe SDK for mobile payments.",     epicId: null, labels: [], projectId: "proj-2" },
+  { id: "mb8", title: "Performance profiling",         description: "Identify and fix render bottlenecks.",          epicId: null, labels: [], projectId: "proj-2" },
+];
+
+const SEED_PROJ2_BACKLOG_SECTIONS = [
+  {
+    id: 101,
+    title: "Mobile Backlog",
+    tasks: SEED_PROJ2_BACKLOG_TASKS.map((t) => ({
       ...t,
       status: "todo",
       storyPoint: 1,
@@ -104,6 +155,13 @@ const SEED_RETRO = {
     { id: 1, text: "Set up automated testing pipeline", checked: false, score: 0 },
     { id: 2, text: "Schedule team communication workshop", checked: false, score: 0 },
   ],
+};
+
+const SEED_PROJ2_RETRO = {
+  wentWell: [],
+  wentWrong: [],
+  canImprove: [],
+  actionItems: [],
 };
 
 const SEED_USERS = [
@@ -157,17 +215,85 @@ export function AppProvider({ children }) {
   const [currentProjectId, setCurrentProjectId] = useState(persisted?.currentProjectId ?? "proj-1");
   const [epics, setEpics] = useState(persisted?.epics ?? SEED_EPICS);
   const [labels, setLabels] = useState(persisted?.labels ?? SEED_LABELS);
-  const [sprint, setSprint] = useState(persisted?.sprint ?? SEED_SPRINT);
+  const [perProjectSprint, setPerProjectSprint] = useState(() => {
+    if (persisted?.perProjectSprint) {
+      if (!persisted.perProjectSprint["proj-2"])
+        return { ...persisted.perProjectSprint, "proj-2": SEED_PROJ2_SPRINT };
+      return persisted.perProjectSprint;
+    }
+    return {
+      "proj-1": persisted?.sprint ?? SEED_SPRINT,
+      "proj-2": SEED_PROJ2_SPRINT,
+    };
+  });
   const [projectColumns, setProjectColumns] = useState(
     persisted?.projectColumns ?? { "proj-1": DEFAULT_COLUMNS, "proj-2": DEFAULT_COLUMNS }
   );
 
-  const [activeTasks, setActiveTasks] = useState(persisted?.activeTasks ?? SEED_ACTIVE_TASKS);
-  const [backlogSections, setBacklogSections] = useState(persisted?.backlogSections ?? SEED_BACKLOG_SECTIONS);
-  const [retrospectiveItems, setRetrospectiveItems] = useState(persisted?.retrospectiveItems ?? SEED_RETRO);
-  const [pokerHistory, setPokerHistory] = useState(persisted?.pokerHistory ?? []);
-  const [notesList, setNotesList] = useState(persisted?.notesList ?? []);
-  const [boardSettings, setBoardSettings] = useState({ ...DEFAULT_BOARD_SETTINGS, ...(persisted?.boardSettings ?? {}), taskViewMode: "panel" });
+  // Migration: inject proj-2 active tasks if missing from persisted data
+  const [activeTasks, setActiveTasks] = useState(() => {
+    const base = persisted?.activeTasks ?? SEED_ACTIVE_TASKS;
+    const hasProj2 = base.some((t) => t.projectId === "proj-2");
+    if (!hasProj2) {
+      const proj2Seeds = SEED_ACTIVE_TASKS.filter((t) => t.projectId === "proj-2");
+      return [...base, ...proj2Seeds];
+    }
+    return base;
+  });
+
+  // Per-project backlog (migration from old flat backlogSections)
+  const [perProjectBacklog, setPerProjectBacklog] = useState(() => {
+    if (persisted?.perProjectBacklog) {
+      // Inject proj-2 sections if missing
+      if (!persisted.perProjectBacklog["proj-2"]) {
+        return { ...persisted.perProjectBacklog, "proj-2": SEED_PROJ2_BACKLOG_SECTIONS };
+      }
+      return persisted.perProjectBacklog;
+    }
+    return {
+      "proj-1": persisted?.backlogSections ?? SEED_BACKLOG_SECTIONS,
+      "proj-2": SEED_PROJ2_BACKLOG_SECTIONS,
+    };
+  });
+  const [perProjectRetrospective, setPerProjectRetrospective] = useState(() => {
+    if (persisted?.perProjectRetrospective) {
+      if (!persisted.perProjectRetrospective["proj-2"])
+        return { ...persisted.perProjectRetrospective, "proj-2": SEED_PROJ2_RETRO };
+      return persisted.perProjectRetrospective;
+    }
+    return { "proj-1": persisted?.retrospectiveItems ?? SEED_RETRO, "proj-2": SEED_PROJ2_RETRO };
+  });
+
+  const [perProjectPokerHistory, setPerProjectPokerHistory] = useState(() => {
+    if (persisted?.perProjectPokerHistory) {
+      if (!persisted.perProjectPokerHistory["proj-2"])
+        return { ...persisted.perProjectPokerHistory, "proj-2": [] };
+      return persisted.perProjectPokerHistory;
+    }
+    return { "proj-1": persisted?.pokerHistory ?? [], "proj-2": [] };
+  });
+
+  const [perProjectNotes, setPerProjectNotes] = useState(() => {
+    if (persisted?.perProjectNotes) {
+      if (!persisted.perProjectNotes["proj-2"])
+        return { ...persisted.perProjectNotes, "proj-2": [] };
+      return persisted.perProjectNotes;
+    }
+    return { "proj-1": persisted?.notesList ?? [], "proj-2": [] };
+  });
+
+  const [perProjectBoardSettings, setPerProjectBoardSettings] = useState(() => {
+    if (persisted?.perProjectBoardSettings) {
+      if (!persisted.perProjectBoardSettings["proj-2"])
+        return { ...persisted.perProjectBoardSettings, "proj-2": { ...DEFAULT_BOARD_SETTINGS, boardName: "Mobile App", projectKey: "MB" } };
+      return persisted.perProjectBoardSettings;
+    }
+    return {
+      "proj-1": { ...DEFAULT_BOARD_SETTINGS, ...(persisted?.boardSettings ?? {}), taskViewMode: "panel" },
+      "proj-2": { ...DEFAULT_BOARD_SETTINGS, boardName: "Mobile App", projectKey: "MB", taskViewMode: "panel" },
+    };
+  });
+  const [currentUser, setCurrentUser] = useState(persisted?.currentUser ?? "alice");
   const [globalActivityLog, setGlobalActivityLog] = useState(persisted?.globalActivityLog ?? []);
   const [teams, setTeams] = useState(persisted?.teams ?? SEED_TEAMS);
   const [users, setUsers] = useState(persisted?.users ?? SEED_USERS);
@@ -180,17 +306,89 @@ export function AppProvider({ children }) {
     [projectColumns, currentProjectId]
   );
 
+  // Computed: current project's sprint + scoped setter
+  const sprint = perProjectSprint[currentProjectId] ?? null;
+  const setSprint = useCallback((updaterOrValue) => {
+    setPerProjectSprint((prev) => ({
+      ...prev,
+      [currentProjectId]: typeof updaterOrValue === "function"
+        ? updaterOrValue(prev[currentProjectId] ?? null)
+        : updaterOrValue,
+    }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentProjectId]);
+
+  // Computed: current project's backlog sections + scoped setter
+  const backlogSections = perProjectBacklog[currentProjectId] || [];
+  const setBacklogSections = useCallback((updaterOrValue) => {
+    setPerProjectBacklog((prev) => ({
+      ...prev,
+      [currentProjectId]: typeof updaterOrValue === "function"
+        ? updaterOrValue(prev[currentProjectId] || [])
+        : updaterOrValue,
+    }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentProjectId]);
+
+  // Computed: per-project retrospective
+  const retrospectiveItems = perProjectRetrospective[currentProjectId] ?? SEED_RETRO;
+  const setRetrospectiveItems = useCallback((updaterOrValue) => {
+    setPerProjectRetrospective((prev) => ({
+      ...prev,
+      [currentProjectId]: typeof updaterOrValue === "function"
+        ? updaterOrValue(prev[currentProjectId] ?? SEED_RETRO)
+        : updaterOrValue,
+    }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentProjectId]);
+
+  // Computed: per-project poker history
+  const pokerHistory = perProjectPokerHistory[currentProjectId] ?? [];
+  const setPokerHistory = useCallback((updaterOrValue) => {
+    setPerProjectPokerHistory((prev) => ({
+      ...prev,
+      [currentProjectId]: typeof updaterOrValue === "function"
+        ? updaterOrValue(prev[currentProjectId] ?? [])
+        : updaterOrValue,
+    }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentProjectId]);
+
+  // Computed: per-project notes
+  const notesList = perProjectNotes[currentProjectId] ?? [];
+  const setNotesList = useCallback((updaterOrValue) => {
+    setPerProjectNotes((prev) => ({
+      ...prev,
+      [currentProjectId]: typeof updaterOrValue === "function"
+        ? updaterOrValue(prev[currentProjectId] ?? [])
+        : updaterOrValue,
+    }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentProjectId]);
+
+  // Computed: per-project board settings
+  const boardSettings = perProjectBoardSettings[currentProjectId] ?? DEFAULT_BOARD_SETTINGS;
+  const setBoardSettings = useCallback((updaterOrValue) => {
+    setPerProjectBoardSettings((prev) => ({
+      ...prev,
+      [currentProjectId]: typeof updaterOrValue === "function"
+        ? updaterOrValue(prev[currentProjectId] ?? DEFAULT_BOARD_SETTINGS)
+        : updaterOrValue,
+    }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentProjectId]);
+
   // Persist
   useEffect(() => {
     saveState({
-      projects, currentProjectId, epics, labels, sprint, projectColumns,
-      activeTasks, backlogSections, retrospectiveItems, pokerHistory,
-      notesList, boardSettings, globalActivityLog, teams,
+      projects, currentProjectId, currentUser, epics, labels, perProjectSprint, projectColumns,
+      activeTasks, perProjectBacklog, perProjectRetrospective, perProjectPokerHistory,
+      perProjectNotes, perProjectBoardSettings, globalActivityLog, teams,
       users, customFields, sprintDefaults,
     });
-  }, [projects, currentProjectId, epics, labels, sprint, projectColumns,
-      activeTasks, backlogSections, retrospectiveItems, pokerHistory,
-      notesList, boardSettings, globalActivityLog, teams,
+  }, [projects, currentProjectId, currentUser, epics, labels, perProjectSprint, projectColumns,
+      activeTasks, perProjectBacklog, perProjectRetrospective, perProjectPokerHistory,
+      perProjectNotes, perProjectBoardSettings, globalActivityLog, teams,
       users, customFields, sprintDefaults]);
 
   // Derived
@@ -214,9 +412,9 @@ export function AppProvider({ children }) {
       details,
       user: "You",
       timestamp: new Date().toISOString(),
+      projectId: currentProjectId,
     };
     setGlobalActivityLog((prev) => [entry, ...prev].slice(0, 200));
-    // Also append to task's own activityLog
     const updateTaskLog = (tasks) =>
       tasks.map((t) =>
         t.id === taskId
@@ -224,10 +422,15 @@ export function AppProvider({ children }) {
           : t
       );
     setActiveTasks((prev) => updateTaskLog(prev));
-    setBacklogSections((prev) =>
-      prev.map((s) => ({ ...s, tasks: updateTaskLog(s.tasks) }))
-    );
-  }, []);
+    setPerProjectBacklog((prev) => {
+      const next = {};
+      for (const [pid, sections] of Object.entries(prev)) {
+        next[pid] = sections.map((s) => ({ ...s, tasks: updateTaskLog(s.tasks) }));
+      }
+      return next;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentProjectId]);
 
   // ── Task Actions ───────────────────────────────────────────────────────────
   const updateActiveTask = useCallback((updatedTask, logMsg) => {
@@ -249,6 +452,7 @@ export function AppProvider({ children }) {
       timeSpent: 0,
       watchers: [],
       epicId: taskData.epicId || null,
+      projectId: currentProjectId,
     };
     if (sprintValue === "active") {
       setActiveTasks((prev) => [...prev, newTask]);
@@ -261,22 +465,31 @@ export function AppProvider({ children }) {
       setActiveTasks((prev) => [...prev, newTask]);
     }
     logActivity(newTask.id, "created task");
-  }, [logActivity]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [logActivity, currentProjectId, setBacklogSections]);
 
   const deleteTask = useCallback((taskId) => {
     setActiveTasks((prev) => prev.filter((t) => t.id !== taskId));
-    setBacklogSections((prev) =>
-      prev.map((s) => ({ ...s, tasks: s.tasks.filter((t) => t.id !== taskId) }))
-    );
+    setPerProjectBacklog((prev) => {
+      const next = {};
+      for (const [pid, sections] of Object.entries(prev)) {
+        next[pid] = sections.map((s) => ({ ...s, tasks: s.tasks.filter((t) => t.id !== taskId) }));
+      }
+      return next;
+    });
   }, []);
 
   const updateBacklogTask = useCallback((updatedTask) => {
-    setBacklogSections((prev) =>
-      prev.map((s) => ({
-        ...s,
-        tasks: s.tasks.map((t) => (t.id === updatedTask.id ? updatedTask : t)),
-      }))
-    );
+    setPerProjectBacklog((prev) => {
+      const next = {};
+      for (const [pid, sections] of Object.entries(prev)) {
+        next[pid] = sections.map((s) => ({
+          ...s,
+          tasks: s.tasks.map((t) => (t.id === updatedTask.id ? updatedTask : t)),
+        }));
+      }
+      return next;
+    });
     setActiveTasks((prev) => prev.map((t) => (t.id === updatedTask.id ? updatedTask : t)));
   }, []);
 
@@ -300,7 +513,8 @@ export function AppProvider({ children }) {
     }
     setSprint((prev) => ({ ...prev, status: "completed" }));
     logActivity("sprint", "completed sprint");
-  }, [activeTasks, logActivity]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTasks, logActivity, setBacklogSections, setSprint]);
 
   const updateSprint = useCallback((patch) => {
     setSprint((prev) => ({ ...prev, ...patch }));
@@ -308,7 +522,16 @@ export function AppProvider({ children }) {
 
   // ── Project Actions ────────────────────────────────────────────────────────
   const createProject = useCallback((data) => {
-    setProjects((prev) => [...prev, { ...data, id: `proj-${Date.now()}` }]);
+    const id = `proj-${Date.now()}`;
+    setProjects((prev) => [...prev, { ...data, id }]);
+    // Initialize all per-project state for the new project
+    setProjectColumns((prev) => ({ ...prev, [id]: DEFAULT_COLUMNS }));
+    setPerProjectSprint((prev) => ({ ...prev, [id]: { id: `sprint-${id}`, name: "Sprint 1", goal: "", startDate: "", endDate: "", status: "planned" } }));
+    setPerProjectBacklog((prev) => ({ ...prev, [id]: [{ id: Date.now(), title: "Backlog", tasks: [] }] }));
+    setPerProjectRetrospective((prev) => ({ ...prev, [id]: { wentWell: [], wentWrong: [], canImprove: [], actionItems: [] } }));
+    setPerProjectPokerHistory((prev) => ({ ...prev, [id]: [] }));
+    setPerProjectNotes((prev) => ({ ...prev, [id]: [] }));
+    setPerProjectBoardSettings((prev) => ({ ...prev, [id]: { ...DEFAULT_BOARD_SETTINGS, boardName: data.name || "New Project", projectKey: data.key || "NP" } }));
   }, []);
 
   const updateProject = useCallback((updated) => {
@@ -333,7 +556,13 @@ export function AppProvider({ children }) {
     setEpics((prev) => prev.filter((e) => e.id !== epicId));
     const unsetEpic = (tasks) => tasks.map((t) => t.epicId === epicId ? { ...t, epicId: null } : t);
     setActiveTasks((prev) => unsetEpic(prev));
-    setBacklogSections((prev) => prev.map((s) => ({ ...s, tasks: unsetEpic(s.tasks) })));
+    setPerProjectBacklog((prev) => {
+      const next = {};
+      for (const [pid, sections] of Object.entries(prev)) {
+        next[pid] = sections.map((s) => ({ ...s, tasks: unsetEpic(s.tasks) }));
+      }
+      return next;
+    });
   }, []);
 
   // ── Label Actions ──────────────────────────────────────────────────────────
@@ -345,7 +574,13 @@ export function AppProvider({ children }) {
     setLabels((prev) => prev.filter((l) => l.id !== labelId));
     const removeLabel = (tasks) => tasks.map((t) => ({ ...t, labels: (t.labels || []).filter((l) => l !== labelId) }));
     setActiveTasks((prev) => removeLabel(prev));
-    setBacklogSections((prev) => prev.map((s) => ({ ...s, tasks: removeLabel(s.tasks) })));
+    setPerProjectBacklog((prev) => {
+      const next = {};
+      for (const [pid, sections] of Object.entries(prev)) {
+        next[pid] = sections.map((s) => ({ ...s, tasks: removeLabel(s.tasks) }));
+      }
+      return next;
+    });
   }, []);
 
   // ── Column Actions (per-project) ───────────────────────────────────────────
@@ -382,17 +617,20 @@ export function AppProvider({ children }) {
       ...prev,
       { id: Date.now(), title: `Backlog ${prev.length + 1}`, tasks: [] },
     ]);
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setBacklogSections]);
 
   const deleteBacklogSection = useCallback((sectionId) => {
     setBacklogSections((prev) => prev.filter((s) => s.id !== sectionId));
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setBacklogSections]);
 
   const renameBacklogSection = useCallback((sectionId, newTitle) => {
     setBacklogSections((prev) =>
       prev.map((s) => (s.id === sectionId ? { ...s, title: newTitle } : s))
     );
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setBacklogSections]);
 
   const handleBacklogDragEnd = useCallback(
     (result) => {
@@ -469,7 +707,7 @@ export function AppProvider({ children }) {
         });
       }
     },
-    [activeTasks, backlogSections]
+    [activeTasks, backlogSections, setBacklogSections] // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   // ── Retrospective ──────────────────────────────────────────────────────────
@@ -478,49 +716,57 @@ export function AppProvider({ children }) {
       ...prev,
       [category]: [...prev[category], { id: Date.now(), text: "", checked: false, score: 0, isEditing: true }],
     }));
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setRetrospectiveItems]);
 
   const updateRetroItem = useCallback((category, itemId, text) => {
     setRetrospectiveItems((prev) => ({
       ...prev,
       [category]: prev[category].map((item) => item.id === itemId ? { ...item, text, isEditing: false } : item),
     }));
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setRetrospectiveItems]);
 
   const deleteRetroItem = useCallback((category, itemId) => {
     setRetrospectiveItems((prev) => ({ ...prev, [category]: prev[category].filter((item) => item.id !== itemId) }));
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setRetrospectiveItems]);
 
   const voteRetroItem = useCallback((category, itemId, delta) => {
     setRetrospectiveItems((prev) => ({
       ...prev,
       [category]: prev[category].map((item) => item.id === itemId ? { ...item, score: (item.score || 0) + delta } : item),
     }));
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setRetrospectiveItems]);
 
   const toggleRetroItem = useCallback((category, itemId) => {
     setRetrospectiveItems((prev) => ({
       ...prev,
       [category]: prev[category].map((item) => item.id === itemId ? { ...item, checked: !item.checked } : item),
     }));
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setRetrospectiveItems]);
 
   const setRetroItemEditing = useCallback((category, itemId, isEditing) => {
     setRetrospectiveItems((prev) => ({
       ...prev,
       [category]: prev[category].map((item) => item.id === itemId ? { ...item, isEditing } : { ...item, isEditing: false }),
     }));
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setRetrospectiveItems]);
 
   // ── Notes ──────────────────────────────────────────────────────────────────
   const addNote = useCallback((content) => {
     if (!content?.trim()) return;
     setNotesList((prev) => [{ id: Date.now(), content }, ...prev]);
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setNotesList]);
 
   const deleteNote = useCallback((noteId) => {
     setNotesList((prev) => prev.filter((n) => n.id !== noteId));
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setNotesList]);
 
   // ── Planning Poker ─────────────────────────────────────────────────────────
   const savePokerResult = useCallback((result) => {
@@ -528,14 +774,22 @@ export function AppProvider({ children }) {
     if (result.taskId && typeof result.estimation === "number") {
       const update = (tasks) => tasks.map((t) => t.id === result.taskId ? { ...t, storyPoint: result.estimation } : t);
       setActiveTasks((prev) => update(prev));
-      setBacklogSections((prev) => prev.map((s) => ({ ...s, tasks: update(s.tasks) })));
+      setPerProjectBacklog((prev) => {
+        const next = {};
+        for (const [pid, sections] of Object.entries(prev)) {
+          next[pid] = sections.map((s) => ({ ...s, tasks: update(s.tasks) }));
+        }
+        return next;
+      });
     }
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setPokerHistory]);
 
   // ── Board Settings ─────────────────────────────────────────────────────────
   const updateBoardSettings = useCallback((patch) => {
     setBoardSettings((prev) => ({ ...prev, ...patch }));
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setBoardSettings]);
 
   const createTeam = useCallback((data) => {
     setTeams((prev) => [...prev, { ...data, id: `team-${Date.now()}` }]);
@@ -587,12 +841,16 @@ export function AppProvider({ children }) {
     setLabels(SEED_LABELS);
     setSprint(SEED_SPRINT);
     setProjectColumns({ "proj-1": DEFAULT_COLUMNS, "proj-2": DEFAULT_COLUMNS });
+    setPerProjectSprint({ "proj-1": SEED_SPRINT, "proj-2": SEED_PROJ2_SPRINT });
     setActiveTasks(SEED_ACTIVE_TASKS);
-    setBacklogSections(SEED_BACKLOG_SECTIONS);
-    setRetrospectiveItems(SEED_RETRO);
-    setPokerHistory([]);
-    setNotesList([]);
-    setBoardSettings(DEFAULT_BOARD_SETTINGS);
+    setPerProjectBacklog({ "proj-1": SEED_BACKLOG_SECTIONS, "proj-2": SEED_PROJ2_BACKLOG_SECTIONS });
+    setPerProjectRetrospective({ "proj-1": SEED_RETRO, "proj-2": SEED_PROJ2_RETRO });
+    setPerProjectPokerHistory({ "proj-1": [], "proj-2": [] });
+    setPerProjectNotes({ "proj-1": [], "proj-2": [] });
+    setPerProjectBoardSettings({
+      "proj-1": DEFAULT_BOARD_SETTINGS,
+      "proj-2": { ...DEFAULT_BOARD_SETTINGS, boardName: "Mobile App", projectKey: "MB" },
+    });
     setGlobalActivityLog([]);
     setTeams(SEED_TEAMS);
     setUsers(SEED_USERS);
@@ -601,6 +859,8 @@ export function AppProvider({ children }) {
   }, []);
 
   const value = {
+    // Current user
+    currentUser, setCurrentUser,
     // Projects
     projects, setProjects, currentProjectId, setCurrentProjectId,
     createProject, updateProject, deleteProject,

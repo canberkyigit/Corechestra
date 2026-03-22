@@ -171,7 +171,7 @@ function TaskDetailPanel({ task, onClose }) {
 }
 
 export default function CalendarPage() {
-  const { activeTasks, backlogSections } = useApp();
+  const { activeTasks, backlogSections, currentProjectId } = useApp();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState(null);
   const [selectedTask, setSelectedTask] = useState(null);
@@ -179,7 +179,8 @@ export default function CalendarPage() {
   const allTasks = useMemo(() => [
     ...activeTasks,
     ...backlogSections.flatMap((s) => s.tasks),
-  ].filter((t) => t.dueDate), [activeTasks, backlogSections]);
+  ].filter((t) => t.dueDate && (t.projectId || "proj-1") === currentProjectId),
+  [activeTasks, backlogSections, currentProjectId]);
 
   const getTasksForDay = (day) => {
     const dayStr = format(day, "yyyy-MM-dd");
@@ -440,8 +441,19 @@ export default function CalendarPage() {
                           <TaskPill key={task.id} task={task} onClick={setSelectedTask} />
                         ))}
                         {tasks.length > 3 && (
-                          <div className="text-[10px] text-slate-400 dark:text-slate-500 px-1">
+                          <div
+                            className="text-[10px] text-slate-400 dark:text-slate-500 px-1 cursor-pointer hover:text-blue-500 dark:hover:text-blue-400 relative group"
+                            onClick={(e) => { e.stopPropagation(); handleDayClick(day); }}
+                          >
                             +{tasks.length - 3} more
+                            {/* Tooltip */}
+                            <div className="absolute bottom-full left-0 mb-1 z-30 hidden group-hover:block">
+                              <div className="bg-slate-800 dark:bg-slate-900 text-white text-[10px] rounded-lg shadow-xl p-2 min-w-[140px] max-w-[200px] border border-slate-700">
+                                {tasks.slice(3).map((t) => (
+                                  <div key={t.id} className="py-0.5 truncate opacity-90">{t.title}</div>
+                                ))}
+                              </div>
+                            </div>
                           </div>
                         )}
                       </div>

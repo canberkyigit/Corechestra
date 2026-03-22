@@ -38,6 +38,57 @@
   to   { transform: translateX(0);    opacity: 1; }
 }
 
+@keyframes slide-out-right {
+  from { transform: translateX(0);    opacity: 1; }
+  to   { transform: translateX(100%); opacity: 0; }
+}
+
+@keyframes modal-enter {
+  from { transform: scale(0.94); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+
+@keyframes backdrop-enter {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
 .animate-slide-in-right {
-  animation: slide-in-right 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: slide-in-right 0.26s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-slide-out-right {
+  animation: slide-out-right 0.2s cubic-bezier(0.7, 0, 0.84, 0) both;
+}
+
+.animate-modal-enter {
+  animation: modal-enter 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-backdrop-enter {
+  animation: backdrop-enter 0.15s ease both;
+}
+
+@keyframes task-done-flash {
+  0%   { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5); }
+  50%  { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0.15); }
+  100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+}
+
+.animate-task-done {
+  animation: task-done-flash 0.6s ease-out;
+  border-left-color: #22c55e !important;
+}
+
+@keyframes toast-enter {
+  from { transform: translateX(120%) scale(0.9); opacity: 0; }
+  to   { transform: translateX(0)   scale(1);   opacity: 1; }
+}
+
+/* Dark mode color transition */
+.dark-transitioning,
+.dark-transitioning *,
+.dark-transitioning *::before,
+.dark-transitioning *::after {
+  transition: background-color 0.25s ease, border-color 0.25s ease, color 0.2s ease !important;
 }

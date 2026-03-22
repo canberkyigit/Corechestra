@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import TaskCard from "./TaskCard";
 import { Draggable, Droppable } from "@hello-pangea/dnd";
-import { FaPlus, FaTimes } from "react-icons/fa";
+import { FaPlus, FaTimes, FaInbox } from "react-icons/fa";
 import { useApp } from "../context/AppContext";
 
 const COLUMN_COLORS = {
@@ -63,16 +63,19 @@ export default function KanbanColumn({
           <div
             ref={provided.innerRef}
             {...provided.droppableProps}
-            className={`flex-1 flex flex-col gap-2 rounded-b-xl px-2 pb-2 pt-1 transition-colors min-h-[60px] ${
-              snapshot.isDraggingOver ? "bg-blue-50/80 dark:bg-blue-900/20" : ""
+            className={`flex-1 flex flex-col gap-2 rounded-b-xl px-2 pb-2 pt-1 transition-all duration-150 min-h-[60px] ${
+              snapshot.isDraggingOver
+                ? "bg-blue-50 dark:bg-blue-900/25 ring-1 ring-inset ring-blue-200 dark:ring-blue-700/40 rounded-xl"
+                : ""
             }`}
           >
             {tasks.length === 0 && !inlineOpen && (
               <div
-                className="text-xs text-slate-400 text-center mt-6 py-4 border-2 border-dashed border-slate-300 rounded-lg cursor-pointer hover:border-blue-400 hover:text-blue-500 transition-colors"
+                className="flex flex-col items-center justify-center mt-4 py-6 border-2 border-dashed border-slate-200 dark:border-[#2a3044] rounded-xl cursor-pointer hover:border-blue-300 dark:hover:border-blue-600 hover:bg-blue-50/40 dark:hover:bg-blue-900/10 transition-all group"
                 onClick={() => { setInlineOpen(true); setInlineTitle(""); }}
               >
-                + Add task
+                <FaInbox className="w-5 h-5 text-slate-300 dark:text-slate-600 group-hover:text-blue-400 transition-colors mb-1.5" />
+                <span className="text-xs text-slate-400 dark:text-slate-500 group-hover:text-blue-500 transition-colors">Drop or add a task</span>
               </div>
             )}
 
@@ -83,7 +86,14 @@ export default function KanbanColumn({
                     ref={provided.innerRef}
                     {...provided.draggableProps}
                     {...provided.dragHandleProps}
-                    className={`transition-all duration-150 ${snapshot.isDragging ? "scale-[1.02] shadow-xl z-50 rotate-1" : ""}`}
+                    style={{
+                      ...provided.draggableProps.style,
+                      opacity: snapshot.isDragging ? 0.92 : 1,
+                      transform: snapshot.isDragging
+                        ? `${provided.draggableProps.style?.transform ?? ""} rotate(1.5deg)`
+                        : provided.draggableProps.style?.transform,
+                    }}
+                    className={`transition-shadow duration-150 ${snapshot.isDragging ? "shadow-2xl ring-2 ring-blue-400/50 rounded-lg" : ""}`}
                   >
                     <TaskCard
                       task={{ ...task, index: idToGlobalIndex ? idToGlobalIndex[task.id] : idx }}

@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { useApp } from "../context/AppContext";
-import { FaChartBar, FaBolt, FaCheckCircle, FaExclamationTriangle, FaFire, FaTrophy } from "react-icons/fa";
-import { parseISO, format } from "date-fns";
+import { FaChartBar, FaBolt, FaCheckCircle, FaExclamationTriangle, FaFire, FaTrophy, FaCalendarAlt } from "react-icons/fa";
+import { parseISO, format, isValid, isAfter, isBefore } from "date-fns";
 
 const STATUS_CONFIG = {
   todo: { label: "To Do", color: "#94a3b8" },
@@ -153,24 +153,43 @@ function VelocityChart({ completedPoints }) {
 }
 
 export default function ReportsPage() {
-  const { activeTasks, backlogSections, epics, sprint } = useApp();
+  const { activeTasks, backlogSections, epics, sprint, currentProjectId } = useApp();
   const [activeTab, setActiveTab] = useState("overview");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo]     = useState("");
 
-  const backlogTasks = useMemo(() => backlogSections.flatMap((s) => s.tasks), [backlogSections]);
+  const allProjectTasks = useMemo(() => activeTasks.filter((t) => (t.projectId || "proj-1") === currentProjectId), [activeTasks, currentProjectId]);
 
-  const doneTasks = useMemo(() => activeTasks.filter((t) => t.status === "done"), [activeTasks]);
+  // Apply date range filter on dueDate
+  const projectTasks = useMemo(() => {
+    if (!dateFrom && !dateTo) return allProjectTasks;
+    return allProjectTasks.filter((t) => {
+      if (!t.dueDate) return false;
+      try {
+        const d = parseISO(t.dueDate);
+        if (!isValid(d)) return false;
+        if (dateFrom && isBefore(d, parseISO(dateFrom))) return false;
+        if (dateTo && isAfter(d, parseISO(dateTo))) return false;
+        return true;
+      } catch { return false; }
+    });
+  }, [allProjectTasks, dateFrom, dateTo]);
+  const projectEpics  = useMemo(() => epics.filter((e) => (e.projectId || "proj-1") === currentProjectId), [epics, currentProjectId]);
+  const backlogTasks  = useMemo(() => backlogSections.flatMap((s) => s.tasks), [backlogSections]);
+
+  const doneTasks = useMemo(() => projectTasks.filter((t) => t.status === "done"), [projectTasks]);
   const completedPoints = useMemo(() => doneTasks.reduce((s, t) => s + (t.storyPoint || 0), 0), [doneTasks]);
-  const totalPoints = useMemo(() => activeTasks.reduce((s, t) => s + (t.storyPoint || 0), 0), [activeTasks]);
-  const blockedCount = useMemo(() => activeTasks.filter((t) => t.status === "blocked").length, [activeTasks]);
+  const totalPoints = useMemo(() => projectTasks.reduce((s, t) => s + (t.storyPoint || 0), 0), [projectTasks]);
+  const blockedCount = useMemo(() => projectTasks.filter((t) => t.status === "blocked").length, [projectTasks]);
 
   // Status breakdown
   const statusBreakdown = useMemo(() =>
     Object.entries(STATUS_CONFIG).map(([key, cfg]) => ({
       key,
       ...cfg,
-      count: activeTasks.filter((t) => t.status === key).length,
+      count: projectTasks.filter((t) => t.status === key).length,
     })).filter((s) => s.count > 0),
-    [activeTasks]
+    [projectTasks]
   );
 
   // Priority breakdown
@@ -178,15 +197,15 @@ export default function ReportsPage() {
     Object.entries(PRIORITY_CONFIG).map(([key, cfg]) => ({
       key,
       ...cfg,
-      count: activeTasks.filter((t) => t.priority === key).length,
+      count: projectTasks.filter((t) => t.priority === key).length,
     })).filter((p) => p.count > 0),
-    [activeTasks]
+    [projectTasks]
   );
 
   // Per-assignee stats
   const assigneeStats = useMemo(() => {
     const map = {};
-    activeTasks.forEach((t) => {
+    projectTasks.forEach((t) => {
       const a = t.assignedTo || "unassigned";
       if (!map[a]) map[a] = { total: 0, done: 0, points: 0, blocked: 0 };
       map[a].total++;
@@ -197,16 +216,16 @@ export default function ReportsPage() {
     return Object.entries(map)
       .map(([name, v]) => ({ name, ...v, pct: v.total > 0 ? Math.round((v.done / v.total) * 100) : 0 }))
       .sort((a, b) => b.total - a.total);
-  }, [activeTasks]);
+  }, [projectTasks]);
 
   // Epic progress
   const epicProgress = useMemo(() =>
-    epics.map((epic) => {
-      const epicTasks = activeTasks.filter((t) => t.epicId === epic.id);
+    projectEpics.map((epic) => {
+      const epicTasks = projectTasks.filter((t) => t.epicId === epic.id);
       const done = epicTasks.filter((t) => t.status === "done").length;
       return { ...epic, total: epicTasks.length, done, pct: epicTasks.length > 0 ? Math.round((done / epicTasks.length) * 100) : 0 };
     }).filter((e) => e.total > 0),
-    [activeTasks, epics]
+    [projectTasks, projectEpics]
   );
 
   const tabs = [
@@ -225,11 +244,44 @@ export default function ReportsPage() {
           <h2 className="text-lg font-bold text-slate-800 dark:text-slate-200">Reports</h2>
           <p className="text-sm text-slate-400 dark:text-slate-500">Sprint analytics and team performance</p>
         </div>
-        {sprint && (
-          <div className="ml-auto px-3 py-1 rounded-full bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 text-xs font-semibold border border-green-200 dark:border-green-800">
-            {sprint.name} · Active
+        <div className="ml-auto flex items-center gap-2 flex-wrap">
+          {/* Date range filter */}
+          <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+            <FaCalendarAlt className="w-3 h-3" />
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="px-2 py-1 rounded-lg border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#1c2030] text-slate-700 dark:text-slate-300 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400"
+              title="From date"
+            />
+            <span>–</span>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="px-2 py-1 rounded-lg border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#1c2030] text-slate-700 dark:text-slate-300 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400"
+              title="To date"
+            />
+            {(dateFrom || dateTo) && (
+              <button
+                onClick={() => { setDateFrom(""); setDateTo(""); }}
+                className="text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 text-xs"
+                title="Clear date filter"
+              >✕</button>
+            )}
           </div>
-        )}
+          {(dateFrom || dateTo) && (
+            <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+              {projectTasks.length} of {allProjectTasks.length} tasks
+            </span>
+          )}
+          {sprint && (
+            <div className="px-3 py-1 rounded-full bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 text-xs font-semibold border border-green-200 dark:border-green-800">
+              {sprint.name} · Active
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Tabs */}
@@ -254,7 +306,7 @@ export default function ReportsPage() {
         <div className="space-y-6">
           {/* Stat cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <StatCard label="Sprint Tasks" value={activeTasks.length} sub={`${doneTasks.length} done`} color="#3b82f6" icon={FaBolt} />
+            <StatCard label="Sprint Tasks" value={projectTasks.length} sub={`${doneTasks.length} done`} color="#3b82f6" icon={FaBolt} />
             <StatCard label="Completion" value={`${totalPoints > 0 ? Math.round((completedPoints / totalPoints) * 100) : 0}%`} sub={`${completedPoints}/${totalPoints} pts`} color="#22c55e" icon={FaCheckCircle} />
             <StatCard label="Blocked" value={blockedCount} sub="tasks blocked" color="#ef4444" icon={FaExclamationTriangle} />
             <StatCard label="Backlog" value={backlogTasks.length} sub="tasks queued" color="#a855f7" icon={FaFire} />
@@ -266,7 +318,7 @@ export default function ReportsPage() {
               <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-4">Status Breakdown</h3>
               <div className="space-y-2.5">
                 {statusBreakdown.map((s) => (
-                  <HorizontalBar key={s.key} label={s.label} value={s.count} max={activeTasks.length} color={s.color} count={s.count} />
+                  <HorizontalBar key={s.key} label={s.label} value={s.count} max={projectTasks.length} color={s.color} count={s.count} />
                 ))}
                 {statusBreakdown.length === 0 && <p className="text-sm text-slate-400">No tasks in sprint</p>}
               </div>
@@ -277,7 +329,7 @@ export default function ReportsPage() {
               <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-4">Priority Breakdown</h3>
               <div className="space-y-2.5">
                 {priorityBreakdown.map((p) => (
-                  <HorizontalBar key={p.key} label={p.label} value={p.count} max={activeTasks.length} color={p.color} count={p.count} />
+                  <HorizontalBar key={p.key} label={p.label} value={p.count} max={projectTasks.length} color={p.color} count={p.count} />
                 ))}
                 {priorityBreakdown.length === 0 && <p className="text-sm text-slate-400">No tasks in sprint</p>}
               </div>
@@ -322,7 +374,7 @@ export default function ReportsPage() {
               <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Burndown Chart</h3>
               <span className="text-xs text-slate-400 dark:text-slate-500">{sprint?.name || "Current Sprint"}</span>
             </div>
-            <BurndownChart tasks={activeTasks} sprint={sprint} />
+            <BurndownChart tasks={projectTasks} sprint={sprint} />
           </div>
 
           <div className="grid grid-cols-3 gap-4">
@@ -344,7 +396,7 @@ export default function ReportsPage() {
           <div className="bg-white dark:bg-[#1c2030] rounded-xl border border-slate-200 dark:border-[#2a3044] p-5 shadow-sm">
             <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-4">Tasks by Status</h3>
             <div className="space-y-1.5">
-              {activeTasks.map((t) => {
+              {projectTasks.map((t) => {
                 const cfg = STATUS_CONFIG[t.status] || STATUS_CONFIG.todo;
                 return (
                   <div key={t.id} className="flex items-center gap-3 py-1.5 px-2 rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838]">

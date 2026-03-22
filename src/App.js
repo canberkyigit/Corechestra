@@ -7,8 +7,10 @@ import CalendarPage from "./pages/CalendarPage";
 import ReportsPage from "./pages/ReportsPage";
 import ProfilePage from "./pages/ProfilePage";
 import AdminPage from "./pages/AdminPage";
+import ProjectsPage from "./pages/ProjectsPage";
 import TaskDetailModal from "./components/TaskDetailModal";
 import { AppProvider, useApp } from "./context/AppContext";
+import { ToastProvider } from "./context/ToastContext";
 import "./App.css";
 
 function AppInner() {
@@ -35,8 +37,10 @@ function AppInner() {
     const next = !darkMode;
     setDarkMode(next);
     localStorage.setItem("corechestra_dark", String(next));
+    document.documentElement.classList.add("dark-transitioning");
     if (next) document.documentElement.classList.add("dark");
     else document.documentElement.classList.remove("dark");
+    setTimeout(() => document.documentElement.classList.remove("dark-transitioning"), 300);
   };
 
   const handleSettingsClick = useCallback(() => {
@@ -61,6 +65,7 @@ function AppInner() {
       case "reports": return <ReportsPage />;
       case "profile": return <ProfilePage />;
       case "admin": return <AdminPage />;
+      case "projects": return <ProjectsPage onNavigate={setActivePage} />;
       case "board":
       default:
         return (
@@ -108,7 +113,9 @@ function AppInner() {
 export default function App() {
   return (
     <AppProvider>
-      <AppInner />
+      <ToastProvider>
+        <AppInner />
+      </ToastProvider>
     </AppProvider>
   );
 }
