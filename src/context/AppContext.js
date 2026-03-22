@@ -1,209 +1,14 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from "react";
 import { loadState, saveState } from "../services/storage";
-import { generateSubtasks, generateId } from "../utils/helpers";
-
-// ─── Seed Data ────────────────────────────────────────────────────────────────
-
-const SEED_PROJECTS = [
-  { id: "proj-1", name: "Corechestra", key: "CY", color: "#2563eb" },
-  { id: "proj-2", name: "Mobile App", key: "MB", color: "#7c3aed" },
-];
-
-const SEED_EPICS = [
-  { id: "epic-1", title: "Authentication", color: "#7c3aed", projectId: "proj-1", description: "Login, SSO, user management" },
-  { id: "epic-2", title: "UI Overhaul", color: "#0891b2", projectId: "proj-1", description: "New design system rollout" },
-  { id: "epic-3", title: "Testing Suite", color: "#059669", projectId: "proj-1", description: "E2E and regression tests" },
-  { id: "epic-4", title: "Performance", color: "#d97706", projectId: "proj-1", description: "Speed & optimization" },
-];
-
-const SEED_LABELS = [
-  { id: "lbl-1", name: "Frontend", color: "#3b82f6" },
-  { id: "lbl-2", name: "Backend", color: "#10b981" },
-  { id: "lbl-3", name: "Bug", color: "#ef4444" },
-  { id: "lbl-4", name: "Enhancement", color: "#8b5cf6" },
-  { id: "lbl-5", name: "Design", color: "#f59e0b" },
-  { id: "lbl-6", name: "Urgent", color: "#dc2626" },
-];
-
-const SEED_SPRINT = {
-  id: "sprint-1",
-  name: "Sprint 86",
-  goal: "Complete authentication overhaul and UI refinements",
-  startDate: "2026-03-10",
-  endDate: "2026-03-28",
-  status: "active",
-};
-
-const SEED_PROJ2_SPRINT = {
-  id: "sprint-mb-13",
-  name: "Sprint 13",
-  goal: "Ship iOS login screen and stabilize crash reporting",
-  startDate: "2026-03-17",
-  endDate: "2026-03-31",
-  status: "active",
-};
-
-const SEED_ACTIVE_TASKS = [
-  // ── Corechestra (proj-1) ──
-  { id: "1",  title: "Login bug fix",            description: "Fix double SSO login.",                   status: "blocked",    priority: "critical", type: "defect",        assignedTo: "alice", storyPoint: 3,  dueDate: "2026-03-19", epicId: "epic-1", labels: ["lbl-3"],        timeEstimate: 4,  timeSpent: 2, watchers: ["alice", "bob"], projectId: "proj-1" },
-  { id: "2",  title: "UWP Regression Test",      description: "APAC UWP regression test.",               status: "review",     priority: "high",     type: "defect",        assignedTo: "bob",   storyPoint: 5,  dueDate: "2026-03-22", epicId: "epic-3", labels: ["lbl-2"],        timeEstimate: 8,  timeSpent: 5, watchers: ["bob"],          projectId: "proj-1" },
-  { id: "3",  title: "Translation update",       description: "Essity Finland translations.",            status: "inprogress", priority: "medium",   type: "task",          assignedTo: "carol", storyPoint: 2,  dueDate: "2026-03-24", epicId: null,     labels: ["lbl-1"],        timeEstimate: 3,  timeSpent: 1, watchers: [],               projectId: "proj-1" },
-  { id: "4",  title: "Mail Scroll",              description: "Fix email preview scroll.",               status: "done",       priority: "low",      type: "feature",       assignedTo: "dave",  storyPoint: 1,  dueDate: "2026-03-15", epicId: "epic-2", labels: ["lbl-1","lbl-5"], timeEstimate: 2,  timeSpent: 2, watchers: [],               projectId: "proj-1" },
-  { id: "5",  title: "Test Payment Flow",        description: "Test the new payment integration.",       status: "todo",       priority: "medium",   type: "test",          assignedTo: "alice", storyPoint: 8,  dueDate: "2026-03-25", epicId: "epic-3", labels: ["lbl-2"],        timeEstimate: 12, timeSpent: 0, watchers: ["alice","carol"], projectId: "proj-1" },
-  { id: "6",  title: "Set Up Test Set",          description: "Create a test set for regression.",       status: "awaiting",   priority: "low",      type: "testset",       assignedTo: "bob",   storyPoint: 3,  dueDate: "2026-03-28", epicId: "epic-3", labels: [],               timeEstimate: 4,  timeSpent: 0, watchers: [],               projectId: "proj-1" },
-  { id: "7",  title: "Execute Regression Suite", description: "Run all regression tests.",               status: "inprogress", priority: "high",     type: "testexecution", assignedTo: "carol", storyPoint: 13, dueDate: "2026-03-27", epicId: "epic-3", labels: ["lbl-6"],        timeEstimate: 16, timeSpent: 8, watchers: ["carol","dave"],  projectId: "proj-1" },
-  { id: "8",  title: "Precondition Setup",       description: "Prepare preconditions for E2E.",          status: "todo",       priority: "medium",   type: "precondition",  assignedTo: "dave",  storyPoint: 2,  dueDate: "2026-04-02", epicId: null,     labels: [],               timeEstimate: 3,  timeSpent: 0, watchers: [],               projectId: "proj-1" },
-  { id: "9",  title: "UI Polish",                description: "Polish UI for better UX.",                status: "review",     priority: "low",      type: "feature",       assignedTo: "alice", storyPoint: 1,  dueDate: "2026-03-26", epicId: "epic-2", labels: ["lbl-1","lbl-5"], timeEstimate: 4,  timeSpent: 3, watchers: [],               projectId: "proj-1" },
-  // ── Mobile App (proj-2) ──
-  { id: "m1", title: "Push notification service",description: "Integrate FCM for push alerts.",          status: "todo",       priority: "high",     type: "feature",       assignedTo: "bob",   storyPoint: 8,  dueDate: "2026-04-05", epicId: null,     labels: [],               timeEstimate: 12, timeSpent: 0, watchers: ["bob"],          projectId: "proj-2" },
-  { id: "m2", title: "iOS login screen",         description: "Build the native iOS auth UI.",           status: "inprogress", priority: "medium",   type: "task",          assignedTo: "alice", storyPoint: 5,  dueDate: "2026-03-28", epicId: null,     labels: [],               timeEstimate: 8,  timeSpent: 3, watchers: ["alice"],        projectId: "proj-2" },
-  { id: "m3", title: "Android dashboard UI",     description: "Design the main dashboard view.",         status: "review",     priority: "high",     type: "feature",       assignedTo: "carol", storyPoint: 8,  dueDate: "2026-03-30", epicId: null,     labels: [],               timeEstimate: 10, timeSpent: 8, watchers: ["carol","bob"],  projectId: "proj-2" },
-  { id: "m4", title: "Crash reporting",          description: "Integrate Sentry for crash reporting.",   status: "blocked",    priority: "critical", type: "bug",           assignedTo: "bob",   storyPoint: 3,  dueDate: "2026-03-25", epicId: null,     labels: [],               timeEstimate: 4,  timeSpent: 1, watchers: ["bob","dave"],   projectId: "proj-2" },
-  { id: "m5", title: "App store metadata",       description: "Write descriptions & screenshots.",       status: "todo",       priority: "low",      type: "task",          assignedTo: "dave",  storyPoint: 2,  dueDate: "2026-04-10", epicId: null,     labels: [],               timeEstimate: 3,  timeSpent: 0, watchers: [],               projectId: "proj-2" },
-  { id: "m6", title: "Beta testing plan",        description: "Define beta cohort and test strategy.",   status: "inprogress", priority: "medium",   type: "test",          assignedTo: "alice", storyPoint: 5,  dueDate: "2026-04-01", epicId: null,     labels: [],               timeEstimate: 6,  timeSpent: 2, watchers: ["alice"],        projectId: "proj-2" },
-  { id: "m7", title: "Offline mode support",     description: "Cache API responses for offline use.",    status: "todo",       priority: "high",     type: "feature",       assignedTo: "carol", storyPoint: 13, dueDate: "2026-04-15", epicId: null,     labels: [],               timeEstimate: 20, timeSpent: 0, watchers: [],               projectId: "proj-2" },
-  { id: "m8", title: "Biometric authentication", description: "Add Face ID / fingerprint login.",        status: "done",       priority: "medium",   type: "feature",       assignedTo: "dave",  storyPoint: 5,  dueDate: "2026-03-20", epicId: null,     labels: [],               timeEstimate: 6,  timeSpent: 6, watchers: ["dave"],         projectId: "proj-2" },
-].map((t) => ({ ...t, subtasks: generateSubtasks(t.title), comments: [], activityLog: [] }));
-
-const SEED_BACKLOG_TASKS = [
-  { id: "b1", title: "Refactor authentication", description: "Improve login security and UX.", epicId: "epic-1", labels: ["lbl-1", "lbl-4"] },
-  { id: "b2", title: "Add dark mode", description: "Theme support for dark mode.", epicId: "epic-2", labels: ["lbl-1", "lbl-5"] },
-  { id: "b3", title: "Mobile responsive UI", description: "Make app fully responsive.", epicId: "epic-2", labels: ["lbl-1"] },
-  { id: "b4", title: "Integrate Google Calendar", description: "Sync events with Google Calendar.", epicId: null, labels: ["lbl-2"] },
-  { id: "b5", title: "Bulk task actions", description: "Allow multi-select and bulk actions.", epicId: null, labels: ["lbl-4"] },
-  { id: "b6", title: "Export tasks to CSV", description: "Download board as CSV.", epicId: null, labels: [] },
-  { id: "b7", title: "Add notifications panel", description: "Centralize all notifications.", epicId: null, labels: ["lbl-1", "lbl-4"] },
-  { id: "b8", title: "Custom fields for tasks", description: "Support custom fields per project.", epicId: null, labels: ["lbl-4"] },
-  { id: "b9", title: "Recurring tasks", description: "Allow tasks to repeat on schedule.", epicId: null, labels: [] },
-  { id: "b10", title: "API rate limiting", description: "Protect backend from abuse.", epicId: null, labels: ["lbl-2"] },
-];
-
-const SEED_BACKLOG_SECTIONS = [
-  {
-    id: 1,
-    title: "Backlog",
-    tasks: SEED_BACKLOG_TASKS.map((t) => ({
-      ...t,
-      status: "todo",
-      storyPoint: 1,
-      dueDate: "",
-      assignedTo: "unassigned",
-      priority: "medium",
-      subtasks: generateSubtasks(t.title),
-      comments: [],
-      activityLog: [],
-      timeEstimate: 0,
-      timeSpent: 0,
-      watchers: [],
-    })),
-  },
-];
-
-const SEED_PROJ2_BACKLOG_TASKS = [
-  { id: "mb1", title: "Dark mode theme",               description: "Support system-level dark mode toggle.",       epicId: null, labels: [], projectId: "proj-2" },
-  { id: "mb2", title: "Push notification preferences", description: "Let users manage notification settings.",      epicId: null, labels: [], projectId: "proj-2" },
-  { id: "mb3", title: "App localization",              description: "Add i18n support for 5 languages.",             epicId: null, labels: [], projectId: "proj-2" },
-  { id: "mb4", title: "Deep link integration",         description: "Handle deep links for share URLs.",             epicId: null, labels: [], projectId: "proj-2" },
-  { id: "mb5", title: "Analytics integration",         description: "Integrate Mixpanel for user events.",           epicId: null, labels: [], projectId: "proj-2" },
-  { id: "mb6", title: "Onboarding flow",               description: "Build welcome screens for new users.",          epicId: null, labels: [], projectId: "proj-2" },
-  { id: "mb7", title: "In-app payment",                description: "Integrate Stripe SDK for mobile payments.",     epicId: null, labels: [], projectId: "proj-2" },
-  { id: "mb8", title: "Performance profiling",         description: "Identify and fix render bottlenecks.",          epicId: null, labels: [], projectId: "proj-2" },
-];
-
-const SEED_PROJ2_BACKLOG_SECTIONS = [
-  {
-    id: 101,
-    title: "Mobile Backlog",
-    tasks: SEED_PROJ2_BACKLOG_TASKS.map((t) => ({
-      ...t,
-      status: "todo",
-      storyPoint: 1,
-      dueDate: "",
-      assignedTo: "unassigned",
-      priority: "medium",
-      subtasks: generateSubtasks(t.title),
-      comments: [],
-      activityLog: [],
-      timeEstimate: 0,
-      timeSpent: 0,
-      watchers: [],
-    })),
-  },
-];
-
-const SEED_TEAMS = [
-  { id: "team-1", name: "Frontend Team", color: "#3b82f6", description: "UI/UX development", memberNames: ["alice", "carol"], projectIds: ["proj-1"] },
-  { id: "team-2", name: "Backend Team", color: "#10b981", description: "API and infrastructure", memberNames: ["bob", "dave"], projectIds: ["proj-1", "proj-2"] },
-];
-
-const SEED_RETRO = {
-  wentWell: [
-    { id: 1, text: "Team collaboration was excellent", checked: false, score: 0 },
-    { id: 2, text: "Sprint goals were achieved on time", checked: false, score: 0 },
-    { id: 3, text: "Code quality improved significantly", checked: false, score: 0 },
-  ],
-  wentWrong: [
-    { id: 1, text: "Some bugs were not caught in testing", checked: false, score: 0 },
-    { id: 2, text: "Communication gaps between team members", checked: false, score: 0 },
-  ],
-  canImprove: [
-    { id: 1, text: "Implement better testing practices", checked: false, score: 0 },
-    { id: 2, text: "Improve daily standup efficiency", checked: false, score: 0 },
-    { id: 3, text: "Better documentation practices", checked: false, score: 0 },
-  ],
-  actionItems: [
-    { id: 1, text: "Set up automated testing pipeline", checked: false, score: 0 },
-    { id: 2, text: "Schedule team communication workshop", checked: false, score: 0 },
-  ],
-};
-
-const SEED_PROJ2_RETRO = {
-  wentWell: [],
-  wentWrong: [],
-  canImprove: [],
-  actionItems: [],
-};
-
-const SEED_USERS = [
-  { id: "user-1", name: "Alice Johnson",  email: "alice@corechestra.io", username: "alice", role: "admin",  status: "active",   color: "#3b82f6", joinedAt: "2025-01-10" },
-  { id: "user-2", name: "Bob Smith",      email: "bob@corechestra.io",   username: "bob",   role: "member", status: "active",   color: "#7c3aed", joinedAt: "2025-02-14" },
-  { id: "user-3", name: "Carol Davis",    email: "carol@corechestra.io", username: "carol", role: "member", status: "active",   color: "#10b981", joinedAt: "2025-02-20" },
-  { id: "user-4", name: "Dave Wilson",    email: "dave@corechestra.io",  username: "dave",  role: "viewer", status: "inactive", color: "#f59e0b", joinedAt: "2025-03-05" },
-];
-
-const SEED_CUSTOM_FIELDS = [
-  { id: "cf-1", name: "Customer",      type: "text",     required: false, description: "Customer this task relates to",  options: [] },
-  { id: "cf-2", name: "Environment",   type: "dropdown", required: false, description: "Target deployment environment",  options: ["Production", "Staging", "Development", "Local"] },
-  { id: "cf-3", name: "External Link", type: "url",      required: false, description: "Link to external resource",      options: [] },
-];
-
-const DEFAULT_SPRINT_DEFAULTS = {
-  duration: 14,
-  namingFormat: "Sprint {n}",
-  autoStart: false,
-  workingDays: ["mon", "tue", "wed", "thu", "fri"],
-  startDay: "mon",
-  velocity: 0,
-};
-
-const DEFAULT_BOARD_SETTINGS = {
-  showBadges: true,
-  showPriorityColors: true,
-  showTaskIds: true,
-  showSubtaskButtons: true,
-  boardName: "Corechestra",
-  projectKey: "CY",
-  taskViewMode: "panel", // "modal" | "panel"
-};
-
-const DEFAULT_COLUMNS = [
-  { id: "todo", title: "To Do" },
-  { id: "inprogress", title: "In Progress" },
-  { id: "review", title: "Review" },
-  { id: "awaiting", title: "Awaiting Customer" },
-  { id: "blocked", title: "Blocked" },
-  { id: "done", title: "Done" },
-];
+import { generateId } from "../utils/helpers";
+import {
+  SEED_PROJECTS, SEED_EPICS, SEED_LABELS, SEED_SPRINT, SEED_PROJ2_SPRINT,
+  SEED_ACTIVE_TASKS, SEED_BACKLOG_SECTIONS, SEED_PROJ2_BACKLOG_SECTIONS,
+  SEED_TEAMS, SEED_RETRO, SEED_PROJ2_RETRO, SEED_USERS, SEED_CUSTOM_FIELDS,
+  DEFAULT_SPRINT_DEFAULTS, DEFAULT_BOARD_SETTINGS, DEFAULT_COLUMNS,
+  SEED_SPACES, SEED_DOC_PAGES,
+  SEED_RELEASES, SEED_TEST_SUITES, SEED_TEST_CASES, SEED_TEST_RUNS,
+} from "./AppSeeds";
 
 // ─── Context ──────────────────────────────────────────────────────────────────
 const AppContext = createContext(null);
@@ -295,10 +100,18 @@ export function AppProvider({ children }) {
   });
   const [currentUser, setCurrentUser] = useState(persisted?.currentUser ?? "alice");
   const [globalActivityLog, setGlobalActivityLog] = useState(persisted?.globalActivityLog ?? []);
+  const [notifications, setNotifications] = useState(persisted?.notifications ?? []);
+  const [perProjectBurndownSnapshots, setPerProjectBurndownSnapshots] = useState(persisted?.perProjectBurndownSnapshots ?? { "proj-1": [], "proj-2": [] });
   const [teams, setTeams] = useState(persisted?.teams ?? SEED_TEAMS);
   const [users, setUsers] = useState(persisted?.users ?? SEED_USERS);
   const [customFields, setCustomFields] = useState(persisted?.customFields ?? SEED_CUSTOM_FIELDS);
   const [sprintDefaults, setSprintDefaults] = useState(persisted?.sprintDefaults ?? DEFAULT_SPRINT_DEFAULTS);
+  const [spaces, setSpaces] = useState(persisted?.spaces ?? SEED_SPACES);
+  const [docPages, setDocPages] = useState(persisted?.docPages ?? SEED_DOC_PAGES);
+  const [releases, setReleases] = useState(persisted?.releases ?? SEED_RELEASES);
+  const [testSuites, setTestSuites] = useState(persisted?.testSuites ?? SEED_TEST_SUITES);
+  const [testCases, setTestCases] = useState(persisted?.testCases ?? SEED_TEST_CASES);
+  const [testRuns, setTestRuns] = useState(persisted?.testRuns ?? SEED_TEST_RUNS);
 
   // Computed: per-project columns
   const columns = useMemo(
@@ -378,18 +191,37 @@ export function AppProvider({ children }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentProjectId]);
 
+  // Computed: per-project burndown snapshots
+  const burndownSnapshots = perProjectBurndownSnapshots[currentProjectId] ?? [];
+
+  // Auto-snapshot: record today's remaining story points once per day
+  useEffect(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    setPerProjectBurndownSnapshots((prev) => {
+      const existing = prev[currentProjectId] || [];
+      if (existing.some((s) => s.date === today)) return prev;
+      const total = activeTasks.reduce((s, t) => s + (Number(t.storyPoint) || 0), 0);
+      const remaining = activeTasks.filter((t) => t.status !== "done").reduce((s, t) => s + (Number(t.storyPoint) || 0), 0);
+      const updated = [...existing, { date: today, remaining, total }].slice(-60);
+      return { ...prev, [currentProjectId]: updated };
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTasks, currentProjectId]);
+
   // Persist
   useEffect(() => {
     saveState({
       projects, currentProjectId, currentUser, epics, labels, perProjectSprint, projectColumns,
       activeTasks, perProjectBacklog, perProjectRetrospective, perProjectPokerHistory,
-      perProjectNotes, perProjectBoardSettings, globalActivityLog, teams,
-      users, customFields, sprintDefaults,
+      perProjectNotes, perProjectBoardSettings, globalActivityLog, notifications, teams,
+      users, customFields, sprintDefaults, perProjectBurndownSnapshots,
+      spaces, docPages, releases, testSuites, testCases, testRuns,
     });
   }, [projects, currentProjectId, currentUser, epics, labels, perProjectSprint, projectColumns,
       activeTasks, perProjectBacklog, perProjectRetrospective, perProjectPokerHistory,
-      perProjectNotes, perProjectBoardSettings, globalActivityLog, teams,
-      users, customFields, sprintDefaults]);
+      perProjectNotes, perProjectBoardSettings, globalActivityLog, notifications, teams,
+      users, customFields, sprintDefaults, perProjectBurndownSnapshots,
+      spaces, docPages, releases, testSuites, testCases, testRuns]);
 
   // Derived
   const allTasks = useMemo(() => {
@@ -432,11 +264,50 @@ export function AppProvider({ children }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentProjectId]);
 
+  // ── Notification helpers ───────────────────────────────────────────────────
+  const addNotification = useCallback((notif) => {
+    setNotifications((prev) => [
+      { id: Date.now(), read: false, timestamp: new Date().toISOString(), ...notif },
+      ...prev,
+    ].slice(0, 50));
+  }, []);
+
+  const markNotifRead = useCallback((id) => {
+    setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, read: true } : n));
+  }, []);
+
+  const markAllNotifsRead = useCallback(() => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  }, []);
+
   // ── Task Actions ───────────────────────────────────────────────────────────
   const updateActiveTask = useCallback((updatedTask, logMsg) => {
-    setActiveTasks((prev) => prev.map((t) => (t.id === updatedTask.id ? updatedTask : t)));
+    setActiveTasks((prev) => {
+      const prevTask = prev.find((t) => t.id === updatedTask.id);
+      if (prevTask) {
+        if (prevTask.status !== updatedTask.status) {
+          const statusLabels = { todo: "To Do", inprogress: "In Progress", review: "Review", awaiting: "Awaiting", blocked: "Blocked", done: "Done" };
+          const label = statusLabels[updatedTask.status] || updatedTask.status;
+          addNotification({
+            type: updatedTask.status === "done" ? "status_done" : updatedTask.status === "blocked" ? "status_blocked" : "status_change",
+            taskId: updatedTask.id,
+            taskTitle: updatedTask.title,
+            text: `"${updatedTask.title}" moved to ${label}`,
+          });
+        }
+        if (prevTask.assignedTo !== updatedTask.assignedTo && updatedTask.assignedTo) {
+          addNotification({
+            type: "assignment",
+            taskId: updatedTask.id,
+            taskTitle: updatedTask.title,
+            text: `You were assigned to "${updatedTask.title}"`,
+          });
+        }
+      }
+      return prev.map((t) => (t.id === updatedTask.id ? updatedTask : t));
+    });
     if (logMsg) logActivity(updatedTask.id, logMsg);
-  }, [logActivity]);
+  }, [logActivity, addNotification]);
 
   const createTask = useCallback((taskData, sprintValue) => {
     const newTask = {
@@ -834,6 +705,169 @@ export function AppProvider({ children }) {
     setSprintDefaults((prev) => ({ ...prev, ...patch }));
   }, []);
 
+  // ── Documentation Space Actions ────────────────────────────────────────────
+  const createSpace = useCallback((data) => {
+    const id = `space-${Date.now()}`;
+    setSpaces((prev) => [...prev, { ...data, id, createdAt: new Date().toISOString() }]);
+  }, []);
+
+  const updateSpace = useCallback((updated) => {
+    setSpaces((prev) => prev.map((s) => s.id === updated.id ? updated : s));
+  }, []);
+
+  const deleteSpace = useCallback((spaceId) => {
+    setSpaces((prev) => prev.filter((s) => s.id !== spaceId));
+    setDocPages((prev) => prev.filter((p) => p.spaceId !== spaceId));
+  }, []);
+
+  // ── Documentation Page Actions ─────────────────────────────────────────────
+  const createDocPage = useCallback((data) => {
+    const id = `page-${Date.now()}`;
+    const now = new Date().toISOString();
+    setDocPages((prev) => [...prev, {
+      ...data,
+      id,
+      createdAt: now,
+      updatedAt: now,
+      labels: data.labels || [],
+    }]);
+    return id;
+  }, []);
+
+  const updateDocPage = useCallback((updated) => {
+    setDocPages((prev) => prev.map((p) =>
+      p.id === updated.id ? { ...p, ...updated, updatedAt: new Date().toISOString() } : p
+    ));
+  }, []);
+
+  const deleteDocPage = useCallback((pageId) => {
+    // Also delete all descendants
+    setDocPages((prev) => {
+      const toDelete = new Set();
+      const collect = (id) => {
+        toDelete.add(id);
+        prev.filter((p) => p.parentId === id).forEach((child) => collect(child.id));
+      };
+      collect(pageId);
+      return prev.filter((p) => !toDelete.has(p.id));
+    });
+  }, []);
+
+  const moveDocPage = useCallback((pageId, newParentId) => {
+    setDocPages((prev) => prev.map((p) =>
+      p.id === pageId ? { ...p, parentId: newParentId, updatedAt: new Date().toISOString() } : p
+    ));
+  }, []);
+
+  const addDocComment = useCallback((pageId, text) => {
+    if (!text?.trim()) return;
+    const comment = {
+      id: `dcmt-${Date.now()}`,
+      author: currentUser,
+      text: text.trim(),
+      createdAt: new Date().toISOString(),
+    };
+    setDocPages((prev) => prev.map((p) =>
+      p.id === pageId ? { ...p, comments: [...(p.comments || []), comment] } : p
+    ));
+  }, [currentUser]);
+
+  const deleteDocComment = useCallback((pageId, commentId) => {
+    setDocPages((prev) => prev.map((p) =>
+      p.id === pageId ? { ...p, comments: (p.comments || []).filter((c) => c.id !== commentId) } : p
+    ));
+  }, []);
+
+  // ── Release Actions ────────────────────────────────────────────────────────
+  const createRelease = useCallback((data) => {
+    const newRelease = {
+      ...data,
+      id: `rel-${Date.now()}`,
+      taskIds: data.taskIds || [],
+      changelog: data.changelog || [],
+    };
+    setReleases((prev) => [...prev, newRelease]);
+  }, []);
+
+  const updateRelease = useCallback((updated) => {
+    setReleases((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+  }, []);
+
+  const deleteRelease = useCallback((id) => {
+    setReleases((prev) => prev.filter((r) => r.id !== id));
+  }, []);
+
+  const addChangelogEntry = useCallback((releaseId, entry) => {
+    const newEntry = {
+      ...entry,
+      id: `cl-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+    };
+    setReleases((prev) =>
+      prev.map((r) =>
+        r.id === releaseId ? { ...r, changelog: [...(r.changelog || []), newEntry] } : r
+      )
+    );
+  }, []);
+
+  const deleteChangelogEntry = useCallback((releaseId, entryId) => {
+    setReleases((prev) =>
+      prev.map((r) =>
+        r.id === releaseId
+          ? { ...r, changelog: (r.changelog || []).filter((e) => e.id !== entryId) }
+          : r
+      )
+    );
+  }, []);
+
+  // ── Test Suite Actions ─────────────────────────────────────────────────────
+  const createTestSuite = useCallback((data) => {
+    setTestSuites((prev) => [...prev, { ...data, id: `ts-${Date.now()}` }]);
+  }, []);
+
+  const updateTestSuite = useCallback((updated) => {
+    setTestSuites((prev) => prev.map((s) => s.id === updated.id ? { ...s, ...updated } : s));
+  }, []);
+
+  const deleteTestSuite = useCallback((id) => {
+    setTestSuites((prev) => prev.filter((s) => s.id !== id));
+    setTestCases((prev) => prev.filter((c) => c.suiteId !== id));
+    setTestRuns((prev) => prev.filter((r) => r.suiteId !== id));
+  }, []);
+
+  // ── Test Case Actions ──────────────────────────────────────────────────────
+  const createTestCase = useCallback((data) => {
+    setTestCases((prev) => [...prev, { ...data, id: `tc-${Date.now()}`, status: data.status || "untested" }]);
+  }, []);
+
+  const updateTestCase = useCallback((updated) => {
+    setTestCases((prev) => prev.map((c) => c.id === updated.id ? { ...c, ...updated } : c));
+  }, []);
+
+  const deleteTestCase = useCallback((id) => {
+    setTestCases((prev) => prev.filter((c) => c.id !== id));
+  }, []);
+
+  // ── Test Run Actions ───────────────────────────────────────────────────────
+  const createTestRun = useCallback((data) => {
+    setTestRuns((prev) => [...prev, { ...data, id: `tr-${Date.now()}`, createdAt: new Date().toISOString(), completedAt: null, results: data.results || [] }]);
+  }, []);
+
+  const updateTestRun = useCallback((updated) => {
+    setTestRuns((prev) => prev.map((r) => r.id === updated.id ? { ...r, ...updated } : r));
+  }, []);
+
+  const updateTestRunResult = useCallback((runId, caseId, result) => {
+    setTestRuns((prev) => prev.map((r) => {
+      if (r.id !== runId) return r;
+      const existing = (r.results || []).find((x) => x.caseId === caseId);
+      const results = existing
+        ? r.results.map((x) => x.caseId === caseId ? { ...x, ...result } : x)
+        : [...(r.results || []), { caseId, ...result }];
+      return { ...r, results };
+    }));
+  }, []);
+
   const resetAllData = useCallback(() => {
     setProjects(SEED_PROJECTS);
     setCurrentProjectId("proj-1");
@@ -852,10 +886,18 @@ export function AppProvider({ children }) {
       "proj-2": { ...DEFAULT_BOARD_SETTINGS, boardName: "Mobile App", projectKey: "MB" },
     });
     setGlobalActivityLog([]);
+    setNotifications([]);
+    setPerProjectBurndownSnapshots({ "proj-1": [], "proj-2": [] });
     setTeams(SEED_TEAMS);
     setUsers(SEED_USERS);
     setCustomFields(SEED_CUSTOM_FIELDS);
     setSprintDefaults(DEFAULT_SPRINT_DEFAULTS);
+    setSpaces(SEED_SPACES);
+    setDocPages(SEED_DOC_PAGES);
+    setReleases(SEED_RELEASES);
+    setTestSuites(SEED_TEST_SUITES);
+    setTestCases(SEED_TEST_CASES);
+    setTestRuns(SEED_TEST_RUNS);
   }, []);
 
   const value = {
@@ -894,10 +936,23 @@ export function AppProvider({ children }) {
     notesList, addNote, deleteNote,
     // Poker
     pokerHistory, savePokerResult,
+    // Burndown snapshots
+    burndownSnapshots,
     // Settings
     boardSettings, updateBoardSettings, resetAllData,
     // Activity
     globalActivityLog, logActivity,
+    // Notifications
+    notifications, addNotification, markNotifRead, markAllNotifsRead,
+    // Documentation
+    spaces, createSpace, updateSpace, deleteSpace,
+    docPages, createDocPage, updateDocPage, deleteDocPage, moveDocPage, addDocComment, deleteDocComment,
+    // Releases
+    releases, createRelease, updateRelease, deleteRelease, addChangelogEntry, deleteChangelogEntry,
+    // Test Management
+    testSuites, createTestSuite, updateTestSuite, deleteTestSuite,
+    testCases, createTestCase, updateTestCase, deleteTestCase,
+    testRuns, createTestRun, updateTestRun, updateTestRunResult,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

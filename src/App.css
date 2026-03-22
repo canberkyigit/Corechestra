@@ -85,6 +85,151 @@
   to   { transform: translateX(0)   scale(1);   opacity: 1; }
 }
 
+/* ─── TipTap WYSIWYG editor ──────────────────────────────────────────────── */
+.docs-tiptap .ProseMirror {
+  outline: none;
+  min-height: 120px;
+  font-size: 15px;
+  line-height: 1.75;
+  color: #1e293b;
+}
+.dark .docs-tiptap .ProseMirror {
+  color: #e2e8f0;
+}
+.docs-tiptap .ProseMirror p { margin: 0.5em 0; }
+.docs-tiptap .ProseMirror h1 { font-size: 1.75em; font-weight: 700; margin: 0.75em 0 0.4em; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.2em; }
+.docs-tiptap .ProseMirror h2 { font-size: 1.4em;  font-weight: 700; margin: 0.75em 0 0.4em; }
+.docs-tiptap .ProseMirror h3 { font-size: 1.15em; font-weight: 600; margin: 0.75em 0 0.3em; }
+.dark .docs-tiptap .ProseMirror h1 { border-bottom-color: #2a3044; }
+.docs-tiptap .ProseMirror strong { font-weight: 700; }
+.docs-tiptap .ProseMirror em     { font-style: italic; }
+.docs-tiptap .ProseMirror s      { text-decoration: line-through; }
+.docs-tiptap .ProseMirror code   { font-family: ui-monospace, monospace; font-size: 0.875em; background: rgba(0,0,0,0.06); padding: 0.1em 0.35em; border-radius: 4px; }
+.dark .docs-tiptap .ProseMirror code { background: rgba(255,255,255,0.1); }
+.docs-tiptap .ProseMirror pre    { background: #1e293b; color: #e2e8f0; padding: 1em; border-radius: 8px; overflow-x: auto; margin: 0.75em 0; }
+.docs-tiptap .ProseMirror pre code { background: none; padding: 0; font-size: 0.875em; }
+.dark .docs-tiptap .ProseMirror pre { background: #0f1420; }
+.docs-tiptap .ProseMirror blockquote { border-left: 3px solid #94a3b8; padding-left: 1em; color: #64748b; margin: 0.75em 0; }
+.dark .docs-tiptap .ProseMirror blockquote { border-left-color: #475569; color: #94a3b8; }
+.docs-tiptap .ProseMirror ul     { list-style: disc; padding-left: 1.5em; margin: 0.5em 0; }
+.docs-tiptap .ProseMirror ol     { list-style: decimal; padding-left: 1.5em; margin: 0.5em 0; }
+.docs-tiptap .ProseMirror li     { margin: 0.2em 0; }
+.docs-tiptap .ProseMirror hr     { border: none; border-top: 1px solid #e2e8f0; margin: 1.5em 0; }
+.dark .docs-tiptap .ProseMirror hr { border-top-color: #2a3044; }
+.docs-tiptap .ProseMirror a      { color: #3b82f6; text-decoration: underline; }
+/* table */
+.docs-tiptap .ProseMirror table  { border-collapse: collapse; width: 100%; margin: 0.75em 0; }
+.docs-tiptap .ProseMirror td, .docs-tiptap .ProseMirror th { border: 1px solid #e2e8f0; padding: 0.4em 0.75em; }
+.dark .docs-tiptap .ProseMirror td, .dark .docs-tiptap .ProseMirror th { border-color: #2a3044; color: #e2e8f0; }
+.docs-tiptap .ProseMirror th     { font-weight: 600; background: #f8fafc; }
+.dark .docs-tiptap .ProseMirror th { background: rgba(255,255,255,0.05); }
+/* mention chip */
+.docs-tiptap .ProseMirror .doc-mention {
+  display: inline-block;
+  background: rgba(59, 130, 246, 0.12);
+  color: #3b82f6;
+  border-radius: 4px;
+  padding: 0 0.3em;
+  font-weight: 500;
+  cursor: default;
+}
+.dark .docs-tiptap .ProseMirror .doc-mention {
+  background: rgba(59, 130, 246, 0.18);
+  color: #60a5fa;
+}
+/* edit cursor */
+.docs-tiptap .ProseMirror[contenteditable="true"] { cursor: text; }
+.docs-tiptap .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: #94a3b8;
+  pointer-events: none;
+  float: left;
+  height: 0;
+}
+
+/* ─── Docs inline editor — remove MDEditor chrome ────────────────────────── */
+.docs-inline-editor .w-md-editor {
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+}
+.docs-inline-editor .w-md-editor-toolbar {
+  border-bottom: 1px solid #e2e8f0 !important;
+  background: transparent !important;
+  padding: 4px 0 !important;
+  border-radius: 0 !important;
+}
+.dark .docs-inline-editor .w-md-editor-toolbar {
+  border-bottom-color: #2a3044 !important;
+}
+.docs-inline-editor .w-md-editor-content {
+  background: transparent !important;
+}
+.docs-inline-editor .w-md-editor-text-textarea,
+.docs-inline-editor .w-md-editor-text-pre > code,
+.docs-inline-editor .w-md-editor-text {
+  font-size: 15px !important;
+  line-height: 1.7 !important;
+}
+.docs-inline-editor .w-md-editor-area {
+  background: transparent !important;
+}
+
+/* ─── MDEditor / wmde-markdown dark mode overrides ───────────────────────── */
+/* Force the dark color-scheme variables so text/table cells are always legible */
+[data-color-mode="dark"] .wmde-markdown,
+[data-color-mode="dark"] .wmde-markdown-var {
+  color: #e6edf3;
+  --color-fg-default:  #e6edf3;
+  --color-fg-muted:    #8b949e;
+  --color-canvas-default:  transparent;
+  --color-canvas-subtle:   #1c2030;
+  --color-border-default:  #30363d;
+  --color-border-muted:    #2a3044;
+}
+
+[data-color-mode="dark"] .wmde-markdown table th,
+[data-color-mode="dark"] .wmde-markdown table td {
+  color: #e6edf3;
+  border-color: #2a3044;
+  background-color: transparent;
+}
+
+[data-color-mode="dark"] .wmde-markdown table tr:nth-child(even) td {
+  background-color: rgba(255,255,255,0.04);
+}
+
+[data-color-mode="dark"] .wmde-markdown table th {
+  background-color: rgba(255,255,255,0.07);
+}
+
+[data-color-mode="dark"] .wmde-markdown code {
+  color: #e6edf3;
+  background-color: rgba(255,255,255,0.08);
+}
+
+[data-color-mode="dark"] .wmde-markdown blockquote {
+  color: #8b949e;
+  border-left-color: #2a3044;
+}
+
+[data-color-mode="dark"] .wmde-markdown h1,
+[data-color-mode="dark"] .wmde-markdown h2,
+[data-color-mode="dark"] .wmde-markdown h3,
+[data-color-mode="dark"] .wmde-markdown h4 {
+  color: #e6edf3;
+  border-bottom-color: #2a3044;
+}
+
+[data-color-mode="dark"] .wmde-markdown a {
+  color: #58a6ff;
+}
+
+[data-color-mode="dark"] .wmde-markdown hr {
+  background-color: #2a3044;
+}
+
 /* Dark mode color transition */
 .dark-transitioning,
 .dark-transitioning *,

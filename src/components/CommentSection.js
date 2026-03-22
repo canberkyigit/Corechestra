@@ -1,4 +1,5 @@
 import React, { useState, useRef, useMemo } from "react";
+import { useApp } from "../context/AppContext";
 import { format, parseISO } from "date-fns";
 import {
   FaComment, FaTrash, FaEdit, FaPaperPlane, FaBold, FaItalic,
@@ -448,11 +449,6 @@ function CommentBubble({ comment: c, allTasks, isOwn, isEditing, editingText, on
                 >{emoji}</button>
               ))}
               <div className="w-px h-3 bg-slate-200 dark:bg-[#2a3044] mx-0.5" />
-              {!isReply && onReply && (
-                <button onClick={onReply} className="p-0.5 text-slate-400 hover:text-blue-500 transition-colors" title="Reply">
-                  <FaReply className="w-2.5 h-2.5" />
-                </button>
-              )}
               <button
                 onClick={onPin}
                 className={`p-0.5 transition-colors ${c.pinned ? "text-amber-500" : "text-slate-400 hover:text-amber-500"}`}
@@ -501,23 +497,25 @@ function CommentBubble({ comment: c, allTasks, isOwn, isEditing, editingText, on
 
 // ─── CommentSection ───────────────────────────────────────────────────────────
 
-export default function CommentSection({ savedComments = [], allTasks = [], onUpdate, onTaskRefClick }) {
-  const [localNew,     setLocalNew]     = useState([]);
-  const [compose,      setCompose]      = useState("");
-  const [replyToId,    setReplyToId]    = useState(null);
-  const [editingId,    setEditingId]    = useState(null);
-  const [editingText,  setEditingText]  = useState("");
-  const [collapsed,    setCollapsed]    = useState(new Set());
+export default function CommentSection({ savedComments = [], allTasks = [], onUpdate, onTaskRefClick, taskTitle, taskId }) {
+  const { addNotification } = useApp();
+  const [localNew,       setLocalNew]       = useState([]);
+  const [compose,        setCompose]        = useState("");
+  const [editingId,      setEditingId]      = useState(null);
+  const [editingText,    setEditingText]    = useState("");
+  const [collapsed,      setCollapsed]      = useState(new Set());
+  const [inlineReplyId,  setInlineReplyId]  = useState(null);
+  const [inlineReplyText,setInlineReplyText]= useState("");
 
-  const savedIds   = useMemo(() => new Set(savedComments.map(c => c.id)), [savedComments]);
+  const savedIds    = useMemo(() => new Set(savedComments.map(c => c.id)), [savedComments]);
   const allComments = useMemo(() => [
     ...localNew.filter(c => !savedIds.has(c.id)),
     ...savedComments,
   ], [localNew, savedComments, savedIds]);
 
   const { topLevel, repliesMap } = useMemo(() => {
-    const pinned   = allComments.filter(c => c.pinned   && !c.replyTo);
-    const unpinned = allComments.filter(c => !c.pinned  && !c.replyTo);
+    const pinned   = allComments.filter(c =>  c.pinned && !c.replyTo);
+    const unpinned = allComments.filter(c => !c.pinned && !c.replyTo);
     const topLevel = [...pinned, ...unpinned];
     const repliesMap = {};
     allComments.filter(c => c.replyTo).forEach(c => {
@@ -541,14 +539,36 @@ export default function CommentSection({ savedComments = [], allTasks = [], onUp
       text: compose.trim(),
       user: "You",
       timestamp: new Date().toISOString(),
-      replyTo: replyToId || null,
+      replyTo: null,
       reactions: {},
       pinned: false,
     };
     const newAll = [c, ...allComments];
     setLocalNew(p => [c, ...p]);
     setCompose("");
-    setReplyToId(null);
+    pushUpdate(newAll);
+    if (taskTitle) {
+      addNotification({ type: "comment", taskId, taskTitle, text: `You commented on "${taskTitle}"` });
+    }
+  };
+
+  const handlePostReply = (parentId) => {
+    if (!inlineReplyText.trim()) return;
+    const c = {
+      id: Date.now(),
+      text: inlineReplyText.trim(),
+      user: "You",
+      timestamp: new Date().toISOString(),
+      replyTo: parentId,
+      reactions: {},
+      pinned: false,
+    };
+    const newAll = [...allComments, c];
+    setLocalNew(p => [...p, c]);
+    setInlineReplyText("");
+    setInlineReplyId(null);
+    // Auto-expand replies for this comment
+    setCollapsed(p => { const s = new Set(p); s.delete(parentId); return s; });
     pushUpdate(newAll);
   };
 
@@ -579,8 +599,7 @@ export default function CommentSection({ savedComments = [], allTasks = [], onUp
 
   const handlePin = (commentId) => mutate(c => c.id === commentId ? { ...c, pinned: !c.pinned } : c);
 
-  const replyTarget = replyToId ? allComments.find(c => c.id === replyToId) : null;
-  const totalCount  = allComments.length;
+  const totalCount = allComments.length;
 
   return (
     <div className="border border-slate-200 dark:border-[#2a3044] rounded-lg overflow-hidden">
@@ -594,14 +613,12 @@ export default function CommentSection({ savedComments = [], allTasks = [], onUp
       </div>
 
       <div className="p-3 space-y-3">
-        {/* Compose area */}
+        {/* Compose area — top-level only */}
         <CommentEditor
           value={compose}
           onChange={setCompose}
           onSubmit={handlePost}
           allTasks={allTasks}
-          replyTo={replyTarget}
-          onCancelReply={() => setReplyToId(null)}
         />
 
         {/* Comment list */}
@@ -613,8 +630,9 @@ export default function CommentSection({ savedComments = [], allTasks = [], onUp
         ) : (
           <div className="space-y-3 pt-1 border-t border-slate-100 dark:border-[#2a3044]">
             {topLevel.map(c => {
-              const replies = repliesMap[c.id] || [];
+              const replies    = repliesMap[c.id] || [];
               const isCollapsed = collapsed.has(c.id);
+              const isReplying  = inlineReplyId === c.id;
               return (
                 <div key={c.id}>
                   <CommentBubble
@@ -630,45 +648,85 @@ export default function CommentSection({ savedComments = [], allTasks = [], onUp
                     onDelete={() => handleDelete(c.id)}
                     onReact={(emoji) => handleReaction(c.id, emoji)}
                     onPin={() => handlePin(c.id)}
-                    onReply={() => { setReplyToId(c.id); setCompose(""); }}
+                    onReply={() => { setInlineReplyId(c.id); setInlineReplyText(""); }}
                     onTaskClick={onTaskRefClick}
                   />
 
-                  {/* Thread replies */}
-                  {replies.length > 0 && (
-                    <div className="ml-8 mt-2">
+                  {/* Thread: replies + inline reply box */}
+                  <div className="ml-8 mt-2 space-y-2">
+                    {/* Collapse / expand toggle */}
+                    {replies.length > 0 && (
                       <button
                         onClick={() => setCollapsed(p => { const s = new Set(p); s.has(c.id) ? s.delete(c.id) : s.add(c.id); return s; })}
-                        className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-blue-500 transition-colors mb-2"
+                        className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-blue-500 transition-colors"
                       >
                         {isCollapsed ? <FaChevronRight className="w-2 h-2" /> : <FaChevronDown className="w-2 h-2" />}
                         {replies.length} {replies.length === 1 ? "reply" : "replies"}
                       </button>
-                      {!isCollapsed && (
-                        <div className="space-y-2 border-l-2 border-slate-100 dark:border-[#2a3044] pl-3">
-                          {replies.map(r => (
-                            <CommentBubble
-                              key={r.id}
-                              comment={r}
-                              allTasks={allTasks}
-                              isOwn={r.user === "You"}
-                              isEditing={editingId === r.id}
-                              editingText={editingText}
-                              onEditTextChange={setEditingText}
-                              onStartEdit={() => { setEditingId(r.id); setEditingText(r.text); }}
-                              onSaveEdit={handleSaveEdit}
-                              onCancelEdit={() => { setEditingId(null); setEditingText(""); }}
-                              onDelete={() => handleDelete(r.id)}
-                              onReact={(emoji) => handleReaction(r.id, emoji)}
-                              onPin={() => handlePin(r.id)}
-                              onTaskClick={onTaskRefClick}
-                              isReply
-                            />
-                          ))}
+                    )}
+
+                    {/* Existing replies */}
+                    {!isCollapsed && replies.length > 0 && (
+                      <div className="space-y-2 border-l-2 border-slate-100 dark:border-[#2a3044] pl-3">
+                        {replies.map(r => (
+                          <CommentBubble
+                            key={r.id}
+                            comment={r}
+                            allTasks={allTasks}
+                            isOwn={r.user === "You"}
+                            isEditing={editingId === r.id}
+                            editingText={editingText}
+                            onEditTextChange={setEditingText}
+                            onStartEdit={() => { setEditingId(r.id); setEditingText(r.text); }}
+                            onSaveEdit={handleSaveEdit}
+                            onCancelEdit={() => { setEditingId(null); setEditingText(""); }}
+                            onDelete={() => handleDelete(r.id)}
+                            onReact={(emoji) => handleReaction(r.id, emoji)}
+                            onPin={() => handlePin(r.id)}
+                            onTaskClick={onTaskRefClick}
+                            isReply
+                          />
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Inline reply editor */}
+                    {isReplying && (
+                      <div className="border-l-2 border-blue-300 dark:border-blue-600 pl-3">
+                        <div className="flex items-center gap-1.5 mb-1.5 text-[10px] text-blue-500 dark:text-blue-400 font-medium">
+                          <FaReply className="w-2.5 h-2.5" />
+                          Replying to <span className="font-semibold">@{c.user}</span>
+                          <button
+                            onClick={() => { setInlineReplyId(null); setInlineReplyText(""); }}
+                            className="ml-auto p-0.5 text-blue-400 hover:text-blue-600 dark:hover:text-blue-200 transition-colors"
+                            title="Cancel reply"
+                          >
+                            <FaTimes className="w-2.5 h-2.5" />
+                          </button>
                         </div>
-                      )}
-                    </div>
-                  )}
+                        <CommentEditor
+                          value={inlineReplyText}
+                          onChange={setInlineReplyText}
+                          onSubmit={() => handlePostReply(c.id)}
+                          onCancel={() => { setInlineReplyId(null); setInlineReplyText(""); }}
+                          placeholder={`Reply to @${c.user}… (Ctrl+Enter)`}
+                          autoFocus
+                          allTasks={allTasks}
+                        />
+                      </div>
+                    )}
+
+                    {/* "Reply" link when not already open */}
+                    {!isReplying && (
+                      <button
+                        onClick={() => { setInlineReplyId(c.id); setInlineReplyText(""); }}
+                        className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-blue-500 transition-colors"
+                      >
+                        <FaReply className="w-2.5 h-2.5" />
+                        Reply
+                      </button>
+                    )}
+                  </div>
                 </div>
               );
             })}

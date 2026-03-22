@@ -13,8 +13,10 @@ export function loadState() {
 export function saveState(state) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch {
-    // Storage quota exceeded - silently ignore
+  } catch (e) {
+    window.dispatchEvent(new CustomEvent("corechestra:storage-error", {
+      detail: { message: "Storage quota exceeded — some changes may not be saved." }
+    }));
   }
 }
 

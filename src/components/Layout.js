@@ -4,25 +4,42 @@ import {
   FaColumns, FaTachometerAlt, FaRocket, FaCalendarAlt,
   FaChartBar, FaSearch, FaPlus, FaMoon, FaSun,
   FaCheckCircle, FaExclamationTriangle, FaComment, FaArrowRight,
-  FaShieldAlt, FaLayerGroup,
+  FaShieldAlt, FaLayerGroup, FaBook, FaTag, FaFlask,
 } from "react-icons/fa";
 import { useApp } from "../context/AppContext";
+import { useToast } from "../context/ToastContext";
 
-const MOCK_NOTIFS = [
-  { id: 1, text: "You were assigned to \"Execute Regression Suite\"", time: "2m ago",   read: false, icon: FaArrowRight,       color: "text-blue-500   bg-blue-50   dark:bg-blue-900/20"   },
-  { id: 2, text: "Bob commented on \"Login bug fix\"",                time: "1h ago",   read: false, icon: FaComment,          color: "text-purple-500 bg-purple-50 dark:bg-purple-900/20" },
-  { id: 3, text: "\"Mail Scroll\" was moved to Done",                 time: "3h ago",   read: false, icon: FaCheckCircle,      color: "text-green-500  bg-green-50  dark:bg-green-900/20"  },
-  { id: 4, text: "\"Login bug fix\" is now Blocked",                  time: "5h ago",   read: true,  icon: FaExclamationTriangle, color: "text-red-500  bg-red-50    dark:bg-red-900/20"   },
-  { id: 5, text: "Carol mentioned you in \"UI Polish\"",              time: "Yesterday", read: true,  icon: FaComment,          color: "text-purple-500 bg-purple-50 dark:bg-purple-900/20" },
-];
+const NOTIF_META = {
+  assignment:    { icon: FaArrowRight,          color: "text-blue-500   bg-blue-50   dark:bg-blue-900/20"   },
+  status_done:   { icon: FaCheckCircle,         color: "text-green-500  bg-green-50  dark:bg-green-900/20"  },
+  status_blocked:{ icon: FaExclamationTriangle, color: "text-red-500    bg-red-50    dark:bg-red-900/20"    },
+  status_change: { icon: FaArrowRight,          color: "text-blue-500   bg-blue-50   dark:bg-blue-900/20"   },
+  comment:       { icon: FaComment,             color: "text-purple-500 bg-purple-50 dark:bg-purple-900/20" },
+  mention:       { icon: FaComment,             color: "text-purple-500 bg-purple-50 dark:bg-purple-900/20" },
+};
+
+function relativeTime(isoStr) {
+  const diff = Date.now() - new Date(isoStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days === 1) return "Yesterday";
+  return `${days}d ago`;
+}
 
 const NAV_ITEMS = [
-  { id: "dashboard", label: "Dashboard", icon: FaTachometerAlt },
-  { id: "board",     label: "Board",     icon: FaColumns       },
-  { id: "roadmap",   label: "Roadmap",   icon: FaRocket        },
-  { id: "reports",   label: "Reports",   icon: FaChartBar      },
-  { id: "calendar",  label: "Calendar",  icon: FaCalendarAlt   },
-  { id: "projects",  label: "Projects",  icon: FaLayerGroup    },
+  { id: "dashboard",     label: "Dashboard",     icon: FaTachometerAlt },
+  { id: "board",         label: "Board",         icon: FaColumns       },
+  { id: "roadmap",       label: "Roadmap",       icon: FaRocket        },
+  { id: "reports",       label: "Reports",       icon: FaChartBar      },
+  { id: "calendar",      label: "Calendar",      icon: FaCalendarAlt   },
+  { id: "projects",      label: "Projects",      icon: FaLayerGroup    },
+  { id: "docs",          label: "Documentation", icon: FaBook          },
+  { id: "releases",      label: "Releases",      icon: FaTag           },
+  { id: "tests",         label: "Tests",         icon: FaFlask         },
 ];
 
 const ADMIN_NAV_ITEMS = [
@@ -32,14 +49,21 @@ const ADMIN_NAV_ITEMS = [
 export default function Layout({
   children, activePage, onPageChange,
   darkMode, onToggleDark,
-  onCreateClick, onSettingsClick, onProfileClick,
+  onCreateClick, onSettingsClick, onProfileClick, onSearchClick,
 }) {
   const [collapsed,  setCollapsed]  = useState(() => localStorage.getItem("sidebar_collapsed") === "true");
   const [notifOpen,  setNotifOpen]  = useState(false);
-  const [notifs,     setNotifs]     = useState(MOCK_NOTIFS);
 
+  const { addToast } = useToast();
+  const { notifications, markNotifRead, markAllNotifsRead } = useApp();
   const notifRef    = useRef(null);
-  const unreadCount = notifs.filter((n) => !n.read).length;
+  const unreadCount = notifications.filter((n) => !n.read).length;
+
+  useEffect(() => {
+    const handler = (e) => addToast(e.detail.message, "error");
+    window.addEventListener("corechestra:storage-error", handler);
+    return () => window.removeEventListener("corechestra:storage-error", handler);
+  }, [addToast]);
 
   const toggleCollapsed = () => {
     const next = !collapsed;
@@ -55,8 +79,8 @@ export default function Layout({
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const markAllRead = () => setNotifs((p) => p.map((n) => ({ ...n, read: true })));
-  const markRead    = (id) => setNotifs((p) => p.map((n) => n.id === id ? { ...n, read: true } : n));
+  const markAllRead = markAllNotifsRead;
+  const markRead    = markNotifRead;
 
   // ── Colour tokens ──────────────────────────────────────────────────────────
   // Sidebar + Topbar share the same background in dark mode → no seam
@@ -249,6 +273,17 @@ export default function Layout({
 
           {/* Actions */}
           <div className="flex items-center gap-2 ml-auto">
+            {/* Search button */}
+            <button
+              onClick={onSearchClick}
+              className="hidden sm:flex items-center gap-2 px-3 py-1.5 text-sm text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:border-blue-400 hover:text-blue-500 transition-colors bg-white dark:bg-[#1c2030]"
+              title="Search (Cmd+K)"
+            >
+              <FaSearch className="w-3 h-3" />
+              <span>Search</span>
+              <kbd className="text-[10px] font-mono text-slate-400 bg-slate-100 dark:bg-[#232838] px-1 rounded">⌘K</kbd>
+            </button>
+
             <button
               className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
               onClick={onCreateClick}
@@ -281,26 +316,32 @@ export default function Layout({
                     )}
                   </div>
                   <div className="max-h-80 overflow-y-auto">
-                    {notifs.map((n) => (
-                      <button
-                        key={n.id}
-                        onClick={() => markRead(n.id)}
-                        className={`w-full flex items-start gap-3 px-4 py-3 transition-colors text-left border-b last:border-0 ${borderColor} ${
-                          !n.read
-                            ? darkMode ? "bg-blue-900/10 hover:bg-blue-900/20" : "bg-blue-50/40 hover:bg-blue-50"
-                            : darkMode ? "hover:bg-white/5" : "hover:bg-slate-50"
-                        }`}
-                      >
-                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 ${n.color}`}>
-                          <n.icon className="w-3.5 h-3.5" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className={`text-xs leading-snug ${!n.read ? projNameText + " font-medium" : subText}`}>{n.text}</p>
-                          <p className={`text-xs mt-0.5 ${subText}`}>{n.time}</p>
-                        </div>
-                        {!n.read && <span className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-1.5" />}
-                      </button>
-                    ))}
+                    {notifications.length === 0 ? (
+                      <div className={`py-8 text-center text-xs ${subText}`}>No notifications yet</div>
+                    ) : notifications.map((n) => {
+                      const meta = NOTIF_META[n.type] || NOTIF_META.status_change;
+                      const NIcon = meta.icon;
+                      return (
+                        <button
+                          key={n.id}
+                          onClick={() => markRead(n.id)}
+                          className={`w-full flex items-start gap-3 px-4 py-3 transition-colors text-left border-b last:border-0 ${borderColor} ${
+                            !n.read
+                              ? darkMode ? "bg-blue-900/10 hover:bg-blue-900/20" : "bg-blue-50/40 hover:bg-blue-50"
+                              : darkMode ? "hover:bg-white/5" : "hover:bg-slate-50"
+                          }`}
+                        >
+                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 ${meta.color}`}>
+                            <NIcon className="w-3.5 h-3.5" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-xs leading-snug ${!n.read ? projNameText + " font-medium" : subText}`}>{n.text}</p>
+                            <p className={`text-xs mt-0.5 ${subText}`}>{relativeTime(n.timestamp)}</p>
+                          </div>
+                          {!n.read && <span className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-1.5" />}
+                        </button>
+                      );
+                    })}
                   </div>
                   <div className={`px-4 py-2.5 border-t ${borderColor}`}>
                     <button className="text-xs text-blue-500 hover:text-blue-400 font-medium w-full text-center">View all notifications</button>
