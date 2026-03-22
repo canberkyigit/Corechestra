@@ -53,49 +53,54 @@ function HorizontalBar({ label, value, max, color, count }) {
   );
 }
 
-// Simulated burndown: starts at total story points, burns down daily over sprint length
-function BurndownChart({ tasks, sprint }) {
-  const totalPoints = tasks.reduce((s, t) => s + (t.storyPoint || 0), 0);
-  const donePoints = tasks.filter((t) => t.status === "done").reduce((s, t) => s + (t.storyPoint || 0), 0);
+/// Burndown chart: uses real daily snapshots if available, falls back to simulated
+function BurndownChart({ tasks, sprint, burndownSnapshots = [] }) {
+  const totalPoints = tasks.reduce((s, t) => s + (Number(t.storyPoint) || 0), 0);
+  const remaining = tasks.filter((t) => t.status !== "done").reduce((s, t) => s + (Number(t.storyPoint) || 0), 0);
   const sprintDays = 14;
-
-  // Generate ideal line + simulated actual
-  const days = Array.from({ length: sprintDays + 1 }, (_, i) => i);
-  const idealLine = days.map((d) => totalPoints - (totalPoints / sprintDays) * d);
-
-  // Simulated actual: follows ideal with some noise, ends at remaining
-  const remaining = totalPoints - donePoints;
-  const actualLine = days.map((d) => {
-    if (d === 0) return totalPoints;
-    if (d >= sprintDays) return remaining;
-    const ideal = totalPoints - (totalPoints / sprintDays) * d;
-    const noise = (Math.sin(d * 1.7) * totalPoints * 0.06);
-    const val = ideal + noise + (remaining - 0) * (d / sprintDays) * 0.3;
-    return Math.max(0, Math.round(val));
-  });
 
   const chartH = 120;
   const chartW = 320;
-  const maxVal = totalPoints || 1;
 
-  const toX = (d) => (d / sprintDays) * chartW;
+  const days = Array.from({ length: sprintDays + 1 }, (_, i) => i);
+  const idealLine = days.map((d) => totalPoints - (totalPoints / sprintDays) * d);
+
+  const hasSnapshots = burndownSnapshots.length >= 2;
+  let actualPoints = [];
+  if (hasSnapshots) {
+    const sorted = [...burndownSnapshots].sort((a, b) => a.date.localeCompare(b.date)).slice(-sprintDays);
+    actualPoints = sorted.map((s, i) => ({ x: i, y: s.remaining }));
+  } else {
+    actualPoints = days.map((d) => {
+      if (d === 0) return { x: d, y: totalPoints };
+      if (d >= sprintDays) return { x: d, y: remaining };
+      const ideal = totalPoints - (totalPoints / sprintDays) * d;
+      const noise = (Math.sin(d * 1.7) * totalPoints * 0.06);
+      const val = ideal + noise + (remaining - 0) * (d / sprintDays) * 0.3;
+      return { x: d, y: Math.max(0, Math.round(val)) };
+    });
+  }
+
+  const maxVal = Math.max(totalPoints, ...actualPoints.map((p) => p.y), 1);
+  const xRange = hasSnapshots ? (actualPoints.length - 1 || 1) : sprintDays;
+  const toX = (d) => (d / xRange) * chartW;
   const toY = (v) => chartH - (v / maxVal) * chartH;
 
-  const idealPath = days.map((d, i) => `${i === 0 ? "M" : "L"}${toX(d)},${toY(idealLine[d])}`).join(" ");
-  const actualPath = days.map((d, i) => `${i === 0 ? "M" : "L"}${toX(d)},${toY(actualLine[d])}`).join(" ");
+  const idealPath = days.map((d, i) => `${i === 0 ? "M" : "L"}${(d / sprintDays) * chartW},${toY(idealLine[d])}`).join(" ");
+  const actualPath = actualPoints.map((p, i) => `${i === 0 ? "M" : "L"}${toX(p.x)},${toY(p.y)}`).join(" ");
 
   return (
     <div>
       <svg width={chartW} height={chartH} className="w-full" viewBox={`0 0 ${chartW} ${chartH}`}>
-        {/* Grid lines */}
         {[0, 0.25, 0.5, 0.75, 1].map((p) => (
           <line key={p} x1={0} y1={toY(maxVal * p)} x2={chartW} y2={toY(maxVal * p)}
             stroke="currentColor" strokeOpacity={0.08} strokeWidth={1} />
         ))}
-        {/* Ideal */}
         <path d={idealPath} fill="none" stroke="#94a3b8" strokeWidth={1.5} strokeDasharray="4,3" />
-        {/* Actual */}
         <path d={actualPath} fill="none" stroke="#3b82f6" strokeWidth={2} />
+        {hasSnapshots && actualPoints.map((p, i) => (
+          <circle key={i} cx={toX(p.x)} cy={toY(p.y)} r={2.5} fill="#3b82f6" />
+        ))}
       </svg>
       <div className="flex items-center gap-4 mt-2 text-xs text-slate-500 dark:text-slate-400">
         <span className="flex items-center gap-1.5">
@@ -104,7 +109,7 @@ function BurndownChart({ tasks, sprint }) {
         </span>
         <span className="flex items-center gap-1.5">
           <span className="w-6 border-t-2 border-blue-500" />
-          Actual
+          {hasSnapshots ? "Actual (real data)" : "Actual (simulated)"}
         </span>
         <span className="ml-auto">{remaining} pts remaining</span>
       </div>
@@ -153,7 +158,7 @@ function VelocityChart({ completedPoints }) {
 }
 
 export default function ReportsPage() {
-  const { activeTasks, backlogSections, epics, sprint, currentProjectId } = useApp();
+  const { activeTasks, backlogSections, epics, sprint, currentProjectId, burndownSnapshots } = useApp();
   const [activeTab, setActiveTab] = useState("overview");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo]     = useState("");
@@ -374,7 +379,7 @@ export default function ReportsPage() {
               <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Burndown Chart</h3>
               <span className="text-xs text-slate-400 dark:text-slate-500">{sprint?.name || "Current Sprint"}</span>
             </div>
-            <BurndownChart tasks={projectTasks} sprint={sprint} />
+            <BurndownChart tasks={projectTasks} sprint={sprint} burndownSnapshots={burndownSnapshots} />
           </div>
 
           <div className="grid grid-cols-3 gap-4">

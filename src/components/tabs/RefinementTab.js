@@ -338,29 +338,99 @@ export default function RefinementTab({ onTaskClick, onPokerClick }) {
       {/* ── Poker history ── */}
       {pokerHistory.length > 0 && (
         <div className="bg-white dark:bg-[#1c2030] rounded-xl border border-slate-200 dark:border-[#2a3044] p-5">
-          <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-3">
+          <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-4">
             Poker History
           </h3>
-          <div className="space-y-1.5">
-            {pokerHistory.slice(0, 10).map((h) => (
-              <div
-                key={h.id}
-                className="flex items-center gap-4 px-3 py-2 rounded-lg bg-slate-50 dark:bg-[#232838] border border-slate-100 dark:border-[#2a3044]"
-              >
-                <span className="text-[10px] text-slate-400 flex-shrink-0">
-                  {new Date(h.date).toLocaleDateString("tr-TR")}
-                </span>
-                <span className="font-medium text-slate-700 dark:text-slate-200 text-sm flex-1 truncate">
-                  {h.taskTitle}
-                </span>
-                <span className="text-xs text-slate-400 flex-shrink-0">
-                  {Object.keys(h.votes || {}).length} votes
-                </span>
-                <span className="px-2 py-0.5 rounded-md bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 font-bold text-sm flex-shrink-0">
-                  {h.estimation}
-                </span>
+
+          {/* Summary stats */}
+          {(() => {
+            const numericEstimations = pokerHistory.map((h) => Number(h.estimation)).filter((n) => !isNaN(n));
+            const avg = numericEstimations.length > 0 ? (numericEstimations.reduce((a, b) => a + b, 0) / numericEstimations.length).toFixed(1) : "–";
+            const countMap = {};
+            numericEstimations.forEach((n) => { countMap[n] = (countMap[n] || 0) + 1; });
+            const mostCommon = Object.entries(countMap).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "–";
+            const withConsensus = pokerHistory.filter((h) => {
+              const vals = Object.values(h.votes || {});
+              return vals.length > 0 && new Set(vals).size === 1;
+            }).length;
+            return (
+              <div className="grid grid-cols-3 gap-3 mb-4">
+                {[
+                  { label: "Sessions", value: pokerHistory.length, color: "text-violet-600 dark:text-violet-400", bg: "bg-violet-50 dark:bg-violet-900/10" },
+                  { label: "Avg. Estimate", value: avg, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-900/10" },
+                  { label: "Consensus", value: `${withConsensus}/${pokerHistory.length}`, color: "text-green-600 dark:text-green-400", bg: "bg-green-50 dark:bg-green-900/10" },
+                ].map(({ label, value, color, bg }) => (
+                  <div key={label} className={`${bg} rounded-lg p-3 text-center border border-slate-100 dark:border-[#2a3044]`}>
+                    <div className={`text-xl font-bold ${color}`}>{value}</div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">{label}</div>
+                  </div>
+                ))}
               </div>
-            ))}
+            );
+          })()}
+
+          {/* Estimation distribution bar chart */}
+          {(() => {
+            const numericVals = pokerHistory.map((h) => Number(h.estimation)).filter((n) => !isNaN(n));
+            if (numericVals.length === 0) return null;
+            const countMap = {};
+            numericVals.forEach((n) => { countMap[n] = (countMap[n] || 0) + 1; });
+            const sorted = Object.entries(countMap).sort((a, b) => Number(a[0]) - Number(b[0]));
+            const maxCount = Math.max(...sorted.map(([, c]) => c));
+            return (
+              <div className="mb-4 p-3 bg-slate-50 dark:bg-[#232838] rounded-lg border border-slate-100 dark:border-[#2a3044]">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-3">Estimation Distribution</p>
+                <div className="flex items-end gap-2 h-16">
+                  {sorted.map(([val, count]) => (
+                    <div key={val} className="flex flex-col items-center gap-1 flex-1">
+                      <div className="w-full rounded-t-sm bg-violet-400 dark:bg-violet-500 transition-all" style={{ height: `${(count / maxCount) * 48}px` }} />
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">{val}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+
+          <div className="space-y-1.5">
+            {pokerHistory.slice(0, 10).map((h) => {
+              const voteValues = Object.values(h.votes || {});
+              const unique = [...new Set(voteValues)];
+              const hasConsensus = unique.length === 1 && voteValues.length > 0;
+              const countMap = {};
+              voteValues.forEach((v) => { countMap[v] = (countMap[v] || 0) + 1; });
+              return (
+                <div
+                  key={h.id}
+                  className="px-3 py-2.5 rounded-lg bg-slate-50 dark:bg-[#232838] border border-slate-100 dark:border-[#2a3044]"
+                >
+                  <div className="flex items-center gap-3 mb-1.5">
+                    <span className="text-[10px] text-slate-400 flex-shrink-0">
+                      {new Date(h.date).toLocaleDateString("tr-TR")}
+                    </span>
+                    <span className="font-medium text-slate-700 dark:text-slate-200 text-xs flex-1 truncate">
+                      {h.taskTitle}
+                    </span>
+                    {hasConsensus && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400 flex-shrink-0">consensus</span>
+                    )}
+                    <span className="px-2 py-0.5 rounded-md bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 font-bold text-sm flex-shrink-0">
+                      {h.estimation}
+                    </span>
+                  </div>
+                  {voteValues.length > 0 && (
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {Object.entries(h.votes || {}).map(([voter, vote]) => (
+                        <span key={voter} className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-white dark:bg-[#1c2030] border border-slate-200 dark:border-[#2a3044] text-slate-600 dark:text-slate-300">
+                          <span className="capitalize">{voter}</span>
+                          <span className="font-bold text-violet-500">{vote}</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

@@ -1,12 +1,106 @@
 import { PRIORITY_STYLES } from "../constants";
 
-export function generateSubtasks(title, min = 3, max = 5) {
-  const count = Math.floor(Math.random() * (max - min + 1)) + min;
-  return Array.from({ length: count }, (_, i) => ({
-    id: `${title.replace(/\s+/g, "_").toLowerCase()}_sub_${i + 1}`,
-    title: `Subtask ${i + 1}`,
-    done: Math.random() < 0.5,
-  }));
+const SUBTASK_TEMPLATES = {
+  bug: [
+    "Reproduce the issue in local environment",
+    "Identify and document root cause",
+    "Write a failing test to capture the bug",
+    "Implement the fix",
+    "Verify fix in staging environment",
+  ],
+  defect: [
+    "Reproduce the issue in local environment",
+    "Identify and document root cause",
+    "Write a failing test to capture the defect",
+    "Implement the fix",
+    "Verify fix in staging environment",
+  ],
+  feature: [
+    "Define acceptance criteria",
+    "Design UI/UX mockup",
+    "Implement backend changes",
+    "Build frontend component",
+    "Write integration tests",
+  ],
+  test: [
+    "Define test scenarios and scope",
+    "Set up test environment",
+    "Write test cases",
+    "Execute tests",
+    "Document and report results",
+  ],
+  testset: [
+    "Identify test scope and coverage",
+    "Create test data",
+    "Write automated test scripts",
+    "Run the full test suite",
+    "Analyze and report results",
+  ],
+  testexecution: [
+    "Prepare test environment",
+    "Execute smoke tests",
+    "Run regression suite",
+    "Log defects found",
+    "Sign off on results",
+  ],
+  investigation: [
+    "Gather requirements and context",
+    "Analyze existing system behavior",
+    "Identify bottlenecks and issues",
+    "Document findings",
+    "Propose recommended solutions",
+  ],
+  epic: [
+    "Break down into user stories",
+    "Define MVP scope",
+    "Set up project structure",
+    "Coordinate with stakeholders",
+    "Track delivery progress",
+  ],
+  userstory: [
+    "Define acceptance criteria",
+    "Create wireframes",
+    "Implement the feature",
+    "Write tests",
+    "Demo to stakeholders",
+  ],
+  precondition: [
+    "Identify prerequisites",
+    "Document required conditions",
+    "Validate environment setup",
+    "Run prerequisite checks",
+    "Confirm readiness",
+  ],
+  task: [
+    "Research and plan approach",
+    "Design the solution",
+    "Implement changes",
+    "Review and test",
+    "Deploy and monitor",
+  ],
+};
+
+const SUBTASK_PRIORITIES = ["high", "medium", "medium", "low", "low"];
+const SUBTASK_STORY_POINTS = [3, 2, 2, 1, 1];
+
+export function generateSubtasks(title, type = "task", min = 3, max = 5) {
+  const templates = SUBTASK_TEMPLATES[type] || SUBTASK_TEMPLATES.task;
+  const count = Math.min(templates.length, Math.floor(Math.random() * (max - min + 1)) + min);
+  const doneCount = Math.floor(count * 0.4);
+  return templates.slice(0, count).map((subTitle, i) => {
+    const done = i < doneCount;
+    return {
+      id: `${title.replace(/\s+/g, "_").toLowerCase()}_sub_${i + 1}`,
+      title: subTitle,
+      done,
+      status: done ? "done" : i === doneCount ? "inprogress" : "todo",
+      priority: SUBTASK_PRIORITIES[i] || "medium",
+      storyPoint: SUBTASK_STORY_POINTS[i] || 1,
+      assignedTo: "unassigned",
+      description: "",
+      type: "task",
+    };
+  });
 }
 
 export function getPriorityColor(priority) {

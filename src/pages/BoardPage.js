@@ -7,6 +7,7 @@ import SprintModal from "../components/SprintModal";
 import BacklogTab from "../components/tabs/BacklogTab";
 import RefinementTab from "../components/tabs/RefinementTab";
 import RetrospectiveTab from "../components/tabs/RetrospectiveTab";
+import PlanningTab from "../components/tabs/PlanningTab";
 import BoardSettingsTab from "../components/tabs/BoardSettingsTab";
 import EpicsTab from "../components/tabs/EpicsTab";
 import SprintReviewTab from "../components/tabs/SprintReviewTab";
@@ -27,6 +28,7 @@ const TABS = [
   { id: "refinement", label: "Refinement" },
   { id: "review", label: "Sprint Review" },
   { id: "retrospective", label: "Retrospective" },
+  { id: "planning", label: "Planning" },
   { id: "settings", label: "Board Settings" },
 ];
 
@@ -640,6 +642,7 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
         )}
         {activeTab === "review" && <SprintReviewTab onTaskClick={handleTaskClick} />}
         {activeTab === "retrospective" && <RetrospectiveTab />}
+        {activeTab === "planning" && <PlanningTab />}
         {activeTab === "settings" && <BoardSettingsTab />}
       </div>
 

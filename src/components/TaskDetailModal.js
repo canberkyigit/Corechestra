@@ -10,6 +10,7 @@ import {
 import { useApp } from "../context/AppContext";
 import { useToast } from "../context/ToastContext";
 import CommentSection from "./CommentSection";
+import SubtaskDetailPanel from "./SubtaskDetailPanel";
 import { format, parseISO } from "date-fns";
 
 const LINK_RELATIONSHIPS = [
@@ -49,7 +50,7 @@ const PRIORITY_OPTIONS = [
 const ASSIGNEE_LIST = ["alice", "bob", "carol", "dave", "unassigned"];
 
 function FieldLabel({ children }) {
-  return <div className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">{children}</div>;
+  return <div className="text-xs font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">{children}</div>;
 }
 
 function SelectField({ label, value, options, onChange, renderOption, renderValue }) {
@@ -58,17 +59,17 @@ function SelectField({ label, value, options, onChange, renderOption, renderValu
       <FieldLabel>{label}</FieldLabel>
       <Listbox value={value} onChange={onChange}>
         <div className="relative">
-          <Listbox.Button className="w-full flex items-center justify-between px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 hover:bg-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400">
+          <Listbox.Button className="w-full flex items-center justify-between px-2.5 py-1.5 bg-slate-50 dark:bg-[#232838] border border-slate-200 dark:border-[#2a3044] rounded-lg text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#2a3044] transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400">
             <span>{renderValue ? renderValue(value) : value}</span>
             <FaChevronDown className="w-3 h-3 text-slate-400" />
           </Listbox.Button>
-          <Listbox.Options className="absolute z-50 mt-1 w-full bg-white rounded-lg shadow-lg border border-slate-200 py-1 max-h-48 overflow-auto">
+          <Listbox.Options className="absolute z-50 mt-1 w-full bg-white dark:bg-[#1c2030] rounded-lg shadow-lg border border-slate-200 dark:border-[#2a3044] py-1 max-h-48 overflow-auto">
             {options.map((opt) => (
               <Listbox.Option
                 key={opt.value ?? opt}
                 value={opt.value ?? opt}
                 className={({ active, selected }) =>
-                  `flex items-center gap-2 px-3 py-1.5 text-sm cursor-pointer ${active ? "bg-blue-50 text-blue-700" : "text-slate-700"} ${selected ? "font-semibold" : ""}`
+                  `flex items-center gap-2 px-3 py-1.5 text-sm cursor-pointer ${active ? "bg-blue-50 dark:bg-blue-900/20 text-blue-700" : "text-slate-700 dark:text-slate-300"} ${selected ? "font-semibold" : ""}`
                 }
               >
                 {renderOption ? renderOption(opt) : (opt.label ?? opt)}
@@ -120,7 +121,7 @@ export default function TaskDetailModal({
   statusOptions,
   onOpenPanel,
 }) {
-  const { epics, labels, deleteTask, logActivity } = useApp();
+  const { epics, labels, deleteTask, logActivity, customFields } = useApp();
   const { addToast } = useToast();
 
   const [title, setTitle] = useState("");
@@ -138,6 +139,7 @@ export default function TaskDetailModal({
   const [watchers, setWatchers] = useState([]);
   const [subtasks, setSubtasks] = useState([]);
   const [linkedItems, setLinkedItems] = useState([]);
+  const [customFieldValues, setCustomFieldValues] = useState({});
   const [inlineSubOpen, setInlineSubOpen] = useState(false);
   const [inlineSubTitle, setInlineSubTitle] = useState("");
   const [linkSearchOpen, setLinkSearchOpen] = useState(false);
@@ -146,6 +148,7 @@ export default function TaskDetailModal({
   const [activeTab, setActiveTab] = useState("details");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [openSubtask, setOpenSubtask] = useState(null);
 
   const prevTaskId = useRef(null);
 
@@ -168,6 +171,7 @@ export default function TaskDetailModal({
     setWatchers(task.watchers || []);
     setSubtasks(task.subtasks || []);
     setLinkedItems(task.linkedItems || []);
+    setCustomFieldValues(task.customFieldValues || {});
     setInlineSubOpen(false);
     setInlineSubTitle("");
     setLinkSearchOpen(false);
@@ -219,6 +223,7 @@ export default function TaskDetailModal({
     watchers,
     subtasks,
     linkedItems,
+    customFieldValues,
     comments: task.comments || [],
   });
 
@@ -300,12 +305,24 @@ export default function TaskDetailModal({
       onClick={onClose}
     >
       <div
-        className="bg-white dark:bg-[#1c2030] rounded-2xl shadow-2xl w-full max-w-3xl mx-4 flex flex-col max-h-[90vh] overflow-hidden transition-colors animate-modal-enter"
+        className="bg-white dark:bg-[#1c2030] rounded-2xl shadow-2xl w-full max-w-3xl mx-4 flex flex-col max-h-[90vh] overflow-hidden transition-colors animate-modal-enter relative"
         onClick={(e) => e.stopPropagation()}
       >
+        <SubtaskDetailPanel
+          subtask={openSubtask}
+          parentTask={task}
+          open={!!openSubtask}
+          onClose={() => setOpenSubtask(null)}
+          onSave={(updated) => {
+            const newSubtasks = subtasks.map((s) => s.id === updated.id ? updated : s);
+            setSubtasks(newSubtasks);
+            setOpenSubtask(updated);
+            changed();
+          }}
+        />
         {/* Header */}
         <div className="flex items-center gap-3 px-5 py-3 border-b border-slate-100 dark:border-[#232838] flex-shrink-0">
-          <div className={`flex items-center justify-center w-7 h-7 rounded flex-shrink-0 ${typeInfo.color.replace("text-", "bg-").replace("500", "50").replace("600", "50")}`}>
+          <div className={`flex items-center justify-center w-7 h-7 rounded flex-shrink-0 ${typeInfo.color.replace("text-", "bg-").replace("500", "50").replace("600", "50")} dark:bg-white/10`}>
             <TypeIcon className={`w-4 h-4 ${typeInfo.color}`} />
           </div>
           {!isCreate && task?.id && (
@@ -331,14 +348,14 @@ export default function TaskDetailModal({
             )}
             {!isCreate && (
               <button
-                className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                 onClick={() => setConfirmDelete(true)}
                 title="Delete task"
               >
                 <FaTrash className="w-3.5 h-3.5" />
               </button>
             )}
-            <button className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors" onClick={onClose}>
+            <button className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#232838] rounded-lg transition-colors" onClick={onClose}>
               <FaTimes className="w-4 h-4" />
             </button>
           </div>
@@ -346,11 +363,11 @@ export default function TaskDetailModal({
 
         {/* Delete confirm */}
         {confirmDelete && (
-          <div className="bg-red-50 border-b border-red-200 px-5 py-3 flex items-center justify-between">
-            <span className="text-sm text-red-700">Delete this task permanently?</span>
+          <div className="bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800 px-5 py-3 flex items-center justify-between">
+            <span className="text-sm text-red-700 dark:text-red-400">Delete this task permanently?</span>
             <div className="flex gap-2">
               <button className="px-3 py-1 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700" onClick={handleDelete}>Delete</button>
-              <button className="px-3 py-1 text-xs text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50" onClick={() => setConfirmDelete(false)}>Cancel</button>
+              <button className="px-3 py-1 text-xs text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838]" onClick={() => setConfirmDelete(false)}>Cancel</button>
             </div>
           </div>
         )}
@@ -364,7 +381,7 @@ export default function TaskDetailModal({
               className={`px-3 py-2.5 text-sm font-medium border-b-2 transition-colors mr-1 ${
                 activeTab === tab.id
                   ? "border-blue-500 text-blue-600"
-                  : "border-transparent text-slate-500 hover:text-slate-700"
+                  : "border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
               }`}
             >
               {tab.label}
@@ -382,7 +399,7 @@ export default function TaskDetailModal({
                 <div>
                   <FieldLabel>Description</FieldLabel>
                   <textarea
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 resize-none focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-slate-400"
+                    className="w-full border border-slate-200 dark:border-[#2a3044] rounded-lg px-3 py-2 text-sm text-slate-700 dark:text-slate-300 bg-white dark:bg-[#232838] resize-none focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-slate-400"
                     rows={4}
                     placeholder="Add a description..."
                     value={description}
@@ -419,7 +436,7 @@ export default function TaskDetailModal({
                   <FieldLabel>Epic</FieldLabel>
                   <Listbox value={epicId} onChange={(v) => { setEpicId(v); changed(); }}>
                     <div className="relative">
-                      <Listbox.Button className="flex items-center gap-2 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 hover:bg-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400">
+                      <Listbox.Button className="flex items-center gap-2 px-2.5 py-1.5 bg-slate-50 dark:bg-[#232838] border border-slate-200 dark:border-[#2a3044] rounded-lg text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#2a3044] transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400">
                         {currentEpic ? (
                           <>
                             <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: currentEpic.color }} />
@@ -430,16 +447,16 @@ export default function TaskDetailModal({
                         )}
                         <FaChevronDown className="w-3 h-3 text-slate-400 ml-1" />
                       </Listbox.Button>
-                      <Listbox.Options className="absolute z-50 mt-1 bg-white rounded-lg shadow-lg border border-slate-200 py-1 max-h-40 overflow-auto min-w-40">
-                        <Listbox.Option value={null} className={({ active }) => `flex items-center gap-2 px-3 py-1.5 text-sm cursor-pointer ${active ? "bg-blue-50" : ""} text-slate-500`}>
+                      <Listbox.Options className="absolute z-50 mt-1 bg-white dark:bg-[#1c2030] rounded-lg shadow-lg border border-slate-200 dark:border-[#2a3044] py-1 max-h-40 overflow-auto min-w-40">
+                        <Listbox.Option value={null} className={({ active }) => `flex items-center gap-2 px-3 py-1.5 text-sm cursor-pointer ${active ? "bg-blue-50 dark:bg-blue-900/20" : ""} text-slate-500 dark:text-slate-400`}>
                           No Epic
                         </Listbox.Option>
                         {epics.map((e) => (
                           <Listbox.Option key={e.id} value={e.id}
-                            className={({ active }) => `flex items-center gap-2 px-3 py-1.5 text-sm cursor-pointer ${active ? "bg-blue-50" : ""}`}
+                            className={({ active }) => `flex items-center gap-2 px-3 py-1.5 text-sm cursor-pointer ${active ? "bg-blue-50 dark:bg-blue-900/20" : ""}`}
                           >
                             <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: e.color }} />
-                            <span className="text-slate-700">{e.title}</span>
+                            <span className="text-slate-700 dark:text-slate-300">{e.title}</span>
                           </Listbox.Option>
                         ))}
                       </Listbox.Options>
@@ -457,8 +474,8 @@ export default function TaskDetailModal({
                         onClick={() => toggleWatcher(name)}
                         className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs border transition-all ${
                           watchers.includes(name)
-                            ? "bg-blue-50 border-blue-300 text-blue-600"
-                            : "border-slate-200 text-slate-500 hover:border-slate-300"
+                            ? "bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400"
+                            : "border-slate-200 dark:border-[#2a3044] text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-500"
                         }`}
                       >
                         {watchers.includes(name) ? <FaEye className="w-3 h-3" /> : <FaEyeSlash className="w-3 h-3" />}
@@ -467,10 +484,156 @@ export default function TaskDetailModal({
                     ))}
                   </div>
                 </div>
+
+                {/* Inline Subtasks */}
+                <div>
+                  <div className="border border-slate-200 dark:border-[#2a3044] rounded-lg overflow-hidden">
+                    <div className="flex items-center justify-between px-3 py-2 bg-slate-50 dark:bg-[#232838] border-b border-slate-200 dark:border-[#2a3044]">
+                      <span className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wide">
+                        Subtasks {subtasks.length > 0 && `(${subtasks.length})`}
+                      </span>
+                      <button onClick={() => setInlineSubOpen(true)} className="p-0.5 rounded hover:bg-slate-200 dark:hover:bg-[#2a3044] text-slate-400 hover:text-slate-600 transition-colors">
+                        <FaPlus className="w-2.5 h-2.5" />
+                      </button>
+                    </div>
+                    {subtasks.length > 0 && (
+                      <div>
+                        {subtasks.map((sub) => (
+                          <div key={sub.id} className="flex items-center gap-2 px-3 py-2 border-b border-slate-100 dark:border-[#2a3044] last:border-0 hover:bg-slate-50 dark:hover:bg-[#232838] group">
+                            <button onClick={() => toggleSubtask(sub.id)}
+                              className={`w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center transition-colors ${sub.done ? "bg-green-500 border-green-500" : "border-slate-300 dark:border-slate-600 hover:border-green-400"}`}>
+                              {sub.done && <FaCheck className="w-2.5 h-2.5 text-white" />}
+                            </button>
+                            <button
+                              onClick={() => setOpenSubtask(sub)}
+                              className={`text-sm flex-1 truncate text-left hover:text-blue-500 dark:hover:text-blue-400 transition-colors ${sub.done ? "line-through text-slate-400" : "text-slate-700 dark:text-slate-300"}`}
+                            >{sub.title}</button>
+                            <button className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition-all"
+                              onClick={() => { setSubtasks((p) => p.filter((s) => s.id !== sub.id)); changed(); }}>
+                              <FaTimes className="w-2.5 h-2.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {inlineSubOpen ? (
+                      <div className="flex gap-2 p-2 border-t border-slate-100 dark:border-[#2a3044]">
+                        <input autoFocus
+                          className="flex-1 text-sm border border-blue-300 dark:border-blue-500 rounded px-2 py-1 bg-white dark:bg-[#232838] text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-400 placeholder-slate-400"
+                          placeholder="Subtask title..."
+                          value={inlineSubTitle} onChange={(e) => setInlineSubTitle(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") addInlineSub(); if (e.key === "Escape") { setInlineSubOpen(false); setInlineSubTitle(""); } }} />
+                        <button className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700" onClick={addInlineSub}>Add</button>
+                        <button className="px-2 py-1 text-slate-400 text-xs hover:text-slate-600" onClick={() => { setInlineSubOpen(false); setInlineSubTitle(""); }}>✕</button>
+                      </div>
+                    ) : (
+                      <button className="w-full text-left px-3 py-2 text-xs text-slate-400 hover:text-blue-500 hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors border-t border-slate-100 dark:border-[#2a3044]"
+                        onClick={() => setInlineSubOpen(true)}>
+                        + Add subtask
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Inline Links */}
+                <div>
+                  <div className="border border-slate-200 dark:border-[#2a3044] rounded-lg overflow-hidden">
+                    <div className="flex items-center justify-between px-3 py-2 bg-slate-50 dark:bg-[#232838] border-b border-slate-200 dark:border-[#2a3044]">
+                      <div className="flex items-center gap-1.5">
+                        <FaLink className="w-3 h-3 text-slate-400" />
+                        <span className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wide">Links</span>
+                        {linkedItems.length > 0 && <span className="text-xs text-slate-400 bg-slate-200 dark:bg-[#2a3044] px-1.5 rounded-full">{linkedItems.length}</span>}
+                      </div>
+                      <button onClick={() => setLinkSearchOpen((p) => !p)} className="p-0.5 rounded hover:bg-slate-200 dark:hover:bg-[#2a3044] text-slate-400 hover:text-slate-600 transition-colors">
+                        <FaPlus className="w-2.5 h-2.5" />
+                      </button>
+                    </div>
+                    {linkSearchOpen && (
+                      <div className="p-2.5 border-b border-slate-100 dark:border-[#2a3044] bg-blue-50/30 dark:bg-blue-900/10 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-slate-500 flex-shrink-0">Link type:</span>
+                          <select className="flex-1 text-xs border border-slate-200 dark:border-[#2a3044] rounded px-2 py-1 bg-white dark:bg-[#232838] text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                            value={linkRelationship} onChange={(e) => setLinkRelationship(e.target.value)}>
+                            {LINK_RELATIONSHIPS.map((r) => <option key={r} value={r}>{r}</option>)}
+                          </select>
+                        </div>
+                        <div className="relative">
+                          <FaSearch className="absolute left-2 top-1/2 -translate-y-1/2 w-2.5 h-2.5 text-slate-400" />
+                          <input autoFocus
+                            className="w-full pl-6 pr-2 py-1.5 text-xs border border-slate-200 dark:border-[#2a3044] rounded-lg bg-white dark:bg-[#232838] text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-400 placeholder-slate-400"
+                            placeholder="Search tasks by name or CY-..."
+                            value={linkSearch} onChange={(e) => setLinkSearch(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === "Escape") { setLinkSearchOpen(false); setLinkSearch(""); } }} />
+                        </div>
+                        {linkSearchResults.length > 0 && (
+                          <div className="border border-slate-200 dark:border-[#2a3044] rounded-lg bg-white dark:bg-[#1c2030] divide-y divide-slate-100 dark:divide-[#2a3044] max-h-32 overflow-y-auto">
+                            {linkSearchResults.map((t) => {
+                              const tInfo = TYPE_OPTIONS.find((o) => o.value === t.type) || TYPE_OPTIONS[0];
+                              const TIcon = tInfo.icon;
+                              return (
+                                <button key={t.id} className="w-full flex items-center gap-2 px-3 py-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-left transition-colors"
+                                  onClick={() => handleAddLink(t.id)}>
+                                  <TIcon className={`w-3 h-3 flex-shrink-0 ${tInfo.color}`} />
+                                  <span className="text-xs font-mono text-slate-400 flex-shrink-0">CY-{t.id}</span>
+                                  <span className="text-xs text-slate-700 dark:text-slate-300 flex-1 truncate">{t.title}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                        <button className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                          onClick={() => { setLinkSearchOpen(false); setLinkSearch(""); }}>Cancel</button>
+                      </div>
+                    )}
+                    {Object.keys(linkedByRelationship).length > 0 ? (
+                      <div>
+                        {Object.entries(linkedByRelationship).map(([rel, items]) => (
+                          <div key={rel}>
+                            <div className="px-3 py-1.5 text-xs text-slate-400 italic border-b border-slate-50 dark:border-[#2a3044] bg-slate-50/50 dark:bg-[#1a1f2e]/30">{rel}</div>
+                            {items.map(({ id: linkId, linkedTask }) => {
+                              const ltInfo = TYPE_OPTIONS.find((o) => o.value === linkedTask.type) || TYPE_OPTIONS[0];
+                              const LTIcon = ltInfo.icon;
+                              return (
+                                <div key={linkId} className="flex items-center gap-2 px-3 py-2 border-b border-slate-50 dark:border-[#2a3044] last:border-0 hover:bg-slate-50 dark:hover:bg-[#232838] group">
+                                  <LTIcon className={`w-3.5 h-3.5 flex-shrink-0 ${ltInfo.color}`} />
+                                  <span className="text-xs font-mono text-slate-400 flex-shrink-0">CY-{linkedTask.id}</span>
+                                  <span className="text-sm text-slate-700 dark:text-slate-300 flex-1 truncate">{linkedTask.title}</span>
+                                  <button className="opacity-0 group-hover:opacity-100 p-0.5 text-slate-300 hover:text-red-500 transition-all" onClick={() => handleRemoveLink(linkId)}>
+                                    <FaTimes className="w-2.5 h-2.5" />
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      !linkSearchOpen && (
+                        <button className="w-full text-left px-3 py-2 text-xs text-slate-400 hover:text-blue-500 hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors border-t border-slate-100 dark:border-[#2a3044]"
+                          onClick={() => setLinkSearchOpen(true)}>
+                          + Link a related task
+                        </button>
+                      )
+                    )}
+                  </div>
+                </div>
+
+                {/* Inline Comments */}
+                <div>
+                  <FieldLabel>Comments</FieldLabel>
+                  <CommentSection
+                    key={task.id}
+                    savedComments={task.comments || []}
+                    allTasks={allTasks}
+                    taskTitle={task.title}
+                    taskId={task.id}
+                    onUpdate={(newComments) => onTaskUpdate?.({ ...buildUpdated(), comments: newComments })}
+                  />
+                </div>
               </div>
 
               {/* Sidebar */}
-              <div className="w-52 flex-shrink-0 border-l border-slate-100 p-4 space-y-4">
+              <div className="w-52 flex-shrink-0 border-l border-slate-100 dark:border-[#232838] p-4 space-y-4">
                 <SelectField
                   label="Status"
                   value={status}
@@ -522,7 +685,7 @@ export default function TaskDetailModal({
                   <FieldLabel>Due Date</FieldLabel>
                   <input
                     type="date"
-                    className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-slate-50"
+                    className="w-full border border-slate-200 dark:border-[#2a3044] rounded-lg px-2.5 py-1.5 text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-slate-50 dark:bg-[#232838]"
                     value={dueDate}
                     onChange={(e) => { setDueDate(e.target.value); changed(); }}
                   />
@@ -533,12 +696,63 @@ export default function TaskDetailModal({
                   <input
                     type="number"
                     min="0"
-                    className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-slate-50"
+                    className="w-full border border-slate-200 dark:border-[#2a3044] rounded-lg px-2.5 py-1.5 text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-slate-50 dark:bg-[#232838]"
                     placeholder="0"
                     value={storyPoint}
                     onChange={(e) => { setStoryPoint(e.target.value); changed(); }}
                   />
                 </div>
+
+                {customFields && customFields.length > 0 && (
+                  <div className="border-t border-slate-100 dark:border-[#232838] pt-3 space-y-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">Custom Fields</p>
+                    {customFields.map((cf) => (
+                      <div key={cf.id}>
+                        <FieldLabel>{cf.name}</FieldLabel>
+                        {cf.type === "dropdown" ? (
+                          <select
+                            className="w-full border border-slate-200 dark:border-[#2a3044] rounded-lg px-2.5 py-1.5 text-sm text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-[#232838] focus:outline-none focus:ring-2 focus:ring-blue-400"
+                            value={customFieldValues[cf.id] || ""}
+                            onChange={(e) => { setCustomFieldValues((p) => ({ ...p, [cf.id]: e.target.value })); changed(); }}
+                          >
+                            <option value="">— Select —</option>
+                            {(cf.options || []).map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+                          </select>
+                        ) : cf.type === "url" ? (
+                          <input
+                            type="url"
+                            className="w-full border border-slate-200 dark:border-[#2a3044] rounded-lg px-2.5 py-1.5 text-sm text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-[#232838] focus:outline-none focus:ring-2 focus:ring-blue-400"
+                            placeholder="https://..."
+                            value={customFieldValues[cf.id] || ""}
+                            onChange={(e) => { setCustomFieldValues((p) => ({ ...p, [cf.id]: e.target.value })); changed(); }}
+                          />
+                        ) : cf.type === "number" ? (
+                          <input
+                            type="number"
+                            className="w-full border border-slate-200 dark:border-[#2a3044] rounded-lg px-2.5 py-1.5 text-sm text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-[#232838] focus:outline-none focus:ring-2 focus:ring-blue-400"
+                            value={customFieldValues[cf.id] || ""}
+                            onChange={(e) => { setCustomFieldValues((p) => ({ ...p, [cf.id]: e.target.value })); changed(); }}
+                          />
+                        ) : cf.type === "date" ? (
+                          <input
+                            type="date"
+                            className="w-full border border-slate-200 dark:border-[#2a3044] rounded-lg px-2.5 py-1.5 text-sm text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-[#232838] focus:outline-none focus:ring-2 focus:ring-blue-400"
+                            value={customFieldValues[cf.id] || ""}
+                            onChange={(e) => { setCustomFieldValues((p) => ({ ...p, [cf.id]: e.target.value })); changed(); }}
+                          />
+                        ) : (
+                          <input
+                            type="text"
+                            className="w-full border border-slate-200 dark:border-[#2a3044] rounded-lg px-2.5 py-1.5 text-sm text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-[#232838] focus:outline-none focus:ring-2 focus:ring-blue-400"
+                            placeholder={cf.description || ""}
+                            value={customFieldValues[cf.id] || ""}
+                            onChange={(e) => { setCustomFieldValues((p) => ({ ...p, [cf.id]: e.target.value })); changed(); }}
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 {isCreate && sprintOptions.length > 0 && (
                   <div>
@@ -609,7 +823,10 @@ export default function TaskDetailModal({
                           className={`w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center transition-colors ${sub.done ? "bg-green-500 border-green-500" : "border-slate-300 dark:border-slate-600 hover:border-green-400"}`}>
                           {sub.done && <FaCheck className="w-2.5 h-2.5 text-white" />}
                         </button>
-                        <span className={`text-sm truncate ${sub.done ? "line-through text-slate-400" : "text-slate-700 dark:text-slate-300"}`}>{sub.title}</span>
+                        <button
+                          onClick={() => setOpenSubtask(sub)}
+                          className={`text-sm truncate text-left hover:text-blue-500 dark:hover:text-blue-400 transition-colors ${sub.done ? "line-through text-slate-400" : "text-slate-700 dark:text-slate-300"}`}
+                        >{sub.title}</button>
                       </div>
                       <select value={sub.priority || "medium"} onChange={(e) => updateSubtask(sub.id, { priority: e.target.value })}
                         className="w-full text-xs font-semibold bg-transparent border-0 focus:outline-none cursor-pointer appearance-none text-center"
@@ -757,6 +974,8 @@ export default function TaskDetailModal({
                 key={task.id}
                 savedComments={task.comments || []}
                 allTasks={allTasks}
+                taskTitle={task.title}
+                taskId={task.id}
                 onUpdate={(newComments) => onTaskUpdate?.({ ...buildUpdated(), comments: newComments })}
               />
             </div>
