@@ -1,9 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Listbox } from "@headlessui/react";
 import {
-  FaTimes, FaTrash, FaCheck, FaPlus, FaChevronDown,
-  FaBug, FaExclamationCircle, FaUser, FaSearch, FaCheckSquare,
-  FaPlusSquare, FaRocket, FaFlag, FaPlay, FaRegDotCircle,
+  FaTimes, FaTrash, FaCheck, FaPlus, FaChevronDown, FaSearch,
   FaEye, FaEyeSlash, FaClock, FaTag, FaLink,
   FaComment, FaCompress,
 } from "react-icons/fa";
@@ -12,42 +10,13 @@ import { useToast } from "../context/ToastContext";
 import CommentSection from "./CommentSection";
 import SubtaskDetailPanel from "./SubtaskDetailPanel";
 import { format, parseISO } from "date-fns";
+import {
+  TYPE_OPTIONS, STATUS_OPTIONS, PRIORITY_OPTIONS, ASSIGNEE_LIST,
+} from "../constants/taskOptions";
 
 const LINK_RELATIONSHIPS = [
   "relates to", "blocks", "is blocked by", "duplicates", "is duplicated by", "clones", "is cloned by",
 ];
-
-const TYPE_OPTIONS = [
-  { value: "task", label: "Task", icon: FaCheckSquare, color: "text-green-500" },
-  { value: "bug", label: "Bug", icon: FaBug, color: "text-red-500" },
-  { value: "feature", label: "Feature", icon: FaPlusSquare, color: "text-cyan-500" },
-  { value: "defect", label: "Defect", icon: FaExclamationCircle, color: "text-orange-500" },
-  { value: "userstory", label: "User Story", icon: FaUser, color: "text-blue-500" },
-  { value: "investigation", label: "Investigation", icon: FaSearch, color: "text-purple-500" },
-  { value: "epic", label: "Epic", icon: FaRocket, color: "text-violet-500" },
-  { value: "test", label: "Test", icon: FaSearch, color: "text-teal-500" },
-  { value: "testset", label: "Test Set", icon: FaFlag, color: "text-indigo-500" },
-  { value: "testexecution", label: "Test Execution", icon: FaPlay, color: "text-lime-600" },
-  { value: "precondition", label: "Precondition", icon: FaRegDotCircle, color: "text-sky-500" },
-];
-
-const STATUS_OPTIONS = [
-  { value: "todo", label: "To Do" },
-  { value: "inprogress", label: "In Progress" },
-  { value: "review", label: "Review" },
-  { value: "awaiting", label: "Awaiting Customer" },
-  { value: "blocked", label: "Blocked" },
-  { value: "done", label: "Done" },
-];
-
-const PRIORITY_OPTIONS = [
-  { value: "critical", label: "Critical", color: "text-red-600" },
-  { value: "high", label: "High", color: "text-orange-500" },
-  { value: "medium", label: "Medium", color: "text-yellow-500" },
-  { value: "low", label: "Low", color: "text-green-500" },
-];
-
-const ASSIGNEE_LIST = ["alice", "bob", "carol", "dave", "unassigned"];
 
 function FieldLabel({ children }) {
   return <div className="text-xs font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">{children}</div>;
@@ -118,7 +87,6 @@ export default function TaskDetailModal({
   sprintOptions = [],
   selectedSprint,
   setSelectedSprint,
-  statusOptions,
   onOpenPanel,
 }) {
   const { epics, labels, deleteTask, logActivity, customFields } = useApp();

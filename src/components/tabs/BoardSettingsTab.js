@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { FaCog, FaEye, FaFlag, FaHashtag, FaBars, FaTags, FaTrash, FaUserPlus, FaCheck, FaColumns, FaWindowMaximize } from "react-icons/fa";
 import { useApp } from "../../context/AppContext";
-import { COLUMNS_DATA } from "../../constants";
 
 function ToggleRow({ label, description, checked, onChange, icon: Icon, iconColor }) {
   return (
@@ -39,7 +38,7 @@ const STAT_STYLES = {
 };
 
 export default function BoardSettingsTab() {
-  const { boardSettings, updateBoardSettings, resetAllData, activeTasks, backlogSections } = useApp();
+  const { boardSettings, updateBoardSettings, resetAllData, activeTasks, backlogSections, columns } = useApp();
   const [resetConfirm, setResetConfirm] = useState(false);
   const [savedFeedback, setSavedFeedback] = useState(false);
 
@@ -177,7 +176,7 @@ export default function BoardSettingsTab() {
           <h2 className="text-lg font-bold text-slate-800 dark:text-slate-200">Board Columns</h2>
         </div>
         <div className="grid grid-cols-3 gap-3">
-          {COLUMNS_DATA.map((col) => {
+          {columns.map((col) => {
             const count = activeTasks.filter((t) => t.status === col.id).length;
             return (
               <div
@@ -190,7 +189,6 @@ export default function BoardSettingsTab() {
             );
           })}
         </div>
-        <p className="text-xs text-slate-400 dark:text-slate-500 mt-3">Column customization will be available in a future update.</p>
       </div>
 
       {/* Team */}
