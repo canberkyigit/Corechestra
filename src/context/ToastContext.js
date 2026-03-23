@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 
 const ToastContext = createContext(null);
 
@@ -46,20 +47,25 @@ const TYPE_DOT = {
 };
 
 function ToastContainer({ toasts, onRemove }) {
-  if (toasts.length === 0) return null;
   return (
     <div className="fixed bottom-5 right-5 z-[9999] flex flex-col gap-2 items-end pointer-events-none">
-      {toasts.map((t) => (
-        <div
-          key={t.id}
-          className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl border shadow-2xl text-sm font-medium pointer-events-auto cursor-pointer select-none ${TYPE_STYLES[t.type] || TYPE_STYLES.info}`}
-          style={{ animation: "toast-enter 0.22s cubic-bezier(0.16,1,0.3,1) both" }}
-          onClick={() => onRemove(t.id)}
-        >
-          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${TYPE_DOT[t.type] || TYPE_DOT.info}`} />
-          {t.message}
-        </div>
-      ))}
+      <AnimatePresence>
+        {toasts.map((t) => (
+          <motion.div
+            key={t.id}
+            layout
+            initial={{ opacity: 0, x: 80, scale: 0.95 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: 80, scale: 0.95 }}
+            transition={{ duration: 0.25 }}
+            className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl border shadow-2xl text-sm font-medium pointer-events-auto cursor-pointer select-none ${TYPE_STYLES[t.type] || TYPE_STYLES.info}`}
+            onClick={() => onRemove(t.id)}
+          >
+            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${TYPE_DOT[t.type] || TYPE_DOT.info}`} />
+            {t.message}
+          </motion.div>
+        ))}
+      </AnimatePresence>
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { motion } from "framer-motion";
 import { FaPlus, FaCheck, FaUsers, FaTasks, FaLayerGroup, FaTimes, FaTh, FaList, FaCog } from "react-icons/fa";
 import { useApp } from "../context/AppContext";
 import ProjectSettingsModal from "../components/ProjectSettingsModal";
@@ -195,7 +196,7 @@ export default function ProjectsPage({ onNavigate }) {
       {/* Grid view */}
       {viewMode === "grid" && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {projects.map((p) => {
+          {projects.map((p, i) => {
             const isActive    = p.id === currentProjectId;
             const taskCount   = activeTasks.filter((t) => (t.projectId || "proj-1") === p.id).length;
             const doneCount   = activeTasks.filter((t) => (t.projectId || "proj-1") === p.id && t.status === "done").length;
@@ -203,8 +204,11 @@ export default function ProjectsPage({ onNavigate }) {
             const description = p.description || PROJECT_DESCRIPTIONS[p.id] || "No description available.";
 
             return (
-              <button
+              <motion.button
                 key={p.id}
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: i * 0.08, ease: "easeOut" }}
                 onClick={() => handleSelect(p.id)}
                 className={`text-left p-5 rounded-xl border transition-all group ${
                   isActive
@@ -276,7 +280,7 @@ export default function ProjectsPage({ onNavigate }) {
                     {isActive ? "Viewing →" : "Switch →"}
                   </div>
                 </div>
-              </button>
+              </motion.button>
             );
           })}
         </div>

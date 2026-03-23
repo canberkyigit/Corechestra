@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Listbox } from "@headlessui/react";
 import {
   FaTimes, FaTrash, FaCheck, FaPlus, FaChevronDown, FaSearch,
@@ -86,11 +87,8 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
   const [linkRelationship,  setLinkRelationship]  = useState("relates to");
 
 
-  // Slide animation
-  const [isClosing, setIsClosing] = useState(false);
-
   // Resize
-  const [panelWidth, setPanelWidth] = useState(480);
+  const [panelWidth, setPanelWidth] = useState(580);
   const isResizingRef = useRef(false);
   const prevId = useRef(null);
 
@@ -114,16 +112,6 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
       document.removeEventListener("mouseup", handleMouseUp);
     };
   }, []);
-
-  // ── Slide-out when open becomes false ───────────────────────────────────────
-  useEffect(() => {
-    if (!open && task) {
-      setIsClosing(true);
-      const t = setTimeout(() => setIsClosing(false), 210);
-      return () => clearTimeout(t);
-    }
-    if (open) setIsClosing(false);
-  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Init state from task ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -182,8 +170,7 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
     return groups;
   }, [linkedItems, allTasks]);
 
-  if (!open && !isClosing) return null;
-  if (!task) return null;
+  const shouldRender = open && task;
 
   const changed = () => setHasChanges(true);
 
@@ -264,10 +251,27 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
 
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
-    <div
-      className={`fixed top-0 right-0 h-full z-40 bg-white dark:bg-[#1c2030] border-l border-slate-200 dark:border-[#2a3044] shadow-2xl flex flex-col overflow-hidden ${isClosing ? "animate-slide-out-right" : "animate-slide-in-right"}`}
-      style={{ width: panelWidth }}
-    >
+    <AnimatePresence>
+      {shouldRender && (
+        <motion.div
+          key="task-side-panel-backdrop"
+          className="fixed inset-0 z-40 bg-black/20"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={onClose}
+        />
+      )}
+      {shouldRender && (
+        <motion.div
+          key="task-side-panel"
+          className="fixed top-0 right-0 h-full z-40 bg-white dark:bg-[#1c2030] border-l border-slate-200 dark:border-[#2a3044] shadow-2xl flex flex-col overflow-hidden"
+          style={{ width: panelWidth }}
+          initial={{ x: "100%" }}
+          animate={{ x: 0 }}
+          exit={{ x: "100%" }}
+          transition={{ type: "spring", damping: 25, stiffness: 300 }}
+        >
       <SubtaskDetailPanel
         subtask={openSubtask}
         parentTask={task}
@@ -968,6 +972,8 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
           </button>
         </div>
       </div>
-    </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }

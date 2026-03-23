@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { motion } from "framer-motion";
 import { useApp } from "../context/AppContext";
 import { format, parseISO, isValid, differenceInDays } from "date-fns";
 import {
@@ -23,7 +24,7 @@ function StatCard({ label, value, sub, color = "blue", icon: Icon, onClick }) {
   return (
     <button
       onClick={onClick}
-      className={`${c.bg} rounded-xl p-4 flex items-center gap-4 w-full text-left transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98] ${onClick ? "cursor-pointer" : "cursor-default"}`}
+      className={`${c.bg} rounded-xl p-4 flex items-center gap-4 w-full h-full text-left transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98] ${onClick ? "cursor-pointer" : "cursor-default"}`}
     >
       <div className={`${c.iconBg} rounded-lg p-2.5 flex-shrink-0`}>
         <Icon className={`w-5 h-5 ${c.text}`} />
@@ -171,24 +172,24 @@ export default function DashboardPage() {
 
       {/* Stats grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <StatCard
-          label="Total Tasks" value={totalTasks} icon={FaFlag} color="blue"
-          onClick={() => openDrill("All Tasks", projectTasks)}
-        />
-        <StatCard
-          label="Completed" value={doneTasks} sub={`${totalTasks > 0 ? Math.round((doneTasks/totalTasks)*100) : 0}% done`}
-          icon={FaCheckCircle} color="green"
-          onClick={() => openDrill("Completed Tasks", projectTasks.filter((t) => t.status === "done"))}
-        />
-        <StatCard
-          label="In Progress" value={inProgressTasks} icon={FaHourglass} color="yellow"
-          onClick={() => openDrill("In Progress Tasks", projectTasks.filter((t) => t.status === "inprogress"))}
-        />
-        <StatCard
-          label="Blocked" value={blockedTasks} sub={overdueTasks > 0 ? `${overdueTasks} overdue` : undefined}
-          icon={FaBolt} color="red"
-          onClick={() => openDrill("Blocked Tasks", projectTasks.filter((t) => t.status === "blocked"))}
-        />
+        {[
+          { label: "Total Tasks", value: totalTasks, icon: FaFlag, color: "blue", tasks: projectTasks, title: "All Tasks" },
+          { label: "Completed", value: doneTasks, sub: `${totalTasks > 0 ? Math.round((doneTasks/totalTasks)*100) : 0}% done`, icon: FaCheckCircle, color: "green", tasks: projectTasks.filter((t) => t.status === "done"), title: "Completed Tasks" },
+          { label: "In Progress", value: inProgressTasks, icon: FaHourglass, color: "yellow", tasks: projectTasks.filter((t) => t.status === "inprogress"), title: "In Progress Tasks" },
+          { label: "Blocked", value: blockedTasks, sub: overdueTasks > 0 ? `${overdueTasks} overdue` : undefined, icon: FaBolt, color: "red", tasks: projectTasks.filter((t) => t.status === "blocked"), title: "Blocked Tasks" },
+        ].map((card, i) => (
+          <motion.div
+            key={card.label}
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: i * 0.07, ease: "easeOut" }}
+          >
+            <StatCard
+              label={card.label} value={card.value} sub={card.sub} icon={card.icon} color={card.color}
+              onClick={() => openDrill(card.title, card.tasks)}
+            />
+          </motion.div>
+        ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

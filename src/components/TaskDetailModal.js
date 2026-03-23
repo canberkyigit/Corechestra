@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Listbox } from "@headlessui/react";
 import {
   FaTimes, FaTrash, FaCheck, FaPlus, FaChevronDown, FaSearch,
@@ -170,7 +171,7 @@ export default function TaskDetailModal({
     return groups;
   }, [linkedItems, allTasks]);
 
-  if (!open || !task) return null;
+  const shouldRender = open && task;
 
   const changed = () => setHasChanges(true);
 
@@ -268,12 +269,23 @@ export default function TaskDetailModal({
   const completedSubs = subtasks.filter((s) => s.done).length;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-start justify-center pt-10 pb-4 bg-black/40 backdrop-blur-sm overflow-y-auto animate-backdrop-enter"
+    <AnimatePresence>
+      {shouldRender && (
+    <motion.div
+      key="modal-backdrop"
+      className="fixed inset-0 z-50 flex items-start justify-center pt-10 pb-4 bg-black/40 backdrop-blur-sm overflow-y-auto"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.15 }}
       onClick={onClose}
     >
-      <div
-        className="bg-white dark:bg-[#1c2030] rounded-2xl shadow-2xl w-full max-w-3xl mx-4 flex flex-col max-h-[90vh] overflow-hidden transition-colors animate-modal-enter relative"
+      <motion.div
+        className="bg-white dark:bg-[#1c2030] rounded-2xl shadow-2xl w-full max-w-3xl mx-4 flex flex-col max-h-[90vh] overflow-hidden transition-colors relative"
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        transition={{ duration: 0.2, ease: "easeOut" }}
         onClick={(e) => e.stopPropagation()}
       >
         <SubtaskDetailPanel
@@ -1043,7 +1055,9 @@ export default function TaskDetailModal({
             </button>
           </div>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
