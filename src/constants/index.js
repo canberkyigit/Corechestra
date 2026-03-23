@@ -72,11 +72,3 @@ export const PRIORITY_STYLES = {
   medium: "bg-yellow-100 text-yellow-700 border-yellow-200",
   low: "bg-green-100 text-green-700 border-green-200",
 };
-
-export const ASSIGNEE_OPTIONS = [
-  { name: "Alice", avatar: "https://ui-avatars.com/api/?name=Alice" },
-  { name: "Bob", avatar: "https://ui-avatars.com/api/?name=Bob" },
-  { name: "Carol", avatar: "https://ui-avatars.com/api/?name=Carol" },
-  { name: "Dave", avatar: "https://ui-avatars.com/api/?name=Dave" },
-  { name: "Unassigned", avatar: "https://ui-avatars.com/api/?name=Unassigned" },
-];

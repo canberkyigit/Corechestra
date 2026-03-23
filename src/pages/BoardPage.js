@@ -660,7 +660,6 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
         sprintOptions={sprintOptions}
         selectedSprint={selectedSprint}
         setSelectedSprint={setSelectedSprint}
-        statusOptions={statusOptions}
       />
 
       {/* Task Detail Modal */}
@@ -671,7 +670,6 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
         onTaskUpdate={handleTaskUpdate}
         allTasks={allTasks}
         isCreate={false}
-        statusOptions={statusOptions}
         onOpenPanel={(task) => {
           setDetailModalOpen(false);
           setSelectedTask(task);

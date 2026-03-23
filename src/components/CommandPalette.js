@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   FaSearch, FaTimes, FaCheckSquare, FaBug, FaPlusSquare, FaExclamationCircle,
   FaUser, FaRocket, FaFlag, FaPlay, FaRegDotCircle, FaColumns,
@@ -110,8 +111,6 @@ export default function CommandPalette({ open, onClose, onOpenTask, onNavigate }
     onClose();
   };
 
-  if (!open) return null;
-
   const highlight = (text) => {
     if (!query.trim()) return text;
     const parts = text.split(new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi"));
@@ -123,14 +122,24 @@ export default function CommandPalette({ open, onClose, onOpenTask, onNavigate }
   };
 
   return (
-    <div
-      className="fixed inset-0 z-[100] flex items-start justify-center pt-[12vh] px-4 bg-black/50 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-xl bg-white dark:bg-[#1c2030] rounded-2xl shadow-2xl border border-slate-200 dark:border-[#2a3044] overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          key="command-palette-backdrop"
+          className="fixed inset-0 z-[100] flex items-start justify-center pt-[12vh] px-4 bg-black/50 backdrop-blur-sm"
+          onClick={onClose}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+        >
+          <motion.div
+            className="w-full max-w-xl bg-white dark:bg-[#1c2030] rounded-2xl shadow-2xl border border-slate-200 dark:border-[#2a3044] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+            initial={{ opacity: 0, scale: 0.95, y: -20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: -20 }}
+            transition={{ duration: 0.15 }}
+          >
         {/* Search input */}
         <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-100 dark:border-[#232838]">
           <FaSearch className="w-4 h-4 text-slate-400 flex-shrink-0" />
@@ -242,7 +251,9 @@ export default function CommandPalette({ open, onClose, onOpenTask, onNavigate }
           <span className="text-[10px] text-slate-400 flex items-center gap-1"><kbd className="font-mono border border-slate-200 dark:border-[#2a3044] rounded px-1">↵</kbd> select</span>
           <span className="text-[10px] text-slate-400 flex items-center gap-1"><kbd className="font-mono border border-slate-200 dark:border-[#2a3044] rounded px-1">ESC</kbd> close</span>
         </div>
-      </div>
-    </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }

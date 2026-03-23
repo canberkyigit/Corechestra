@@ -3,7 +3,6 @@ import KanbanColumn from "./KanbanColumn";
 import { DragDropContext } from "@hello-pangea/dnd";
 import { FaLayerGroup, FaTrash, FaArrowRight, FaUserAlt, FaChevronDown, FaChevronRight } from "react-icons/fa";
 import { useApp } from "../context/AppContext";
-import { ASSIGNEE_OPTIONS } from "../constants";
 
 export default function KanbanBoard({
   filter,

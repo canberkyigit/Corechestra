@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect } from "react";
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from "react-router-dom";
+import { motion } from "framer-motion";
 import Layout from "./components/Layout";
 import BoardPage from "./pages/BoardPage";
 import DashboardPage from "./pages/DashboardPage";
@@ -33,6 +34,19 @@ const PATH_TO_PAGE = {
   "/releases":  "releases",
   "/tests":     "tests",
 };
+
+function PageTransition({ children }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -8 }}
+      transition={{ duration: 0.2, ease: "easeOut" }}
+    >
+      {children}
+    </motion.div>
+  );
+}
 
 function AppInner() {
   const navigate = useNavigate();
@@ -98,10 +112,12 @@ function AppInner() {
   }, [sprintOptions]);
 
   const boardPage = (
-    <BoardPage
-      forcedTab={forcedBoardTab}
-      onForcedTabConsumed={() => setForcedBoardTab(null)}
-    />
+    <PageTransition>
+      <BoardPage
+        forcedTab={forcedBoardTab}
+        onForcedTabConsumed={() => setForcedBoardTab(null)}
+      />
+    </PageTransition>
   );
 
   return (
@@ -120,16 +136,16 @@ function AppInner() {
         <Routes>
           <Route path="/"          element={boardPage} />
           <Route path="/board"     element={boardPage} />
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/roadmap"   element={<TimelinePage />} />
-          <Route path="/calendar"  element={<CalendarPage />} />
-          <Route path="/reports"   element={<ReportsPage />} />
-          <Route path="/profile"   element={<ProfilePage />} />
-          <Route path="/admin"     element={<AdminPage />} />
-          <Route path="/projects"  element={<ProjectsPage onNavigate={(p) => navigate(`/${p}`)} />} />
-          <Route path="/docs"      element={<DocsPage />} />
-          <Route path="/releases"  element={<ReleasesPage />} />
-          <Route path="/tests"     element={<TestsPage />} />
+          <Route path="/dashboard" element={<PageTransition><DashboardPage /></PageTransition>} />
+          <Route path="/roadmap"   element={<PageTransition><TimelinePage /></PageTransition>} />
+          <Route path="/calendar"  element={<PageTransition><CalendarPage /></PageTransition>} />
+          <Route path="/reports"   element={<PageTransition><ReportsPage /></PageTransition>} />
+          <Route path="/profile"   element={<PageTransition><ProfilePage /></PageTransition>} />
+          <Route path="/admin"     element={<PageTransition><AdminPage /></PageTransition>} />
+          <Route path="/projects"  element={<PageTransition><ProjectsPage onNavigate={(p) => navigate(`/${p}`)} /></PageTransition>} />
+          <Route path="/docs"      element={<PageTransition><DocsPage /></PageTransition>} />
+          <Route path="/releases"  element={<PageTransition><ReleasesPage /></PageTransition>} />
+          <Route path="/tests"     element={<PageTransition><TestsPage /></PageTransition>} />
           <Route path="*"          element={boardPage} />
         </Routes>
       </Layout>

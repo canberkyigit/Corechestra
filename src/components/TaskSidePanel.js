@@ -1,47 +1,17 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Listbox } from "@headlessui/react";
 import {
-  FaTimes, FaTrash, FaCheck, FaPlus, FaChevronDown,
-  FaBug, FaExclamationCircle, FaUser, FaSearch, FaCheckSquare,
-  FaPlusSquare, FaRocket, FaFlag, FaPlay, FaRegDotCircle,
+  FaTimes, FaTrash, FaCheck, FaPlus, FaChevronDown, FaSearch,
   FaEye, FaEyeSlash, FaExpand, FaLink,
 } from "react-icons/fa";
 import { useApp } from "../context/AppContext";
 import { useToast } from "../context/ToastContext";
 import CommentSection from "./CommentSection";
 import SubtaskDetailPanel from "./SubtaskDetailPanel";
-
-const TYPE_OPTIONS = [
-  { value: "task",          label: "Task",           icon: FaCheckSquare,      color: "text-green-500"  },
-  { value: "bug",           label: "Bug",            icon: FaBug,              color: "text-red-500"    },
-  { value: "feature",       label: "Feature",        icon: FaPlusSquare,       color: "text-cyan-500"   },
-  { value: "defect",        label: "Defect",         icon: FaExclamationCircle,color: "text-orange-500" },
-  { value: "userstory",     label: "User Story",     icon: FaUser,             color: "text-blue-500"   },
-  { value: "investigation", label: "Investigation",  icon: FaSearch,           color: "text-purple-500" },
-  { value: "epic",          label: "Epic",           icon: FaRocket,           color: "text-violet-500" },
-  { value: "test",          label: "Test",           icon: FaSearch,           color: "text-teal-500"   },
-  { value: "testset",       label: "Test Set",       icon: FaFlag,             color: "text-indigo-500" },
-  { value: "testexecution", label: "Test Execution", icon: FaPlay,             color: "text-lime-600"   },
-  { value: "precondition",  label: "Precondition",   icon: FaRegDotCircle,     color: "text-sky-500"    },
-];
-
-const STATUS_OPTIONS = [
-  { value: "todo",      label: "To Do"            },
-  { value: "inprogress",label: "In Progress"      },
-  { value: "review",    label: "Review"           },
-  { value: "awaiting",  label: "Awaiting Customer"},
-  { value: "blocked",   label: "Blocked"          },
-  { value: "done",      label: "Done"             },
-];
-
-const PRIORITY_OPTIONS = [
-  { value: "critical", label: "Critical", color: "text-red-600"    },
-  { value: "high",     label: "High",     color: "text-orange-500" },
-  { value: "medium",   label: "Medium",   color: "text-yellow-500" },
-  { value: "low",      label: "Low",      color: "text-green-500"  },
-];
-
-const ASSIGNEE_LIST = ["alice", "bob", "carol", "dave", "unassigned"];
+import {
+  TYPE_OPTIONS, STATUS_OPTIONS, PRIORITY_OPTIONS, ASSIGNEE_LIST,
+} from "../constants/taskOptions";
 
 const STATUS_COLORS = {
   todo:       "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300",
@@ -117,11 +87,8 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
   const [linkRelationship,  setLinkRelationship]  = useState("relates to");
 
 
-  // Slide animation
-  const [isClosing, setIsClosing] = useState(false);
-
   // Resize
-  const [panelWidth, setPanelWidth] = useState(480);
+  const [panelWidth, setPanelWidth] = useState(580);
   const isResizingRef = useRef(false);
   const prevId = useRef(null);
 
@@ -145,16 +112,6 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
       document.removeEventListener("mouseup", handleMouseUp);
     };
   }, []);
-
-  // ── Slide-out when open becomes false ───────────────────────────────────────
-  useEffect(() => {
-    if (!open && task) {
-      setIsClosing(true);
-      const t = setTimeout(() => setIsClosing(false), 210);
-      return () => clearTimeout(t);
-    }
-    if (open) setIsClosing(false);
-  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Init state from task ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -213,8 +170,7 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
     return groups;
   }, [linkedItems, allTasks]);
 
-  if (!open && !isClosing) return null;
-  if (!task) return null;
+  const shouldRender = open && task;
 
   const changed = () => setHasChanges(true);
 
@@ -295,10 +251,27 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
 
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
-    <div
-      className={`fixed top-0 right-0 h-full z-40 bg-white dark:bg-[#1c2030] border-l border-slate-200 dark:border-[#2a3044] shadow-2xl flex flex-col overflow-hidden ${isClosing ? "animate-slide-out-right" : "animate-slide-in-right"}`}
-      style={{ width: panelWidth }}
-    >
+    <AnimatePresence>
+      {shouldRender && (
+        <motion.div
+          key="task-side-panel-backdrop"
+          className="fixed inset-0 z-40 bg-black/20"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={onClose}
+        />
+      )}
+      {shouldRender && (
+        <motion.div
+          key="task-side-panel"
+          className="fixed top-0 right-0 h-full z-40 bg-white dark:bg-[#1c2030] border-l border-slate-200 dark:border-[#2a3044] shadow-2xl flex flex-col overflow-hidden"
+          style={{ width: panelWidth }}
+          initial={{ x: "100%" }}
+          animate={{ x: 0 }}
+          exit={{ x: "100%" }}
+          transition={{ type: "spring", damping: 25, stiffness: 300 }}
+        >
       <SubtaskDetailPanel
         subtask={openSubtask}
         parentTask={task}
@@ -999,6 +972,8 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
           </button>
         </div>
       </div>
-    </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }

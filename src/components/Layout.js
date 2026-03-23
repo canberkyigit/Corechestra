@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   FaBell, FaCog, FaUserCircle, FaChevronLeft, FaChevronRight,
   FaColumns, FaTachometerAlt, FaRocket, FaCalendarAlt,
@@ -235,9 +236,11 @@ export default function Layout({
     <div className={`flex h-screen overflow-hidden ${outerBg}`}>
 
       {/* ── Sidebar ─────────────────────────────────────────────────────────── */}
-      <aside className={`
-        flex-shrink-0 flex flex-col transition-all duration-200
-        ${collapsed ? "w-14" : "w-56"}
+      <motion.aside
+        animate={{ width: collapsed ? 56 : 224 }}
+        transition={{ duration: 0.2, ease: "easeInOut" }}
+        className={`
+        flex-shrink-0 flex flex-col overflow-hidden
         ${sidebarBg}
         border-r ${borderColor}
       `}>
@@ -349,7 +352,7 @@ export default function Layout({
             </div>
           )}
         </div>
-      </aside>
+      </motion.aside>
 
       {/* ── Main ────────────────────────────────────────────────────────────── */}
       <div className="flex-1 flex flex-col min-w-0">
@@ -398,8 +401,14 @@ export default function Layout({
             )}
 
             {/* Dropdown */}
+            <AnimatePresence>
             {searchOpen && (
-              <div className={`absolute top-full left-0 right-0 mt-1.5 rounded-xl border shadow-2xl z-50 overflow-hidden ${
+              <motion.div
+                initial={{ opacity: 0, y: -8, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -8, scale: 0.95 }}
+                transition={{ duration: 0.15 }}
+                className={`absolute top-full left-0 right-0 mt-1.5 rounded-xl border shadow-2xl z-50 overflow-hidden ${
                 darkMode ? "bg-[#1c2030] border-[#2a3044]" : "bg-white border-slate-200"
               }`}>
                 {searchQuery.trim() ? (
@@ -490,8 +499,9 @@ export default function Layout({
                   <span className={`text-[10px] ${subText} flex items-center gap-1`}><kbd className={`font-mono border rounded px-1 ${darkMode ? "border-[#2a3044]" : "border-slate-200"}`}>↵</kbd> select</span>
                   <span className={`text-[10px] ${subText} flex items-center gap-1`}><kbd className={`font-mono border rounded px-1 ${darkMode ? "border-[#2a3044]" : "border-slate-200"}`}>ESC</kbd> close</span>
                 </div>
-              </div>
+              </motion.div>
             )}
+            </AnimatePresence>
           </div>
 
           {/* Actions */}
@@ -510,8 +520,14 @@ export default function Layout({
                 )}
               </button>
 
+              <AnimatePresence>
               {notifOpen && (
-                <div className={`absolute right-0 top-full mt-2 w-80 rounded-xl border shadow-xl z-50 overflow-hidden ${
+                <motion.div
+                  initial={{ opacity: 0, y: -8, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -8, scale: 0.95 }}
+                  transition={{ duration: 0.15 }}
+                  className={`absolute right-0 top-full mt-2 w-80 rounded-xl border shadow-xl z-50 overflow-hidden ${
                   darkMode ? "bg-[#1c2030] border-[#252b3b]" : "bg-white border-slate-200"
                 }`}>
                   <div className={`flex items-center justify-between px-4 py-3 border-b ${borderColor}`}>
@@ -570,8 +586,9 @@ export default function Layout({
                   <div className={`px-4 py-2.5 border-t ${borderColor}`}>
                     <button className="text-xs text-blue-500 hover:text-blue-400 font-medium w-full text-center">View all notifications</button>
                   </div>
-                </div>
+                </motion.div>
               )}
+              </AnimatePresence>
             </div>
 
 
