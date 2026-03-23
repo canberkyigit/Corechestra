@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { FaCheckCircle, FaRegCircle, FaStickyNote } from "react-icons/fa";
+import { FaCheckCircle, FaRegCircle, FaStickyNote, FaHistory, FaChevronDown, FaChevronRight } from "react-icons/fa";
 import { useApp } from "../../context/AppContext";
 
 const PRI_COLOR = {
@@ -9,8 +9,61 @@ const PRI_COLOR = {
   low:      "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400",
 };
 
+function SprintHistoryCard({ sprint }) {
+  const [open, setOpen] = useState(false);
+  const completedDate = sprint.completedAt
+    ? new Date(sprint.completedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
+    : null;
+
+  return (
+    <div className="rounded-xl border border-slate-100 dark:border-[#2a3044] overflow-hidden">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center gap-3 px-4 py-3 bg-slate-50/60 dark:bg-[#161b27] hover:bg-slate-100/60 dark:hover:bg-[#1c2030] transition-colors text-left"
+      >
+        {open ? <FaChevronDown className="w-3 h-3 text-slate-400 flex-shrink-0" /> : <FaChevronRight className="w-3 h-3 text-slate-400 flex-shrink-0" />}
+        <span className="flex-1 text-sm font-semibold text-slate-700 dark:text-slate-200">{sprint.name}</span>
+        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+          sprint.completionRate >= 80 ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+          : sprint.completionRate >= 50 ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+          : "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400"
+        }`}>
+          {sprint.completionRate}%
+        </span>
+        <span className="text-xs text-slate-400 flex-shrink-0 ml-2">{completedDate}</span>
+      </button>
+
+      {open && (
+        <div className="px-4 py-3 border-t border-slate-100 dark:border-[#2a3044] bg-white dark:bg-[#1c2030]">
+          {sprint.goal && (
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-3 italic">"{sprint.goal}"</p>
+          )}
+          <div className="grid grid-cols-4 gap-2 mb-2">
+            {[
+              { label: "Total Tasks", value: sprint.totalTasks, color: "text-slate-700 dark:text-slate-200" },
+              { label: "Completed",   value: sprint.doneTasks,  color: "text-green-600 dark:text-green-400" },
+              { label: "Total SP",    value: sprint.totalPoints, color: "text-blue-600 dark:text-blue-400" },
+              { label: "Done SP",     value: sprint.completedPoints, color: "text-emerald-600 dark:text-emerald-400" },
+            ].map(({ label, value, color }) => (
+              <div key={label} className="rounded-lg border border-slate-100 dark:border-[#2a3044] bg-slate-50 dark:bg-[#232838] px-3 py-2">
+                <div className={`text-lg font-bold ${color}`}>{value}</div>
+                <div className="text-[10px] text-slate-400">{label}</div>
+              </div>
+            ))}
+          </div>
+          {(sprint.startDate || sprint.endDate) && (
+            <p className="text-[11px] text-slate-400 mt-1">
+              {sprint.startDate} → {sprint.endDate}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function SprintReviewTab({ onTaskClick }) {
-  const { activeTasks, setActiveTasks, sprint, currentProjectId } = useApp();
+  const { activeTasks, setActiveTasks, sprint, currentProjectId, completedSprints } = useApp();
   const [meetingNotes, setMeetingNotes] = useState("");
   const [editingNotes, setEditingNotes] = useState(false);
 
@@ -201,6 +254,29 @@ export default function SprintReviewTab({ onTaskClick }) {
           <p className="text-sm text-slate-600 dark:text-slate-300 whitespace-pre-wrap">{meetingNotes}</p>
         ) : (
           <p className="text-sm text-slate-400 italic">No notes yet</p>
+        )}
+      </div>
+
+      {/* Sprint History */}
+      <div className="bg-white dark:bg-[#1c2030] rounded-xl border border-slate-200 dark:border-[#2a3044] p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <FaHistory className="w-3.5 h-3.5 text-slate-400" />
+          <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Sprint History</h3>
+          {completedSprints.length > 0 && (
+            <span className="ml-1 text-xs bg-slate-100 dark:bg-[#2a3044] text-slate-500 dark:text-slate-400 px-2 py-0.5 rounded-full">
+              {completedSprints.length}
+            </span>
+          )}
+        </div>
+
+        {completedSprints.length === 0 ? (
+          <p className="text-sm text-slate-400 italic text-center py-4">No completed sprints yet. Complete a sprint to see its history here.</p>
+        ) : (
+          <div className="space-y-2">
+            {completedSprints.map((s) => (
+              <SprintHistoryCard key={s.id} sprint={s} />
+            ))}
+          </div>
         )}
       </div>
     </div>

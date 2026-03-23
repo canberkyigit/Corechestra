@@ -36,7 +36,7 @@ const TASK_STATUS_LABEL = {
   awaiting: "Awaiting", blocked: "Blocked", done: "Done",
 };
 
-const EMPTY_FORM = { version: "", name: "", status: "planned", releaseDate: "", description: "" };
+const EMPTY_FORM = { version: "", name: "", status: "planned", releaseDate: "", description: "", taskIds: [] };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -83,8 +83,13 @@ function VersionBadge({ version, status, size = "sm" }) {
 
 // ─── Release Modal ────────────────────────────────────────────────────────────
 
-function ReleaseModal({ initial, onSave, onClose }) {
-  const [form, setForm] = useState(initial || EMPTY_FORM);
+function ReleaseModal({ initial, onSave, onClose, allTasks = [] }) {
+  const [form, setForm] = useState(() => ({
+    ...EMPTY_FORM,
+    ...(initial || {}),
+    taskIds: initial?.taskIds || [],
+  }));
+  const [taskSearch, setTaskSearch] = useState("");
 
   function handleSubmit(e) {
     e.preventDefault();
@@ -96,11 +101,29 @@ function ReleaseModal({ initial, onSave, onClose }) {
     setForm((prev) => ({ ...prev, [key]: val }));
   }
 
+  function toggleTask(id) {
+    setForm((prev) => ({
+      ...prev,
+      taskIds: prev.taskIds.includes(id)
+        ? prev.taskIds.filter((t) => t !== id)
+        : [...prev.taskIds, id],
+    }));
+  }
+
+  const filteredTasks = useMemo(() => {
+    const q = taskSearch.toLowerCase();
+    return allTasks.filter((t) =>
+      !q || (t.title || "").toLowerCase().includes(q) || `cy-${t.id}`.includes(q)
+    ).slice(0, 30);
+  }, [allTasks, taskSearch]);
+
+  const selectedTasks = allTasks.filter((t) => form.taskIds.includes(t.id));
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-[#1a1f2e] border border-[#2a3044] rounded-2xl shadow-2xl w-full max-w-lg mx-4">
+      <div className="bg-[#1a1f2e] border border-[#2a3044] rounded-2xl shadow-2xl w-full max-w-2xl mx-4 flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#252b3b]">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#252b3b] flex-shrink-0">
           <h2 className="text-white font-semibold text-base flex items-center gap-2">
             <FaRocket className="text-blue-400 w-4 h-4" />
             {initial ? "Edit Release" : "New Release"}
@@ -111,66 +134,148 @@ function ReleaseModal({ initial, onSave, onClose }) {
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="px-6 py-5 flex flex-col gap-4">
-          <div className="flex gap-3">
-            <div className="flex-1">
-              <label className="block text-xs text-slate-400 mb-1.5 font-medium">Version *</label>
+        <form onSubmit={handleSubmit} className="flex flex-col overflow-hidden flex-1">
+          <div className="px-6 py-5 flex flex-col gap-4 overflow-y-auto flex-1">
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <label className="block text-xs text-slate-400 mb-1.5 font-medium">Version *</label>
+                <input
+                  type="text"
+                  value={form.version}
+                  onChange={(e) => set("version", e.target.value)}
+                  placeholder="v1.0.0"
+                  required
+                  className="w-full bg-[#232838] border border-[#2a3044] text-white placeholder-slate-500 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500/60 transition-colors"
+                />
+              </div>
+              <div className="flex-1">
+                <label className="block text-xs text-slate-400 mb-1.5 font-medium">Status</label>
+                <select
+                  value={form.status}
+                  onChange={(e) => set("status", e.target.value)}
+                  className="w-full bg-[#232838] border border-[#2a3044] text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500/60 transition-colors"
+                >
+                  <option value="planned">Planned</option>
+                  <option value="in-progress">In Progress</option>
+                  <option value="released">Released</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs text-slate-400 mb-1.5 font-medium">Release Name</label>
               <input
                 type="text"
-                value={form.version}
-                onChange={(e) => set("version", e.target.value)}
-                placeholder="v1.0.0"
-                required
+                value={form.name}
+                onChange={(e) => set("name", e.target.value)}
+                placeholder="e.g. Q1 2026 Release"
                 className="w-full bg-[#232838] border border-[#2a3044] text-white placeholder-slate-500 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500/60 transition-colors"
               />
             </div>
-            <div className="flex-1">
-              <label className="block text-xs text-slate-400 mb-1.5 font-medium">Status</label>
-              <select
-                value={form.status}
-                onChange={(e) => set("status", e.target.value)}
-                className="w-full bg-[#232838] border border-[#2a3044] text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500/60 transition-colors"
-              >
-                <option value="planned">Planned</option>
-                <option value="in-progress">In Progress</option>
-                <option value="released">Released</option>
-              </select>
+
+            <div>
+              <label className="block text-xs text-slate-400 mb-1.5 font-medium">Release Date</label>
+              <input
+                type="date"
+                value={form.releaseDate}
+                onChange={(e) => set("releaseDate", e.target.value)}
+                className="w-full bg-[#232838] border border-[#2a3044] text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500/60 transition-colors [color-scheme:dark]"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs text-slate-400 mb-1.5 font-medium">Description</label>
+              <textarea
+                value={form.description}
+                onChange={(e) => set("description", e.target.value)}
+                placeholder="Describe this release..."
+                rows={2}
+                className="w-full bg-[#232838] border border-[#2a3044] text-white placeholder-slate-500 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500/60 transition-colors resize-none"
+              />
+            </div>
+
+            {/* Task Selection */}
+            <div>
+              <label className="block text-xs text-slate-400 mb-1.5 font-medium">
+                Tasks in this release
+                {form.taskIds.length > 0 && (
+                  <span className="ml-2 px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 text-[10px] font-semibold">
+                    {form.taskIds.length} selected
+                  </span>
+                )}
+              </label>
+
+              {/* Selected tasks chips */}
+              {selectedTasks.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {selectedTasks.map((t) => (
+                    <span
+                      key={t.id}
+                      className="flex items-center gap-1 px-2 py-0.5 bg-blue-500/15 border border-blue-500/30 rounded-full text-xs text-blue-300"
+                    >
+                      <span className="font-mono text-blue-400/70">CY-{t.id}</span>
+                      <span className="max-w-[140px] truncate">{t.title}</span>
+                      <button
+                        type="button"
+                        onClick={() => toggleTask(t.id)}
+                        className="text-blue-400/60 hover:text-red-400 transition-colors ml-0.5"
+                      >
+                        <FaTimes className="w-2.5 h-2.5" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* Task search + list */}
+              <div className="bg-[#232838] border border-[#2a3044] rounded-lg overflow-hidden">
+                <div className="flex items-center gap-2 px-3 py-2 border-b border-[#2a3044]">
+                  <FaSearch className="text-slate-500 w-3 h-3 flex-shrink-0" />
+                  <input
+                    type="text"
+                    value={taskSearch}
+                    onChange={(e) => setTaskSearch(e.target.value)}
+                    placeholder="Search tasks to add..."
+                    className="flex-1 bg-transparent text-white placeholder-slate-500 text-xs focus:outline-none"
+                  />
+                </div>
+                <div className="max-h-40 overflow-y-auto">
+                  {filteredTasks.length === 0 ? (
+                    <p className="text-slate-500 text-xs text-center py-4">No tasks found</p>
+                  ) : (
+                    filteredTasks.map((t) => {
+                      const checked = form.taskIds.includes(t.id);
+                      return (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => toggleTask(t.id)}
+                          className={`w-full text-left px-3 py-2 flex items-center gap-2.5 transition-colors text-xs ${
+                            checked ? "bg-blue-500/10" : "hover:bg-[#2a3044]"
+                          }`}
+                        >
+                          <span className={`w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center transition-colors ${
+                            checked
+                              ? "bg-blue-500 border-blue-500"
+                              : "border-slate-600"
+                          }`}>
+                            {checked && <FaCheck className="w-2 h-2 text-white" />}
+                          </span>
+                          <span className="font-mono text-slate-500 flex-shrink-0">CY-{t.id}</span>
+                          <span className={`flex-1 truncate ${checked ? "text-blue-200" : "text-slate-300"}`}>{t.title}</span>
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium flex-shrink-0 ${TASK_STATUS_CHIP[t.status] || "bg-slate-600/50 text-slate-300"}`}>
+                            {TASK_STATUS_LABEL[t.status] || t.status}
+                          </span>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs text-slate-400 mb-1.5 font-medium">Release Name</label>
-            <input
-              type="text"
-              value={form.name}
-              onChange={(e) => set("name", e.target.value)}
-              placeholder="e.g. Q1 2026 Release"
-              className="w-full bg-[#232838] border border-[#2a3044] text-white placeholder-slate-500 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500/60 transition-colors"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs text-slate-400 mb-1.5 font-medium">Release Date</label>
-            <input
-              type="date"
-              value={form.releaseDate}
-              onChange={(e) => set("releaseDate", e.target.value)}
-              className="w-full bg-[#232838] border border-[#2a3044] text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500/60 transition-colors [color-scheme:dark]"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs text-slate-400 mb-1.5 font-medium">Description</label>
-            <textarea
-              value={form.description}
-              onChange={(e) => set("description", e.target.value)}
-              placeholder="Describe this release..."
-              rows={3}
-              className="w-full bg-[#232838] border border-[#2a3044] text-white placeholder-slate-500 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500/60 transition-colors resize-none"
-            />
-          </div>
-
-          <div className="flex justify-end gap-2 pt-1">
+          <div className="flex justify-end gap-2 px-6 py-4 border-t border-[#252b3b] flex-shrink-0">
             <button
               type="button"
               onClick={onClose}
@@ -771,13 +876,14 @@ export default function ReleasesPage() {
 
       {/* ── Modals ─────────────────────────────────────────────────────────── */}
       {showCreateModal && (
-        <ReleaseModal onSave={handleCreateRelease} onClose={() => setShowCreateModal(false)} />
+        <ReleaseModal onSave={handleCreateRelease} onClose={() => setShowCreateModal(false)} allTasks={allTasks} />
       )}
       {editingRelease && (
         <ReleaseModal
           initial={editingRelease}
           onSave={handleUpdateRelease}
           onClose={() => setEditingRelease(null)}
+          allTasks={allTasks}
         />
       )}
       {showTaskSearch && selected && (

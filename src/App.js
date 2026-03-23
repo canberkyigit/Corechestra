@@ -115,6 +115,7 @@ function AppInner() {
         onSettingsClick={handleSettingsClick}
         onProfileClick={handleProfileClick}
         onSearchClick={() => setCmdPaletteOpen(true)}
+        onOpenTask={(task) => { setSelectedTask(task); setSidePanelOpen(true); }}
       >
         <Routes>
           <Route path="/"          element={boardPage} />

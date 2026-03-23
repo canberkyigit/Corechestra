@@ -521,7 +521,7 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
             ))}
 
             {/* Bulk mode toggle */}
-            <button
+            {viewMode !== "kanban" && <button
               onClick={() => { setBulkMode((v) => !v); setSelectedIds(new Set()); }}
               className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-all ${
                 bulkMode ? "bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400" : "border-slate-200 dark:border-[#2a3044] text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-500"
@@ -529,7 +529,7 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
               title="Bulk select"
             >
               <FaCheck className="w-3 h-3" /> Bulk
-            </button>
+            </button>}
           </div>
 
           <div className="flex items-center gap-2">

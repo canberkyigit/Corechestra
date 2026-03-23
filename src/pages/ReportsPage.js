@@ -117,27 +117,28 @@ function BurndownChart({ tasks, sprint, burndownSnapshots = [] }) {
   );
 }
 
-// Simple bar chart for velocity (last 6 sprints — simulated)
-function VelocityChart({ completedPoints }) {
+// Bar chart for velocity using real completed sprint data
+function VelocityChart({ completedPoints, completedSprints = [] }) {
+  // Last 5 completed sprints (oldest first) + current sprint
+  const history = [...completedSprints].reverse().slice(-5);
   const sprints = [
-    { name: "S81", pts: 28 },
-    { name: "S82", pts: 34 },
-    { name: "S83", pts: 22 },
-    { name: "S84", pts: 40 },
-    { name: "S85", pts: 31 },
+    ...history.map((s) => ({ name: s.name, pts: s.completedPoints })),
     { name: "Current", pts: completedPoints },
   ];
   const maxPts = Math.max(...sprints.map((s) => s.pts), 1);
-  const avg = Math.round(sprints.slice(0, 5).reduce((s, x) => s + x.pts, 0) / 5);
+  const historyPts = history.map((s) => s.completedPoints);
+  const avg = historyPts.length > 0
+    ? Math.round(historyPts.reduce((a, b) => a + b, 0) / historyPts.length)
+    : null;
 
   return (
     <div>
       <div className="flex items-end gap-2 h-24">
         {sprints.map((s, i) => {
-          const h = Math.round((s.pts / maxPts) * 96);
+          const h = Math.max(Math.round((s.pts / maxPts) * 96), s.pts > 0 ? 4 : 0);
           const isCurrent = i === sprints.length - 1;
           return (
-            <div key={s.name} className="flex-1 flex flex-col items-center gap-1">
+            <div key={`${s.name}-${i}`} className="flex-1 flex flex-col items-center gap-1">
               <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">{s.pts}</span>
               <div
                 className="w-full rounded-t-md transition-all"
@@ -148,17 +149,23 @@ function VelocityChart({ completedPoints }) {
         })}
       </div>
       <div className="flex items-end gap-2 mt-1">
-        {sprints.map((s) => (
-          <div key={s.name} className="flex-1 text-center text-xs text-slate-400 dark:text-slate-500">{s.name}</div>
+        {sprints.map((s, i) => (
+          <div key={`label-${i}`} className="flex-1 text-center text-xs text-slate-400 dark:text-slate-500 truncate">{s.name}</div>
         ))}
       </div>
-      <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">5-sprint avg: <span className="font-semibold text-slate-600 dark:text-slate-300">{avg} pts</span></p>
+      {avg !== null ? (
+        <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">
+          {historyPts.length}-sprint avg: <span className="font-semibold text-slate-600 dark:text-slate-300">{avg} pts</span>
+        </p>
+      ) : (
+        <p className="text-xs text-slate-400 dark:text-slate-500 mt-2 italic">Complete sprints to see velocity trends</p>
+      )}
     </div>
   );
 }
 
 export default function ReportsPage() {
-  const { activeTasks, backlogSections, epics, sprint, currentProjectId, burndownSnapshots } = useApp();
+  const { activeTasks, backlogSections, epics, sprint, currentProjectId, burndownSnapshots, completedSprints } = useApp();
   const [activeTab, setActiveTab] = useState("overview");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo]     = useState("");
@@ -366,7 +373,7 @@ export default function ReportsPage() {
               <FaTrophy className="w-4 h-4 text-yellow-500" />
               <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Sprint Velocity</h3>
             </div>
-            <VelocityChart completedPoints={completedPoints} />
+            <VelocityChart completedPoints={completedPoints} completedSprints={completedSprints} />
           </div>
         </div>
       )}
