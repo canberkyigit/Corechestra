@@ -1,10 +1,12 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import {
   FaBell, FaCog, FaUserCircle, FaChevronLeft, FaChevronRight,
   FaColumns, FaTachometerAlt, FaRocket, FaCalendarAlt,
-  FaChartBar, FaSearch, FaPlus, FaMoon, FaSun,
+  FaChartBar, FaSearch, FaMoon, FaSun,
   FaCheckCircle, FaExclamationTriangle, FaComment, FaArrowRight,
   FaShieldAlt, FaLayerGroup, FaBook, FaTag, FaFlask,
+  FaCheckSquare, FaBug, FaPlusSquare, FaExclamationCircle,
+  FaUser, FaFlag, FaPlay, FaRegDotCircle, FaTimes,
 } from "react-icons/fa";
 import { useApp } from "../context/AppContext";
 import { useToast } from "../context/ToastContext";
@@ -17,6 +19,44 @@ const NOTIF_META = {
   comment:       { icon: FaComment,             color: "text-purple-500 bg-purple-50 dark:bg-purple-900/20" },
   mention:       { icon: FaComment,             color: "text-purple-500 bg-purple-50 dark:bg-purple-900/20" },
 };
+
+const SEARCH_TYPE_ICONS = {
+  task:          { icon: FaCheckSquare,       color: "text-green-500"  },
+  bug:           { icon: FaBug,               color: "text-red-500"    },
+  feature:       { icon: FaPlusSquare,        color: "text-cyan-500"   },
+  defect:        { icon: FaExclamationCircle, color: "text-orange-500" },
+  userstory:     { icon: FaUser,              color: "text-blue-500"   },
+  investigation: { icon: FaSearch,            color: "text-purple-500" },
+  epic:          { icon: FaRocket,            color: "text-violet-500" },
+  test:          { icon: FaSearch,            color: "text-teal-500"   },
+  testset:       { icon: FaFlag,              color: "text-indigo-500" },
+  testexecution: { icon: FaPlay,              color: "text-lime-600"   },
+  precondition:  { icon: FaRegDotCircle,      color: "text-sky-500"    },
+};
+
+const SEARCH_STATUS_COLORS = {
+  todo:       "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300",
+  inprogress: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
+  review:     "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300",
+  awaiting:   "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300",
+  blocked:    "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
+  done:       "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
+};
+
+const SEARCH_STATUS_LABELS = {
+  todo: "To Do", inprogress: "In Progress", review: "Review",
+  awaiting: "Awaiting", blocked: "Blocked", done: "Done",
+};
+
+const SEARCH_PAGES = [
+  { id: "dashboard", label: "Dashboard",  icon: FaTachometerAlt },
+  { id: "board",     label: "Board",      icon: FaColumns       },
+  { id: "roadmap",   label: "Roadmap",    icon: FaRocket        },
+  { id: "reports",   label: "Reports",    icon: FaChartBar      },
+  { id: "calendar",  label: "Calendar",   icon: FaCalendarAlt   },
+  { id: "projects",  label: "Projects",   icon: FaLayerGroup    },
+  { id: "admin",     label: "Admin",      icon: FaShieldAlt     },
+];
 
 function relativeTime(isoStr) {
   const diff = Date.now() - new Date(isoStr).getTime();
@@ -49,13 +89,20 @@ const ADMIN_NAV_ITEMS = [
 export default function Layout({
   children, activePage, onPageChange,
   darkMode, onToggleDark,
-  onCreateClick, onSettingsClick, onProfileClick, onSearchClick,
+  onCreateClick, onSettingsClick, onProfileClick, onSearchClick, onOpenTask,
 }) {
   const [collapsed,  setCollapsed]  = useState(() => localStorage.getItem("sidebar_collapsed") === "true");
   const [notifOpen,  setNotifOpen]  = useState(false);
 
+  // Inline search state
+  const [searchQuery,  setSearchQuery]  = useState("");
+  const [searchOpen,   setSearchOpen]   = useState(false);
+  const [searchCursor, setSearchCursor] = useState(0);
+  const searchContainerRef = useRef(null);
+  const searchListRef      = useRef(null);
+
   const { addToast } = useToast();
-  const { notifications, markNotifRead, markAllNotifsRead } = useApp();
+  const { notifications, markNotifRead, markAllNotifsRead, activeTasks, backlogSections, epics, projects, currentProjectId } = useApp();
   const notifRef    = useRef(null);
   const unreadCount = notifications.filter((n) => !n.read).length;
 
@@ -81,6 +128,72 @@ export default function Layout({
 
   const markAllRead = markAllNotifsRead;
   const markRead    = markNotifRead;
+
+  // ── Inline search logic ────────────────────────────────────────────────────
+  const allBacklogTasks = useMemo(() =>
+    (backlogSections || []).flatMap((s) => s.tasks || []),
+  [backlogSections]);
+
+  const searchResults = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    const q = searchQuery.toLowerCase().trim();
+    const taskHits = [...(activeTasks || []), ...allBacklogTasks]
+      .filter((t) => t.title?.toLowerCase().includes(q) || `cy-${t.id}`.includes(q) || t.description?.toLowerCase().includes(q))
+      .slice(0, 8)
+      .map((t) => ({ kind: "task", id: t.id, title: t.title, status: t.status, type: t.type || "task", item: t }));
+    const epicHits = (epics || [])
+      .filter((e) => e.title?.toLowerCase().includes(q) || e.description?.toLowerCase().includes(q))
+      .slice(0, 3)
+      .map((e) => ({ kind: "epic", id: e.id, title: e.title, color: e.color, item: e }));
+    const pageHits = SEARCH_PAGES
+      .filter((p) => p.label.toLowerCase().includes(q))
+      .map((p) => ({ kind: "page", id: p.id, title: p.label, icon: p.icon }));
+    return [...taskHits, ...epicHits, ...pageHits];
+  }, [searchQuery, activeTasks, allBacklogTasks, epics]);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target)) setSearchOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  useEffect(() => {
+    const el = searchListRef.current?.children[searchCursor];
+    el?.scrollIntoView({ block: "nearest" });
+  }, [searchCursor]);
+
+  useEffect(() => { setSearchCursor(0); }, [searchResults]);
+
+  const handleSearchSelect = (result) => {
+    if (result.kind === "task") { onOpenTask?.(result.item); }
+    if (result.kind === "epic") { onPageChange?.("roadmap"); }
+    if (result.kind === "page") { onPageChange?.(result.id); }
+    setSearchOpen(false);
+    setSearchQuery("");
+  };
+
+  const handleSearchKeyDown = (e) => {
+    const items = searchQuery.trim()
+      ? searchResults
+      : SEARCH_PAGES.map((p) => ({ kind: "page", id: p.id, title: p.label, icon: p.icon }));
+    if (e.key === "Escape") { setSearchOpen(false); e.target.blur(); return; }
+    if (e.key === "ArrowDown") { e.preventDefault(); setSearchCursor((c) => Math.min(c + 1, items.length - 1)); }
+    if (e.key === "ArrowUp")   { e.preventDefault(); setSearchCursor((c) => Math.max(c - 1, 0)); }
+    if (e.key === "Enter" && items[searchCursor]) { e.preventDefault(); handleSearchSelect(items[searchCursor]); }
+  };
+
+  const highlightMatch = (text) => {
+    if (!searchQuery.trim()) return text;
+    const q = searchQuery.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const parts = text.split(new RegExp(`(${q})`, "gi"));
+    return parts.map((p, i) =>
+      p.toLowerCase() === searchQuery.toLowerCase()
+        ? <mark key={i} className="bg-yellow-200 dark:bg-yellow-700/50 text-inherit rounded">{p}</mark>
+        : p
+    );
+  };
 
   // ── Colour tokens ──────────────────────────────────────────────────────────
   // Sidebar + Topbar share the same background in dark mode → no seam
@@ -248,7 +361,9 @@ export default function Layout({
         `}>
           {/* Breadcrumb */}
           <div className="flex items-center gap-1 text-sm min-w-0">
-            <span className={`font-medium truncate ${projNameText}`}>Corechestra</span>
+            <span className={`font-medium truncate ${projNameText}`}>
+              {projects?.find((p) => p.id === currentProjectId)?.name || "Corechestra"}
+            </span>
             {activePage && (
               <>
                 <span className={subText}>/</span>
@@ -258,39 +373,129 @@ export default function Layout({
           </div>
 
           {/* Search */}
-          <div className="flex-1 max-w-md mx-auto relative">
-            <FaSearch className={`absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${subText}`} />
+          <div className="flex-1 max-w-md mx-auto relative" ref={searchContainerRef}>
+            <FaSearch className={`absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${subText} pointer-events-none z-10`} />
             <input
               type="text"
-              placeholder="Search issues, tasks..."
-              className={`w-full pl-9 pr-3 py-1.5 text-sm rounded-lg border transition-all focus:outline-none focus:ring-2 focus:ring-blue-400
+              value={searchQuery}
+              onChange={(e) => { setSearchQuery(e.target.value); setSearchOpen(true); }}
+              onFocus={() => setSearchOpen(true)}
+              onKeyDown={handleSearchKeyDown}
+              placeholder="Search issues, tasks, pages… (⌘K)"
+              className={`w-full pl-9 pr-8 py-1.5 text-sm rounded-lg border transition-all focus:outline-none focus:ring-2 focus:ring-blue-400
                 ${darkMode
                   ? "bg-[#252b3b] text-slate-200 placeholder-slate-500 border-[#353d50] focus:bg-[#1a1f2e]"
                   : "bg-slate-100 text-slate-700 placeholder-slate-400 border-transparent focus:bg-white"
                 }`}
             />
+            {searchQuery && (
+              <button
+                onClick={() => { setSearchQuery(""); setSearchOpen(false); }}
+                className={`absolute right-2.5 top-1/2 -translate-y-1/2 ${subText} hover:text-slate-600 dark:hover:text-slate-300`}
+              >
+                <FaTimes className="w-3 h-3" />
+              </button>
+            )}
+
+            {/* Dropdown */}
+            {searchOpen && (
+              <div className={`absolute top-full left-0 right-0 mt-1.5 rounded-xl border shadow-2xl z-50 overflow-hidden ${
+                darkMode ? "bg-[#1c2030] border-[#2a3044]" : "bg-white border-slate-200"
+              }`}>
+                {searchQuery.trim() ? (
+                  searchResults.length > 0 ? (
+                    <div ref={searchListRef} className="max-h-72 overflow-y-auto py-1">
+                      {searchResults.map((r, i) => {
+                        const isFocused = i === searchCursor;
+                        if (r.kind === "task") {
+                          const typeInfo = SEARCH_TYPE_ICONS[r.type] || SEARCH_TYPE_ICONS.task;
+                          const TypeIcon = typeInfo.icon;
+                          return (
+                            <button
+                              key={`task-${r.id}`}
+                              className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${isFocused ? "bg-blue-50 dark:bg-blue-900/20" : "hover:bg-slate-50 dark:hover:bg-[#232838]"}`}
+                              onClick={() => handleSearchSelect(r)}
+                              onMouseEnter={() => setSearchCursor(i)}
+                            >
+                              <TypeIcon className={`w-3.5 h-3.5 flex-shrink-0 ${typeInfo.color}`} />
+                              <span className="text-xs font-mono text-slate-400 flex-shrink-0">CY-{r.id}</span>
+                              <span className={`text-sm flex-1 truncate ${darkMode ? "text-slate-200" : "text-slate-700"}`}>{highlightMatch(r.title)}</span>
+                              {r.status && (
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 ${SEARCH_STATUS_COLORS[r.status] || SEARCH_STATUS_COLORS.todo}`}>
+                                  {SEARCH_STATUS_LABELS[r.status] || r.status}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        }
+                        if (r.kind === "epic") {
+                          return (
+                            <button
+                              key={`epic-${r.id}`}
+                              className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${isFocused ? "bg-blue-50 dark:bg-blue-900/20" : "hover:bg-slate-50 dark:hover:bg-[#232838]"}`}
+                              onClick={() => handleSearchSelect(r)}
+                              onMouseEnter={() => setSearchCursor(i)}
+                            >
+                              <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: r.color }} />
+                              <span className={`text-sm flex-1 truncate ${darkMode ? "text-slate-200" : "text-slate-700"}`}>{highlightMatch(r.title)}</span>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 font-medium flex-shrink-0">Epic</span>
+                            </button>
+                          );
+                        }
+                        if (r.kind === "page") {
+                          const Icon = r.icon;
+                          return (
+                            <button
+                              key={`page-${r.id}`}
+                              className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${isFocused ? "bg-blue-50 dark:bg-blue-900/20" : "hover:bg-slate-50 dark:hover:bg-[#232838]"}`}
+                              onClick={() => handleSearchSelect(r)}
+                              onMouseEnter={() => setSearchCursor(i)}
+                            >
+                              <Icon className="w-3.5 h-3.5 flex-shrink-0 text-slate-400" />
+                              <span className={`text-sm flex-1 ${darkMode ? "text-slate-200" : "text-slate-700"}`}>{highlightMatch(r.title)}</span>
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 ${darkMode ? "bg-[#232838] text-slate-400" : "bg-slate-100 text-slate-500"}`}>Page</span>
+                            </button>
+                          );
+                        }
+                        return null;
+                      })}
+                    </div>
+                  ) : (
+                    <div className="py-8 text-center">
+                      <FaSearch className={`w-5 h-5 mx-auto mb-2 ${subText}`} />
+                      <p className={`text-xs ${subText}`}>No results for "<strong>{searchQuery}</strong>"</p>
+                    </div>
+                  )
+                ) : (
+                  <div className="py-3 px-2">
+                    <p className={`text-xs ${subText} mb-1.5 px-2`}>Quick navigation</p>
+                    {SEARCH_PAGES.map((p, i) => {
+                      const Icon = p.icon;
+                      return (
+                        <button
+                          key={p.id}
+                          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ${searchCursor === i ? "bg-blue-50 dark:bg-blue-900/20" : "hover:bg-slate-50 dark:hover:bg-[#232838]"}`}
+                          onClick={() => { onPageChange?.(p.id); setSearchOpen(false); }}
+                          onMouseEnter={() => setSearchCursor(i)}
+                        >
+                          <Icon className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                          <span className={`text-sm ${darkMode ? "text-slate-200" : "text-slate-700"}`}>{p.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                <div className={`flex items-center gap-4 px-4 py-2 border-t ${borderColor} ${darkMode ? "bg-[#141720]" : "bg-slate-50"}`}>
+                  <span className={`text-[10px] ${subText} flex items-center gap-1`}><kbd className={`font-mono border rounded px-1 ${darkMode ? "border-[#2a3044]" : "border-slate-200"}`}>↑↓</kbd> navigate</span>
+                  <span className={`text-[10px] ${subText} flex items-center gap-1`}><kbd className={`font-mono border rounded px-1 ${darkMode ? "border-[#2a3044]" : "border-slate-200"}`}>↵</kbd> select</span>
+                  <span className={`text-[10px] ${subText} flex items-center gap-1`}><kbd className={`font-mono border rounded px-1 ${darkMode ? "border-[#2a3044]" : "border-slate-200"}`}>ESC</kbd> close</span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Actions */}
           <div className="flex items-center gap-2 ml-auto">
-            {/* Search button */}
-            <button
-              onClick={onSearchClick}
-              className="hidden sm:flex items-center gap-2 px-3 py-1.5 text-sm text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:border-blue-400 hover:text-blue-500 transition-colors bg-white dark:bg-[#1c2030]"
-              title="Search (Cmd+K)"
-            >
-              <FaSearch className="w-3 h-3" />
-              <span>Search</span>
-              <kbd className="text-[10px] font-mono text-slate-400 bg-slate-100 dark:bg-[#232838] px-1 rounded">⌘K</kbd>
-            </button>
-
-            <button
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-              onClick={onCreateClick}
-            >
-              <FaPlus className="w-3 h-3" /> Create
-            </button>
-
             {/* Notifications */}
             <div className="relative" ref={notifRef}>
               <button
@@ -324,8 +529,20 @@ export default function Layout({
                       return (
                         <button
                           key={n.id}
-                          onClick={() => markRead(n.id)}
-                          className={`w-full flex items-start gap-3 px-4 py-3 transition-colors text-left border-b last:border-0 ${borderColor} ${
+                          onClick={() => {
+                            markRead(n.id);
+                            setNotifOpen(false);
+                            if (n.taskId) {
+                              const task = [...activeTasks, ...allBacklogTasks].find((t) => t.id === n.taskId);
+                              if (task) {
+                                onPageChange?.("board");
+                                onOpenTask?.(task);
+                              }
+                            } else if (n.type === "sprint_start" || n.type === "sprint_end") {
+                              onPageChange?.("board");
+                            }
+                          }}
+                          className={`w-full flex items-start gap-3 px-4 py-3 transition-colors text-left border-b last:border-0 ${borderColor} group/notif ${
                             !n.read
                               ? darkMode ? "bg-blue-900/10 hover:bg-blue-900/20" : "bg-blue-50/40 hover:bg-blue-50"
                               : darkMode ? "hover:bg-white/5" : "hover:bg-slate-50"
@@ -336,7 +553,14 @@ export default function Layout({
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className={`text-xs leading-snug ${!n.read ? projNameText + " font-medium" : subText}`}>{n.text}</p>
-                            <p className={`text-xs mt-0.5 ${subText}`}>{relativeTime(n.timestamp)}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <p className={`text-xs ${subText}`}>{relativeTime(n.timestamp)}</p>
+                              {n.taskId && (
+                                <span className={`text-[10px] opacity-0 group-hover/notif:opacity-100 transition-opacity font-medium text-blue-500`}>
+                                  View task →
+                                </span>
+                              )}
+                            </div>
                           </div>
                           {!n.read && <span className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-1.5" />}
                         </button>
@@ -350,14 +574,7 @@ export default function Layout({
               )}
             </div>
 
-            {/* Dark toggle */}
-            <button
-              onClick={onToggleDark}
-              title={darkMode ? "Light Mode" : "Dark Mode"}
-              className={`p-2 rounded-lg transition-colors ${bottomRowClass}`}
-            >
-              {darkMode ? <FaSun className="w-4 h-4 text-yellow-400" /> : <FaMoon className="w-4 h-4" />}
-            </button>
+
 
             {/* Profile avatar */}
             <button

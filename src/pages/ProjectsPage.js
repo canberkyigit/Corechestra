@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-import { FaPlus, FaCheck, FaUsers, FaTasks, FaLayerGroup, FaTimes } from "react-icons/fa";
+import { FaPlus, FaCheck, FaUsers, FaTasks, FaLayerGroup, FaTimes, FaTh, FaList, FaCog } from "react-icons/fa";
 import { useApp } from "../context/AppContext";
+import ProjectSettingsModal from "../components/ProjectSettingsModal";
 
 const PROJECT_COLORS = [
   "#2563eb", "#7c3aed", "#059669", "#d97706", "#dc2626",
@@ -139,6 +140,13 @@ function CreateProjectModal({ onClose, onCreate }) {
 export default function ProjectsPage({ onNavigate }) {
   const { projects, currentProjectId, setCurrentProjectId, activeTasks, createProject } = useApp();
   const [showCreate, setShowCreate] = useState(false);
+  const [settingsProject, setSettingsProject] = useState(null);
+  const [viewMode, setViewMode] = useState(() => localStorage.getItem("projects_view") || "grid");
+
+  const setView = (mode) => {
+    setViewMode(mode);
+    localStorage.setItem("projects_view", mode);
+  };
 
   const handleSelect = (projectId) => {
     setCurrentProjectId(projectId);
@@ -157,104 +165,231 @@ export default function ProjectsPage({ onNavigate }) {
           <h1 className="text-xl font-bold text-slate-800 dark:text-slate-100">Projects</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{projects.length} project{projects.length !== 1 ? "s" : ""} in your workspace</p>
         </div>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <FaPlus className="w-3 h-3" />New Project
-        </button>
+        <div className="flex items-center gap-2">
+          {/* View toggle */}
+          <div className="flex items-center border border-slate-200 dark:border-[#2a3044] rounded-lg overflow-hidden">
+            <button
+              onClick={() => setView("grid")}
+              title="Grid view"
+              className={`p-1.5 transition-colors ${viewMode === "grid" ? "bg-blue-600 text-white" : "bg-white dark:bg-[#1c2030] text-slate-400 hover:bg-slate-50 dark:hover:bg-[#232838]"}`}
+            >
+              <FaTh className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => setView("list")}
+              title="List view"
+              className={`p-1.5 transition-colors ${viewMode === "list" ? "bg-blue-600 text-white" : "bg-white dark:bg-[#1c2030] text-slate-400 hover:bg-slate-50 dark:hover:bg-[#232838]"}`}
+            >
+              <FaList className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          <button
+            onClick={() => setShowCreate(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <FaPlus className="w-3 h-3" />New Project
+          </button>
+        </div>
       </div>
 
-      {/* Project grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {projects.map((p) => {
-          const isActive    = p.id === currentProjectId;
-          const taskCount   = activeTasks.filter((t) => (t.projectId || "proj-1") === p.id).length;
-          const doneCount   = activeTasks.filter((t) => (t.projectId || "proj-1") === p.id && t.status === "done").length;
-          const pct         = taskCount > 0 ? Math.round((doneCount / taskCount) * 100) : 0;
-          const description = PROJECT_DESCRIPTIONS[p.id] || p.description || "No description available.";
+      {/* Grid view */}
+      {viewMode === "grid" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {projects.map((p) => {
+            const isActive    = p.id === currentProjectId;
+            const taskCount   = activeTasks.filter((t) => (t.projectId || "proj-1") === p.id).length;
+            const doneCount   = activeTasks.filter((t) => (t.projectId || "proj-1") === p.id && t.status === "done").length;
+            const pct         = taskCount > 0 ? Math.round((doneCount / taskCount) * 100) : 0;
+            const description = p.description || PROJECT_DESCRIPTIONS[p.id] || "No description available.";
 
-          return (
-            <button
-              key={p.id}
-              onClick={() => handleSelect(p.id)}
-              className={`text-left p-5 rounded-xl border transition-all group ${
-                isActive
-                  ? "border-blue-400 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/10 shadow-sm"
-                  : "border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#1c2030] hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-md"
-              }`}
-            >
-              {/* Top row */}
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <div
-                    className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-sm font-bold flex-shrink-0 shadow-sm"
-                    style={{ backgroundColor: p.color }}
-                  >
-                    {p.key}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">{p.name}</span>
-                      {isActive && (
-                        <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full font-medium">
-                          <FaCheck className="w-2 h-2" />Current
-                        </span>
-                      )}
+            return (
+              <button
+                key={p.id}
+                onClick={() => handleSelect(p.id)}
+                className={`text-left p-5 rounded-xl border transition-all group ${
+                  isActive
+                    ? "border-blue-400 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/10 shadow-sm"
+                    : "border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#1c2030] hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-md"
+                }`}
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-sm font-bold flex-shrink-0 shadow-sm"
+                      style={{ backgroundColor: p.color }}
+                    >
+                      {p.key}
                     </div>
-                    <span className="text-[11px] text-slate-400 dark:text-slate-500 font-mono">{p.key}-*</span>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">{p.name}</span>
+                        {isActive && (
+                          <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full font-medium">
+                            <FaCheck className="w-2 h-2" />Current
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[11px] text-slate-400 dark:text-slate-500 font-mono">{p.key}-*</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setSettingsProject(p); }}
+                      className="w-7 h-7 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#232838]"
+                      title="Project settings"
+                    >
+                      <FaCog className="w-3.5 h-3.5" />
+                    </button>
+                    <div
+                      className="w-8 h-8 rounded-lg flex items-center justify-center opacity-60 group-hover:opacity-100 transition-opacity"
+                      style={{ backgroundColor: p.color + "22" }}
+                    >
+                      <FaLayerGroup className="w-3.5 h-3.5" style={{ color: p.color }} />
+                    </div>
                   </div>
                 </div>
-                <div
-                  className="w-8 h-8 rounded-lg flex items-center justify-center opacity-60 group-hover:opacity-100 transition-opacity"
-                  style={{ backgroundColor: p.color + "22" }}
-                >
-                  <FaLayerGroup className="w-3.5 h-3.5" style={{ color: p.color }} />
+
+                <p className="text-xs text-slate-500 dark:text-slate-400 mb-4 leading-relaxed">{description}</p>
+
+                {taskCount > 0 && (
+                  <div className="mb-3">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500">Sprint progress</span>
+                      <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400">{doneCount}/{taskCount} done · {pct}%</span>
+                    </div>
+                    <div className="h-1.5 bg-slate-100 dark:bg-[#2a3044] rounded-full overflow-hidden">
+                      <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: p.color }} />
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-center gap-4 pt-2 border-t border-slate-100 dark:border-[#2a3044]">
+                  <div className="flex items-center gap-1.5 text-xs text-slate-400 dark:text-slate-500">
+                    <FaTasks className="w-3 h-3" />
+                    <span>{taskCount} task{taskCount !== 1 ? "s" : ""}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs text-slate-400 dark:text-slate-500">
+                    <FaUsers className="w-3 h-3" />
+                    <span>4 members</span>
+                  </div>
+                  <div className="ml-auto text-xs font-medium" style={{ color: isActive ? p.color : undefined }}>
+                    {isActive ? "Viewing →" : "Switch →"}
+                  </div>
                 </div>
-              </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
-              {/* Description */}
-              <p className="text-xs text-slate-500 dark:text-slate-400 mb-4 leading-relaxed">{description}</p>
+      {/* List view */}
+      {viewMode === "list" && (
+        <div className="border border-slate-200 dark:border-[#2a3044] rounded-xl overflow-hidden">
+          {/* Table header */}
+          <div className="grid grid-cols-[auto_1fr_160px_80px_80px_80px] gap-4 px-4 py-2.5 bg-slate-50 dark:bg-[#141720] border-b border-slate-200 dark:border-[#2a3044]">
+            <div className="w-8" />
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Project</span>
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Progress</span>
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide text-center">Tasks</span>
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide text-center">Members</span>
+            <div />
+          </div>
 
-              {/* Progress bar */}
-              {taskCount > 0 && (
-                <div className="mb-3">
+          {projects.map((p, i) => {
+            const isActive    = p.id === currentProjectId;
+            const taskCount   = activeTasks.filter((t) => (t.projectId || "proj-1") === p.id).length;
+            const doneCount   = activeTasks.filter((t) => (t.projectId || "proj-1") === p.id && t.status === "done").length;
+            const pct         = taskCount > 0 ? Math.round((doneCount / taskCount) * 100) : 0;
+            const description = PROJECT_DESCRIPTIONS[p.id] || p.description || "";
+
+            return (
+              <button
+                key={p.id}
+                onClick={() => handleSelect(p.id)}
+                className={`w-full text-left grid grid-cols-[auto_1fr_160px_80px_80px_80px] gap-4 px-4 py-3.5 items-center transition-colors group ${
+                  i !== 0 ? "border-t border-slate-100 dark:border-[#2a3044]" : ""
+                } ${
+                  isActive
+                    ? "bg-blue-50 dark:bg-blue-900/10"
+                    : "bg-white dark:bg-[#1c2030] hover:bg-slate-50 dark:hover:bg-[#232838]"
+                }`}
+              >
+                {/* Avatar */}
+                <div
+                  className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                  style={{ backgroundColor: p.color }}
+                >
+                  {p.key}
+                </div>
+
+                {/* Name + description */}
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">{p.name}</span>
+                    {isActive && (
+                      <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full font-medium flex-shrink-0">
+                        <FaCheck className="w-2 h-2" />Current
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-xs text-slate-400 dark:text-slate-500 truncate block">{description}</span>
+                </div>
+
+                {/* Progress bar */}
+                <div>
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] text-slate-400 dark:text-slate-500">Sprint progress</span>
-                    <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400">{doneCount}/{taskCount} done · {pct}%</span>
+                    <span className="text-[10px] text-slate-400">{doneCount}/{taskCount}</span>
+                    <span className="text-[10px] text-slate-400">{pct}%</span>
                   </div>
                   <div className="h-1.5 bg-slate-100 dark:bg-[#2a3044] rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all"
-                      style={{ width: `${pct}%`, backgroundColor: p.color }}
-                    />
+                    <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: p.color }} />
                   </div>
                 </div>
-              )}
 
-              {/* Footer stats */}
-              <div className="flex items-center gap-4 pt-2 border-t border-slate-100 dark:border-[#2a3044]">
-                <div className="flex items-center gap-1.5 text-xs text-slate-400 dark:text-slate-500">
+                {/* Tasks */}
+                <div className="flex items-center justify-center gap-1 text-xs text-slate-500 dark:text-slate-400">
                   <FaTasks className="w-3 h-3" />
-                  <span>{taskCount} task{taskCount !== 1 ? "s" : ""}</span>
+                  <span>{taskCount}</span>
                 </div>
-                <div className="flex items-center gap-1.5 text-xs text-slate-400 dark:text-slate-500">
+
+                {/* Members */}
+                <div className="flex items-center justify-center gap-1 text-xs text-slate-500 dark:text-slate-400">
                   <FaUsers className="w-3 h-3" />
-                  <span>4 members</span>
+                  <span>4</span>
                 </div>
-                <div className="ml-auto text-xs font-medium" style={{ color: isActive ? p.color : undefined }}>
-                  {isActive ? "Viewing →" : "Switch →"}
+
+                {/* Action */}
+                <div className="flex items-center justify-end gap-2">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setSettingsProject(p); }}
+                    className="p-1.5 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#232838] rounded-lg transition-all"
+                    title="Project settings"
+                  >
+                    <FaCog className="w-3.5 h-3.5" />
+                  </button>
+                  <span className="text-xs font-medium" style={{ color: isActive ? p.color : undefined }}>
+                    <span className={isActive ? "" : "text-slate-400 dark:text-slate-500 group-hover:text-blue-500 transition-colors"}>
+                      {isActive ? "Viewing →" : "Switch →"}
+                    </span>
+                  </span>
                 </div>
-              </div>
-            </button>
-          );
-        })}
-      </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {showCreate && (
         <CreateProjectModal
           onClose={() => setShowCreate(false)}
           onCreate={handleCreate}
+        />
+      )}
+
+      {settingsProject && (
+        <ProjectSettingsModal
+          project={settingsProject}
+          onClose={() => setSettingsProject(null)}
         />
       )}
     </div>

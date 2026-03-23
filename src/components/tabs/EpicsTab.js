@@ -87,17 +87,9 @@ export default function EpicsTab() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-lg font-bold text-slate-800">Epics</h2>
-          <p className="text-sm text-slate-400">Group related issues into epics to track large bodies of work.</p>
-        </div>
-        <button
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
-          onClick={() => setCreating(true)}
-        >
-          <FaPlus className="w-3 h-3" /> Create Epic
-        </button>
+      <div className="mb-6">
+        <h2 className="text-lg font-bold text-slate-800 dark:text-white">Epics</h2>
+        <p className="text-sm text-slate-400">Group related issues into epics to track large bodies of work.</p>
       </div>
 
       {creating && (
@@ -205,6 +197,16 @@ export default function EpicsTab() {
               </div>
             );
           })}
+
+          {/* Add Epic button at the bottom of the list */}
+          {!creating && (
+            <button
+              className="w-full flex items-center gap-2 px-4 py-3 rounded-xl border border-dashed border-slate-300 dark:border-[#2a3044] text-slate-400 dark:text-slate-500 hover:border-blue-400 hover:text-blue-500 dark:hover:border-blue-600 dark:hover:text-blue-400 transition-colors text-sm"
+              onClick={() => setCreating(true)}
+            >
+              <FaPlus className="w-3 h-3" /> New Epic
+            </button>
+          )}
         </div>
       )}
     </div>

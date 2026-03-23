@@ -112,6 +112,9 @@ export function AppProvider({ children }) {
   const [testSuites, setTestSuites] = useState(persisted?.testSuites ?? SEED_TEST_SUITES);
   const [testCases, setTestCases] = useState(persisted?.testCases ?? SEED_TEST_CASES);
   const [testRuns, setTestRuns] = useState(persisted?.testRuns ?? SEED_TEST_RUNS);
+  const [perProjectCompletedSprints, setPerProjectCompletedSprints] = useState(
+    persisted?.perProjectCompletedSprints ?? { "proj-1": [], "proj-2": [] }
+  );
 
   // Computed: per-project columns
   const columns = useMemo(
@@ -194,6 +197,9 @@ export function AppProvider({ children }) {
   // Computed: per-project burndown snapshots
   const burndownSnapshots = perProjectBurndownSnapshots[currentProjectId] ?? [];
 
+  // Computed: completed sprints for current project
+  const completedSprints = perProjectCompletedSprints[currentProjectId] ?? [];
+
   // Auto-snapshot: record today's remaining story points once per day
   useEffect(() => {
     const today = new Date().toISOString().slice(0, 10);
@@ -216,12 +222,14 @@ export function AppProvider({ children }) {
       perProjectNotes, perProjectBoardSettings, globalActivityLog, notifications, teams,
       users, customFields, sprintDefaults, perProjectBurndownSnapshots,
       spaces, docPages, releases, testSuites, testCases, testRuns,
+      perProjectCompletedSprints,
     });
   }, [projects, currentProjectId, currentUser, epics, labels, perProjectSprint, projectColumns,
       activeTasks, perProjectBacklog, perProjectRetrospective, perProjectPokerHistory,
       perProjectNotes, perProjectBoardSettings, globalActivityLog, notifications, teams,
       users, customFields, sprintDefaults, perProjectBurndownSnapshots,
-      spaces, docPages, releases, testSuites, testCases, testRuns]);
+      spaces, docPages, releases, testSuites, testCases, testRuns,
+      perProjectCompletedSprints]);
 
   // Derived
   const allTasks = useMemo(() => {
@@ -371,7 +379,9 @@ export function AppProvider({ children }) {
   }, [logActivity]);
 
   const completeSprint = useCallback((moveToBacklogSectionId) => {
-    const incomplete = activeTasks.filter((t) => t.status !== "done");
+    const projectTasks = activeTasks.filter((t) => (t.projectId || "proj-1") === currentProjectId);
+    const incomplete = projectTasks.filter((t) => t.status !== "done");
+    const done = projectTasks.filter((t) => t.status === "done");
     if (moveToBacklogSectionId && incomplete.length > 0) {
       setBacklogSections((prev) =>
         prev.map((s) =>
@@ -380,12 +390,35 @@ export function AppProvider({ children }) {
             : s
         )
       );
-      setActiveTasks((prev) => prev.filter((t) => t.status === "done"));
+      setActiveTasks((prev) => prev.filter((t) => t.status === "done" || (t.projectId || "proj-1") !== currentProjectId));
+    }
+    // Save completed sprint snapshot
+    const currentSprint = perProjectSprint[currentProjectId];
+    if (currentSprint) {
+      const totalPoints = projectTasks.reduce((s, t) => s + (Number(t.storyPoint) || 0), 0);
+      const completedPoints = done.reduce((s, t) => s + (Number(t.storyPoint) || 0), 0);
+      const snapshot = {
+        id: `cs-${Date.now()}`,
+        name: currentSprint.name || "Sprint",
+        goal: currentSprint.goal || "",
+        startDate: currentSprint.startDate || "",
+        endDate: currentSprint.endDate || "",
+        completedAt: new Date().toISOString(),
+        totalTasks: projectTasks.length,
+        doneTasks: done.length,
+        totalPoints,
+        completedPoints,
+        completionRate: projectTasks.length > 0 ? Math.round((done.length / projectTasks.length) * 100) : 0,
+      };
+      setPerProjectCompletedSprints((prev) => ({
+        ...prev,
+        [currentProjectId]: [snapshot, ...(prev[currentProjectId] || [])],
+      }));
     }
     setSprint((prev) => ({ ...prev, status: "completed" }));
     logActivity("sprint", "completed sprint");
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTasks, logActivity, setBacklogSections, setSprint]);
+  }, [activeTasks, currentProjectId, perProjectSprint, logActivity, setBacklogSections, setSprint]);
 
   const updateSprint = useCallback((patch) => {
     setSprint((prev) => ({ ...prev, ...patch }));
@@ -403,10 +436,20 @@ export function AppProvider({ children }) {
     setPerProjectPokerHistory((prev) => ({ ...prev, [id]: [] }));
     setPerProjectNotes((prev) => ({ ...prev, [id]: [] }));
     setPerProjectBoardSettings((prev) => ({ ...prev, [id]: { ...DEFAULT_BOARD_SETTINGS, boardName: data.name || "New Project", projectKey: data.key || "NP" } }));
+    setPerProjectCompletedSprints((prev) => ({ ...prev, [id]: [] }));
   }, []);
 
   const updateProject = useCallback((updated) => {
     setProjects((prev) => prev.map((p) => p.id === updated.id ? updated : p));
+    // Keep boardSettings in sync: project name/key → boardName/projectKey
+    setPerProjectBoardSettings((prev) => ({
+      ...prev,
+      [updated.id]: {
+        ...(prev[updated.id] || DEFAULT_BOARD_SETTINGS),
+        boardName:  updated.name,
+        projectKey: updated.key,
+      },
+    }));
   }, []);
 
   const deleteProject = useCallback((projectId) => {
@@ -481,6 +524,10 @@ export function AppProvider({ children }) {
   const reorderColumns = useCallback((newCols) => {
     setProjectColumns((prev) => ({ ...prev, [currentProjectId]: newCols }));
   }, [currentProjectId]);
+
+  const updateProjectColumns = useCallback((projectId, newCols) => {
+    setProjectColumns((prev) => ({ ...prev, [projectId]: newCols }));
+  }, []);
 
   // ── Backlog Actions ────────────────────────────────────────────────────────
   const createBacklogSection = useCallback(() => {
@@ -659,8 +706,19 @@ export function AppProvider({ children }) {
   // ── Board Settings ─────────────────────────────────────────────────────────
   const updateBoardSettings = useCallback((patch) => {
     setBoardSettings((prev) => ({ ...prev, ...patch }));
+    // Two-way sync: if boardName/projectKey changes here, also update project record
+    if (patch.boardName !== undefined) {
+      setProjects((prev) => prev.map((p) =>
+        p.id === currentProjectId ? { ...p, name: patch.boardName } : p
+      ));
+    }
+    if (patch.projectKey !== undefined) {
+      setProjects((prev) => prev.map((p) =>
+        p.id === currentProjectId ? { ...p, key: patch.projectKey } : p
+      ));
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setBoardSettings]);
+  }, [setBoardSettings, currentProjectId]);
 
   const createTeam = useCallback((data) => {
     setTeams((prev) => [...prev, { ...data, id: `team-${Date.now()}` }]);
@@ -922,6 +980,7 @@ export function AppProvider({ children }) {
     sprint, startSprint, completeSprint, updateSprint,
     // Columns
     columns, renameColumn, createColumn, deleteColumn, reorderColumns,
+    projectColumns, updateProjectColumns,
     // Tasks
     activeTasks, setActiveTasks,
     backlogSections, setBacklogSections,
@@ -938,6 +997,8 @@ export function AppProvider({ children }) {
     pokerHistory, savePokerResult,
     // Burndown snapshots
     burndownSnapshots,
+    // Completed sprints history
+    completedSprints,
     // Settings
     boardSettings, updateBoardSettings, resetAllData,
     // Activity
