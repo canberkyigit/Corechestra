@@ -3,12 +3,15 @@ import { useApp } from "../context/AppContext";
 import {
   format, startOfMonth, endOfMonth, startOfWeek, endOfWeek,
   addDays, isSameMonth, isToday, parseISO, isValid, addMonths, subMonths,
-  isPast, isThisWeek, differenceInDays, isSameDay,
+  isPast, isThisWeek, differenceInDays, isSameDay, addWeeks, isTomorrow,
+  startOfDay, isBefore,
 } from "date-fns";
 import {
   FaChevronLeft, FaChevronRight, FaCalendarAlt, FaClock,
   FaExclamationTriangle, FaCheckCircle, FaCircle, FaUser,
+  FaThLarge, FaListUl,
 } from "react-icons/fa";
+import TaskSidePanel from "../components/TaskSidePanel";
 
 const PRIORITY_COLORS = {
   critical: "#ef4444",
@@ -59,122 +62,13 @@ function TaskPill({ task, onClick }) {
   );
 }
 
-function TaskDetailPanel({ task, onClose }) {
-  if (!task) return null;
-  const dueSt = getDueDateStatus(task.dueDate, task.status);
-  const pColor = PRIORITY_COLORS[task.priority?.toLowerCase()] || "#3b82f6";
-  const sCfg = STATUS_CONFIG[task.status] || STATUS_CONFIG.todo;
-  const daysLeft = task.dueDate && isValid(parseISO(task.dueDate))
-    ? differenceInDays(parseISO(task.dueDate), new Date())
-    : null;
-
-  return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-[#232838]">
-        <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Task Detail</h4>
-        <button onClick={onClose} className="p-1 rounded text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#232838]">✕</button>
-      </div>
-      <div className="p-4 space-y-4 overflow-y-auto flex-1">
-        {/* Priority bar */}
-        <div className="h-1 w-full rounded-full" style={{ backgroundColor: pColor }} />
-
-        {/* Title */}
-        <h3 className="font-semibold text-slate-800 dark:text-slate-200 leading-snug">{task.title}</h3>
-
-        {/* Status + Priority */}
-        <div className="flex gap-2 flex-wrap">
-          <span className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-full font-medium" style={{ backgroundColor: sCfg.color + "20", color: sCfg.color }}>
-            <FaCircle className="w-2 h-2" /> {sCfg.label}
-          </span>
-          <span className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-full font-medium capitalize" style={{ backgroundColor: pColor + "20", color: pColor }}>
-            {task.priority}
-          </span>
-        </div>
-
-        {/* Due date */}
-        {task.dueDate && (
-          <div className={`flex items-center gap-2 p-3 rounded-lg border ${
-            dueSt === "overdue" ? "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800" :
-            dueSt === "soon"    ? "bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800" :
-            dueSt === "done"    ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800" :
-            "bg-slate-50 dark:bg-[#232838] border-slate-200 dark:border-[#2a3044]"
-          }`}>
-            {dueSt === "overdue" ? <FaExclamationTriangle className="w-3.5 h-3.5 text-red-500 flex-shrink-0" /> :
-             dueSt === "done"    ? <FaCheckCircle className="w-3.5 h-3.5 text-green-500 flex-shrink-0" /> :
-             <FaClock className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />}
-            <div>
-              <p className={`text-xs font-semibold ${
-                dueSt === "overdue" ? "text-red-600 dark:text-red-400" :
-                dueSt === "soon"    ? "text-orange-600 dark:text-orange-400" :
-                dueSt === "done"    ? "text-green-600 dark:text-green-400" :
-                "text-slate-700 dark:text-slate-200"
-              }`}>
-                {format(parseISO(task.dueDate), "EEEE, MMMM d, yyyy")}
-              </p>
-              <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
-                {dueSt === "overdue" ? `${Math.abs(daysLeft)} day${Math.abs(daysLeft) !== 1 ? "s" : ""} overdue` :
-                 dueSt === "done"    ? "Completed" :
-                 daysLeft === 0      ? "Due today" :
-                 daysLeft === 1      ? "Due tomorrow" :
-                 `${daysLeft} days remaining`}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Assignee */}
-        {task.assignedTo && (
-          <div className="flex items-center gap-2">
-            <FaUser className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-            <span className="text-xs text-slate-500 dark:text-slate-400">Assigned to</span>
-            <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 capitalize">{task.assignedTo}</span>
-          </div>
-        )}
-
-        {/* Story points */}
-        {task.storyPoint > 0 && (
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-500 dark:text-slate-400">Story Points</span>
-            <span className="text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-[#232838] px-2 py-0.5 rounded-full">{task.storyPoint}</span>
-          </div>
-        )}
-
-        {/* Description */}
-        {task.description && (
-          <div>
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Description</p>
-            <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">{task.description}</p>
-          </div>
-        )}
-
-        {/* Subtasks */}
-        {task.subtasks?.length > 0 && (
-          <div>
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">
-              Subtasks ({task.subtasks.filter((s) => s.done).length}/{task.subtasks.length})
-            </p>
-            <div className="space-y-1">
-              {task.subtasks.map((s) => (
-                <div key={s.id} className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
-                  <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center flex-shrink-0 ${s.done ? "bg-green-500 border-green-500 text-white" : "border-slate-300 dark:border-slate-600"}`}>
-                    {s.done && "✓"}
-                  </span>
-                  <span className={s.done ? "line-through opacity-50" : ""}>{s.title}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
 
 export default function CalendarPage() {
-  const { activeTasks, backlogSections, currentProjectId } = useApp();
+  const { activeTasks, backlogSections, currentProjectId, updateActiveTask } = useApp();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState(null);
   const [selectedTask, setSelectedTask] = useState(null);
+  const [calendarView, setCalendarView] = useState("month"); // "month" | "week" | "agenda"
 
   const allTasks = useMemo(() => [
     ...activeTasks,
@@ -238,8 +132,58 @@ export default function CalendarPage() {
     setSelectedTask(null);
   };
 
+  // Agenda view: group tasks by date bucket
+  const agendaGroups = useMemo(() => {
+    if (calendarView !== "agenda") return [];
+    const now = new Date();
+    const todayStart = startOfDay(now);
+    const tomorrowStart = addDays(todayStart, 1);
+    const thisWeekEnd = endOfWeek(now, { weekStartsOn: 1 });
+    const nextWeekEnd = endOfWeek(addWeeks(now, 1), { weekStartsOn: 1 });
+
+    const buckets = {
+      overdue:  { label: "Overdue", tasks: [], accent: "red" },
+      today:    { label: `Today — ${format(now, "MMM d")}`, tasks: [], accent: "blue" },
+      tomorrow: { label: `Tomorrow — ${format(tomorrowStart, "MMM d")}`, tasks: [], accent: "blue" },
+      thisWeek: { label: "This Week", tasks: [], accent: "slate" },
+      nextWeek: { label: "Next Week", tasks: [], accent: "slate" },
+      later:    { label: "Later", tasks: [], accent: "slate" },
+    };
+
+    allTasks.forEach((t) => {
+      try {
+        const d = parseISO(t.dueDate);
+        if (!isValid(d)) return;
+        const dStart = startOfDay(d);
+
+        if (t.status !== "done" && isBefore(dStart, todayStart)) {
+          buckets.overdue.tasks.push(t);
+        } else if (isToday(d)) {
+          buckets.today.tasks.push(t);
+        } else if (isTomorrow(d)) {
+          buckets.tomorrow.tasks.push(t);
+        } else if (isBefore(dStart, thisWeekEnd) || isSameDay(dStart, thisWeekEnd)) {
+          buckets.thisWeek.tasks.push(t);
+        } else if (isBefore(dStart, nextWeekEnd) || isSameDay(dStart, nextWeekEnd)) {
+          buckets.nextWeek.tasks.push(t);
+        } else {
+          buckets.later.tasks.push(t);
+        }
+      } catch { /* skip invalid dates */ }
+    });
+
+    // Sort each bucket by due date
+    Object.values(buckets).forEach((b) =>
+      b.tasks.sort((a, b2) => parseISO(a.dueDate) - parseISO(b2.dueDate))
+    );
+
+    return Object.entries(buckets)
+      .filter(([, b]) => b.tasks.length > 0)
+      .map(([key, b]) => ({ key, ...b }));
+  }, [calendarView, allTasks]);
+
   const panelContent = selectedTask
-    ? <TaskDetailPanel task={selectedTask} onClose={() => setSelectedTask(null)} />
+    ? null // TaskSidePanel rendered separately below
     : selectedDay
     ? (
       <div className="flex flex-col h-full">
@@ -335,13 +279,82 @@ export default function CalendarPage() {
       </div>
     );
 
+  const TYPE_COLORS = {
+    story:   "#3b82f6",
+    bug:     "#ef4444",
+    task:    "#8b5cf6",
+    epic:    "#f97316",
+    subtask: "#06b6d4",
+  };
+
+  if (allTasks.length === 0) {
+    return (
+      <div className="p-4 h-full flex flex-col max-w-7xl mx-auto">
+        <div className="flex items-center gap-2 mb-4">
+          <FaCalendarAlt className="w-4 h-4 text-blue-500" />
+          <h2 className="text-base font-bold text-slate-800 dark:text-slate-200">Calendar</h2>
+        </div>
+        <div className="flex-1 flex flex-col items-center justify-center py-16 text-center">
+          <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-slate-300 dark:text-slate-600">
+            <rect x="8" y="14" width="48" height="42" rx="4" stroke="currentColor" strokeWidth="2" fill="none" />
+            <path d="M8 24h48" stroke="currentColor" strokeWidth="2" opacity="0.5" />
+            <rect x="18" y="8" width="2" height="12" rx="1" fill="currentColor" opacity="0.5" />
+            <rect x="44" y="8" width="2" height="12" rx="1" fill="currentColor" opacity="0.5" />
+            <rect x="16" y="30" width="6" height="6" rx="1.5" fill="currentColor" opacity="0.15" />
+            <rect x="29" y="30" width="6" height="6" rx="1.5" fill="currentColor" opacity="0.15" />
+            <rect x="42" y="30" width="6" height="6" rx="1.5" fill="currentColor" opacity="0.15" />
+            <rect x="16" y="42" width="6" height="6" rx="1.5" fill="currentColor" opacity="0.15" />
+          </svg>
+          <h3 className="text-base font-semibold text-slate-600 dark:text-slate-300 mt-4">No scheduled tasks</h3>
+          <p className="text-sm text-slate-400 dark:text-slate-500 mt-1 max-w-xs">Assign due dates to your tasks to see them here</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-4 h-full flex flex-col max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-4 flex-shrink-0">
-        <div className="flex items-center gap-2">
-          <FaCalendarAlt className="w-4 h-4 text-blue-500" />
-          <h2 className="text-base font-bold text-slate-800 dark:text-slate-200">Calendar</h2>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <FaCalendarAlt className="w-4 h-4 text-blue-500" />
+            <h2 className="text-base font-bold text-slate-800 dark:text-slate-200">Calendar</h2>
+          </div>
+
+          {/* View toggle */}
+          <div className="flex items-center rounded-lg border border-slate-200 dark:border-[#2a3044] overflow-hidden">
+            <button
+              onClick={() => setCalendarView("month")}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                calendarView === "month"
+                  ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+                  : "text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#232838]"
+              }`}
+            >
+              <FaThLarge className="w-3 h-3" /> Month
+            </button>
+            <button
+              onClick={() => setCalendarView("week")}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium border-l border-r border-slate-200 dark:border-[#2a3044] transition-colors ${
+                calendarView === "week"
+                  ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+                  : "text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#232838]"
+              }`}
+            >
+              <FaCalendarAlt className="w-3 h-3" /> Week
+            </button>
+            <button
+              onClick={() => setCalendarView("agenda")}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                calendarView === "agenda"
+                  ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+                  : "text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#232838]"
+              }`}
+            >
+              <FaListUl className="w-3 h-3" /> Agenda
+            </button>
+          </div>
         </div>
 
         {/* Month stats */}
@@ -364,112 +377,221 @@ export default function CalendarPage() {
             </>
           )}
 
-          {/* Nav */}
-          <div className="flex items-center gap-1 ml-2">
-            <button
-              className="p-1.5 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] text-slate-500 dark:text-slate-400 transition-colors"
-              onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
-            >
-              <FaChevronLeft className="w-3 h-3" />
-            </button>
-            <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 px-2 min-w-[120px] text-center">
-              {format(currentMonth, "MMMM yyyy")}
-            </span>
-            <button
-              className="p-1.5 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] text-slate-500 dark:text-slate-400 transition-colors"
-              onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
-            >
-              <FaChevronRight className="w-3 h-3" />
-            </button>
-            <button
-              className="px-2.5 py-1.5 text-xs text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors ml-1"
-              onClick={() => setCurrentMonth(new Date())}
-            >
-              Today
-            </button>
-          </div>
+          {/* Nav (visible in month/week views) */}
+          {calendarView !== "agenda" && (
+            <div className="flex items-center gap-1 ml-2">
+              <button
+                className="p-1.5 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] text-slate-500 dark:text-slate-400 transition-colors"
+                onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
+              >
+                <FaChevronLeft className="w-3 h-3" />
+              </button>
+              <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 px-2 min-w-[120px] text-center">
+                {format(currentMonth, "MMMM yyyy")}
+              </span>
+              <button
+                className="p-1.5 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] text-slate-500 dark:text-slate-400 transition-colors"
+                onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
+              >
+                <FaChevronRight className="w-3 h-3" />
+              </button>
+              <button
+                className="px-2.5 py-1.5 text-xs text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors ml-1"
+                onClick={() => setCurrentMonth(new Date())}
+              >
+                Today
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Body: Calendar + Panel */}
+      {/* Body */}
       <div className="flex-1 flex gap-4 min-h-0">
-        {/* Calendar grid */}
-        <div className="flex-1 flex flex-col bg-white dark:bg-[#1c2030] rounded-xl border border-slate-200 dark:border-[#2a3044] shadow-sm overflow-hidden min-w-0">
-          {/* Day headers */}
-          <div className="grid grid-cols-7 border-b border-slate-100 dark:border-[#232838] flex-shrink-0">
-            {weekDays.map((d, i) => (
-              <div key={d} className={`py-2 text-center text-xs font-semibold uppercase tracking-wider ${i >= 5 ? "text-slate-400 dark:text-slate-500" : "text-slate-500 dark:text-slate-400"}`}>
-                {d}
+
+        {/* Agenda view */}
+        {calendarView === "agenda" ? (
+          <div className="flex-1 bg-white dark:bg-[#1c2030] rounded-xl border border-slate-200 dark:border-[#2a3044] shadow-sm overflow-y-auto min-w-0">
+            {agendaGroups.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-slate-400 dark:text-slate-500 py-16">
+                <FaCalendarAlt className="w-10 h-10 mb-3 opacity-20" />
+                <p className="text-sm font-medium">No upcoming tasks</p>
+                <p className="text-xs mt-1">Tasks with due dates will appear here</p>
               </div>
-            ))}
-          </div>
+            ) : (
+              <div className="divide-y divide-slate-100 dark:divide-[#232838]">
+                {agendaGroups.map((group) => (
+                  <div key={group.key}>
+                    {/* Group header */}
+                    <div className={`sticky top-0 z-10 px-4 py-2.5 text-xs font-bold uppercase tracking-wider border-l-3 ${
+                      group.key === "overdue"
+                        ? "bg-red-50 dark:bg-red-900/15 text-red-600 dark:text-red-400 border-l-red-500"
+                        : group.key === "today"
+                        ? "bg-blue-50 dark:bg-blue-900/15 text-blue-600 dark:text-blue-400 border-l-blue-500"
+                        : "bg-slate-50 dark:bg-[#181c28] text-slate-500 dark:text-slate-400 border-l-slate-300 dark:border-l-slate-600"
+                    }`} style={{ borderLeftWidth: "3px" }}>
+                      {group.key === "overdue" && <FaExclamationTriangle className="w-3 h-3 inline mr-1.5 -mt-0.5" />}
+                      {group.label}
+                      <span className="ml-2 text-[10px] font-semibold opacity-60">({group.tasks.length})</span>
+                    </div>
 
-          {/* Weeks */}
-          <div className="flex-1 flex flex-col overflow-hidden">
-            {weeks.map((week, wi) => (
-              <div key={wi} className="grid grid-cols-7 flex-1 border-b border-slate-100 dark:border-[#232838] last:border-0 min-h-0">
-                {week.map((day, di) => {
-                  const tasks = getTasksForDay(day);
-                  const inMonth = isSameMonth(day, currentMonth);
-                  const today = isToday(day);
-                  const isWeekend = di === 5 || di === 6;
-                  const isSelected = selectedDay && isSameDay(day, selectedDay);
-
-                  return (
-                    <div
-                      key={di}
-                      onClick={() => handleDayClick(day)}
-                      className={`p-1 border-r border-slate-100 dark:border-[#232838] last:border-r-0 cursor-pointer transition-colors flex flex-col min-h-0 ${
-                        isSelected ? "bg-blue-50 dark:bg-blue-900/20" :
-                        !inMonth    ? "bg-slate-50/50 dark:bg-[#141720]/50" :
-                        isWeekend   ? "bg-slate-50/30 dark:bg-[#141720]/30" : ""
-                      } hover:bg-blue-50/60 dark:hover:bg-blue-900/10`}
-                    >
-                      {/* Date number */}
-                      <div className={`text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full mb-0.5 flex-shrink-0 ${
-                        today       ? "bg-blue-600 text-white font-bold" :
-                        !inMonth    ? "text-slate-300 dark:text-slate-600" :
-                        isWeekend   ? "text-slate-400 dark:text-slate-500" :
-                        "text-slate-700 dark:text-slate-300"
-                      }`}>
-                        {format(day, "d")}
-                      </div>
-
-                      {/* Task pills */}
-                      <div className="space-y-0.5 flex-1 overflow-hidden">
-                        {tasks.slice(0, 3).map((task) => (
-                          <TaskPill key={task.id} task={task} onClick={setSelectedTask} />
-                        ))}
-                        {tasks.length > 3 && (
-                          <div
-                            className="text-[10px] text-slate-400 dark:text-slate-500 px-1 cursor-pointer hover:text-blue-500 dark:hover:text-blue-400 relative group"
-                            onClick={(e) => { e.stopPropagation(); handleDayClick(day); }}
+                    {/* Task rows */}
+                    <div className="divide-y divide-slate-50 dark:divide-[#1e2235]">
+                      {group.tasks.map((task) => {
+                        const pColor = PRIORITY_COLORS[task.priority?.toLowerCase()] || "#3b82f6";
+                        const sCfg = STATUS_CONFIG[task.status] || STATUS_CONFIG.todo;
+                        const typeColor = TYPE_COLORS[task.type?.toLowerCase()] || "#6b7280";
+                        return (
+                          <button
+                            key={task.id}
+                            onClick={() => setSelectedTask(task)}
+                            className="w-full text-left flex items-center gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors group"
                           >
-                            +{tasks.length - 3} more
-                            {/* Tooltip */}
-                            <div className="absolute bottom-full left-0 mb-1 z-30 hidden group-hover:block">
-                              <div className="bg-slate-800 dark:bg-slate-900 text-white text-[10px] rounded-lg shadow-xl p-2 min-w-[140px] max-w-[200px] border border-slate-700">
-                                {tasks.slice(3).map((t) => (
-                                  <div key={t.id} className="py-0.5 truncate opacity-90">{t.title}</div>
-                                ))}
+                            {/* Priority dot */}
+                            <span
+                              className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                              style={{ backgroundColor: pColor }}
+                              title={task.priority}
+                            />
+
+                            {/* Title */}
+                            <span className="flex-1 text-sm font-medium text-slate-700 dark:text-slate-200 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                              {task.title}
+                            </span>
+
+                            {/* Assignee */}
+                            {task.assignedTo && (
+                              <span className="flex items-center gap-1 text-xs text-slate-400 dark:text-slate-500 capitalize flex-shrink-0">
+                                <FaUser className="w-2.5 h-2.5" />
+                                {task.assignedTo}
+                              </span>
+                            )}
+
+                            {/* Type badge */}
+                            {task.type && (
+                              <span
+                                className="text-[10px] font-semibold px-1.5 py-0.5 rounded capitalize flex-shrink-0"
+                                style={{ backgroundColor: typeColor + "18", color: typeColor }}
+                              >
+                                {task.type}
+                              </span>
+                            )}
+
+                            {/* Status badge */}
+                            <span
+                              className="text-[10px] font-medium px-1.5 py-0.5 rounded flex-shrink-0"
+                              style={{ backgroundColor: sCfg.color + "20", color: sCfg.color }}
+                            >
+                              {sCfg.label}
+                            </span>
+
+                            {/* Due date */}
+                            <span className={`text-xs flex-shrink-0 min-w-[52px] text-right ${
+                              group.key === "overdue" ? "text-red-500 font-semibold" : "text-slate-400 dark:text-slate-500"
+                            }`}>
+                              {format(parseISO(task.dueDate), "MMM d")}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          /* Month / Week calendar grid */
+          <div className="flex-1 flex flex-col bg-white dark:bg-[#1c2030] rounded-xl border border-slate-200 dark:border-[#2a3044] shadow-sm overflow-hidden min-w-0">
+            {/* Day headers */}
+            <div className="grid grid-cols-7 border-b border-slate-100 dark:border-[#232838] flex-shrink-0">
+              {weekDays.map((d, i) => (
+                <div key={d} className={`py-2 text-center text-xs font-semibold uppercase tracking-wider ${i >= 5 ? "text-slate-400 dark:text-slate-500" : "text-slate-500 dark:text-slate-400"}`}>
+                  {d}
+                </div>
+              ))}
+            </div>
+
+            {/* Weeks */}
+            <div className="flex-1 flex flex-col overflow-hidden">
+              {(calendarView === "week" ? [weeks.find((w) => w.some((d) => isToday(d))) || weeks[0]] : weeks).map((week, wi) => (
+                <div key={wi} className="grid grid-cols-7 flex-1 border-b border-slate-100 dark:border-[#232838] last:border-0 min-h-0">
+                  {week.map((day, di) => {
+                    const tasks = getTasksForDay(day);
+                    const inMonth = isSameMonth(day, currentMonth);
+                    const today = isToday(day);
+                    const isWeekend = di === 5 || di === 6;
+                    const isSelected = selectedDay && isSameDay(day, selectedDay);
+
+                    return (
+                      <div
+                        key={di}
+                        onClick={() => handleDayClick(day)}
+                        className={`p-1 border-r border-slate-100 dark:border-[#232838] last:border-r-0 cursor-pointer transition-colors flex flex-col min-h-0 ${
+                          isSelected ? "bg-blue-50 dark:bg-blue-900/20" :
+                          !inMonth    ? "bg-slate-50/50 dark:bg-[#141720]/50" :
+                          isWeekend   ? "bg-slate-50/30 dark:bg-[#141720]/30" : ""
+                        } hover:bg-blue-50/60 dark:hover:bg-blue-900/10`}
+                      >
+                        {/* Date number */}
+                        <div className={`text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full mb-0.5 flex-shrink-0 ${
+                          today       ? "bg-blue-600 text-white font-bold" :
+                          !inMonth    ? "text-slate-300 dark:text-slate-600" :
+                          isWeekend   ? "text-slate-400 dark:text-slate-500" :
+                          "text-slate-700 dark:text-slate-300"
+                        }`}>
+                          {format(day, "d")}
+                        </div>
+
+                        {/* Task pills */}
+                        <div className="space-y-0.5 flex-1 overflow-hidden">
+                          {tasks.slice(0, calendarView === "week" ? 10 : 3).map((task) => (
+                            <TaskPill key={task.id} task={task} onClick={setSelectedTask} />
+                          ))}
+                          {tasks.length > (calendarView === "week" ? 10 : 3) && (
+                            <div
+                              className="text-[10px] text-slate-400 dark:text-slate-500 px-1 cursor-pointer hover:text-blue-500 dark:hover:text-blue-400 relative group"
+                              onClick={(e) => { e.stopPropagation(); handleDayClick(day); }}
+                            >
+                              +{tasks.length - (calendarView === "week" ? 10 : 3)} more
+                              {/* Tooltip */}
+                              <div className="absolute bottom-full left-0 mb-1 z-30 hidden group-hover:block">
+                                <div className="bg-slate-800 dark:bg-slate-900 text-white text-[10px] rounded-lg shadow-xl p-2 min-w-[140px] max-w-[200px] border border-slate-700">
+                                  {tasks.slice(calendarView === "week" ? 10 : 3).map((t) => (
+                                    <div key={t.id} className="py-0.5 truncate opacity-90">{t.title}</div>
+                                  ))}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Side panel */}
-        <div className="w-64 flex-shrink-0 bg-white dark:bg-[#1c2030] rounded-xl border border-slate-200 dark:border-[#2a3044] shadow-sm overflow-hidden">
-          {panelContent}
-        </div>
+        {/* Side panel (calendar info panel - only when no task selected) */}
+        {!selectedTask && (
+          <div className="w-64 flex-shrink-0 bg-white dark:bg-[#1c2030] rounded-xl border border-slate-200 dark:border-[#2a3044] shadow-sm overflow-hidden">
+            {panelContent}
+          </div>
+        )}
       </div>
+
+      {/* TaskSidePanel (editable, replaces read-only TaskDetailPanel) */}
+      <TaskSidePanel
+        task={selectedTask}
+        open={!!selectedTask}
+        onClose={() => setSelectedTask(null)}
+        onTaskUpdate={(updated) => {
+          updateActiveTask(updated);
+          setSelectedTask(updated);
+        }}
+      />
 
       {/* Legend */}
       <div className="flex items-center gap-4 mt-3 text-xs text-slate-400 dark:text-slate-500 flex-shrink-0">

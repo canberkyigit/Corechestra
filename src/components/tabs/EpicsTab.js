@@ -102,10 +102,21 @@ export default function EpicsTab() {
       )}
 
       {projectEpics.length === 0 && !creating ? (
-        <div className="text-center py-16 text-slate-400">
-          <FaRocket className="w-10 h-10 mx-auto mb-3 opacity-30" />
-          <p className="font-medium">No epics yet</p>
-          <p className="text-sm">Create an epic to group related tasks</p>
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-slate-300 dark:text-slate-600">
+            <path d="M32 6L36 22H52L39 32L43 48L32 38L21 48L25 32L12 22H28L32 6Z" stroke="currentColor" strokeWidth="2" fill="none" strokeLinejoin="round" />
+            <path d="M32 52V58" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            <path d="M24 56H40" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            <circle cx="32" cy="30" r="4" fill="currentColor" opacity="0.2" />
+          </svg>
+          <h3 className="text-base font-semibold text-slate-600 dark:text-slate-300 mt-4">No epics yet</h3>
+          <p className="text-sm text-slate-400 dark:text-slate-500 mt-1 max-w-xs">Create your first epic to organize related tasks</p>
+          <button
+            className="mt-4 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+            onClick={() => setCreating(true)}
+          >
+            + Create Epic
+          </button>
         </div>
       ) : (
         <div className="space-y-3">

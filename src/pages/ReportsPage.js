@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback, useRef } from "react";
 import { useApp } from "../context/AppContext";
-import { FaChartBar, FaBolt, FaCheckCircle, FaExclamationTriangle, FaFire, FaTrophy, FaCalendarAlt } from "react-icons/fa";
+import { FaChartBar, FaBolt, FaCheckCircle, FaExclamationTriangle, FaFire, FaTrophy, FaCalendarAlt, FaDownload, FaPrint } from "react-icons/fa";
 import { parseISO, format, isValid, isAfter, isBefore } from "date-fns";
 
 const STATUS_CONFIG = {
@@ -42,11 +42,28 @@ function StatCard({ label, value, sub, color, icon: Icon }) {
 
 function HorizontalBar({ label, value, max, color, count }) {
   const pct = max > 0 ? Math.round((value / max) * 100) : 0;
+  const [hovered, setHovered] = useState(false);
   return (
-    <div className="flex items-center gap-3">
+    <div className="relative flex items-center gap-3"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}>
       <div className="w-20 text-xs text-slate-600 dark:text-slate-400 text-right truncate">{label}</div>
-      <div className="flex-1 bg-slate-100 dark:bg-[#232838] rounded-full h-2 overflow-hidden">
-        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
+      <div className="flex-1 relative">
+        <div className="bg-slate-100 dark:bg-[#232838] rounded-full h-2 overflow-hidden">
+          <div className="h-full rounded-full transition-all" style={{
+            width: `${pct}%`,
+            backgroundColor: color,
+            filter: hovered ? "brightness(1.25)" : "none",
+          }} />
+        </div>
+        {hovered && (
+          <div className="absolute z-50 pointer-events-none px-3 py-2 rounded-lg shadow-lg border text-xs whitespace-nowrap
+            bg-white dark:bg-[#1c2030] border-slate-200 dark:border-[#2a3044] text-slate-700 dark:text-slate-200"
+            style={{ left: `${Math.min(pct, 80)}%`, bottom: "14px", transform: "translateX(-50%)" }}>
+            <p className="font-semibold" style={{ color }}>{label}</p>
+            <p>{count} task{count !== 1 ? "s" : ""} &middot; {pct}%</p>
+          </div>
+        )}
       </div>
       <div className="w-8 text-xs font-semibold text-slate-700 dark:text-slate-300 text-right">{count}</div>
     </div>
@@ -55,6 +72,9 @@ function HorizontalBar({ label, value, max, color, count }) {
 
 /// Burndown chart: uses real daily snapshots if available, falls back to simulated
 function BurndownChart({ tasks, sprint, burndownSnapshots = [] }) {
+  const [hoveredPoint, setHoveredPoint] = useState(null);
+  const svgRef = useRef(null);
+
   const totalPoints = tasks.reduce((s, t) => s + (Number(t.storyPoint) || 0), 0);
   const remaining = tasks.filter((t) => t.status !== "done").reduce((s, t) => s + (Number(t.storyPoint) || 0), 0);
   const sprintDays = 14;
@@ -67,9 +87,11 @@ function BurndownChart({ tasks, sprint, burndownSnapshots = [] }) {
 
   const hasSnapshots = burndownSnapshots.length >= 2;
   let actualPoints = [];
+  let dateLabels = [];
   if (hasSnapshots) {
     const sorted = [...burndownSnapshots].sort((a, b) => a.date.localeCompare(b.date)).slice(-sprintDays);
     actualPoints = sorted.map((s, i) => ({ x: i, y: s.remaining }));
+    dateLabels = sorted.map((s) => s.date);
   } else {
     actualPoints = days.map((d) => {
       if (d === 0) return { x: d, y: totalPoints };
@@ -79,6 +101,7 @@ function BurndownChart({ tasks, sprint, burndownSnapshots = [] }) {
       const val = ideal + noise + (remaining - 0) * (d / sprintDays) * 0.3;
       return { x: d, y: Math.max(0, Math.round(val)) };
     });
+    dateLabels = days.map((d) => `Day ${d}`);
   }
 
   const maxVal = Math.max(totalPoints, ...actualPoints.map((p) => p.y), 1);
@@ -90,18 +113,44 @@ function BurndownChart({ tasks, sprint, burndownSnapshots = [] }) {
   const actualPath = actualPoints.map((p, i) => `${i === 0 ? "M" : "L"}${toX(p.x)},${toY(p.y)}`).join(" ");
 
   return (
-    <div>
-      <svg width={chartW} height={chartH} className="w-full" viewBox={`0 0 ${chartW} ${chartH}`}>
+    <div className="relative">
+      <svg ref={svgRef} width={chartW} height={chartH} className="w-full" viewBox={`0 0 ${chartW} ${chartH}`}
+        onMouseLeave={() => setHoveredPoint(null)}>
         {[0, 0.25, 0.5, 0.75, 1].map((p) => (
           <line key={p} x1={0} y1={toY(maxVal * p)} x2={chartW} y2={toY(maxVal * p)}
             stroke="currentColor" strokeOpacity={0.08} strokeWidth={1} />
         ))}
         <path d={idealPath} fill="none" stroke="#94a3b8" strokeWidth={1.5} strokeDasharray="4,3" />
         <path d={actualPath} fill="none" stroke="#3b82f6" strokeWidth={2} />
-        {hasSnapshots && actualPoints.map((p, i) => (
-          <circle key={i} cx={toX(p.x)} cy={toY(p.y)} r={2.5} fill="#3b82f6" />
+        {actualPoints.map((p, i) => (
+          <g key={i}
+            onMouseEnter={() => setHoveredPoint(i)}
+            onMouseLeave={() => setHoveredPoint(null)}>
+            {/* Invisible larger hit area */}
+            <circle cx={toX(p.x)} cy={toY(p.y)} r={10} fill="transparent" />
+            <circle cx={toX(p.x)} cy={toY(p.y)}
+              r={hoveredPoint === i ? 5 : 3}
+              fill={hoveredPoint === i ? "#2563eb" : "#3b82f6"}
+              stroke="white" strokeWidth={hoveredPoint === i ? 2 : 0}
+              className="transition-all" />
+          </g>
         ))}
       </svg>
+      {/* Burndown tooltip */}
+      {hoveredPoint !== null && actualPoints[hoveredPoint] && (
+        <div
+          className="absolute z-50 pointer-events-none px-3 py-2 rounded-lg shadow-lg border text-xs whitespace-nowrap
+            bg-white dark:bg-[#1c2030] border-slate-200 dark:border-[#2a3044] text-slate-700 dark:text-slate-200"
+          style={{
+            left: `${(toX(actualPoints[hoveredPoint].x) / chartW) * 100}%`,
+            top: `${(toY(actualPoints[hoveredPoint].y) / chartH) * 100 - 12}%`,
+            transform: "translate(-50%, -100%)",
+          }}>
+          <p className="font-semibold text-blue-500">{dateLabels[hoveredPoint]}</p>
+          <p>Remaining: <span className="font-semibold">{actualPoints[hoveredPoint].y} pts</span></p>
+          <p>Total: <span className="font-semibold">{totalPoints} pts</span></p>
+        </div>
+      )}
       <div className="flex items-center gap-4 mt-2 text-xs text-slate-500 dark:text-slate-400">
         <span className="flex items-center gap-1.5">
           <span className="w-6 border-t-2 border-dashed border-slate-400" />
@@ -119,6 +168,8 @@ function BurndownChart({ tasks, sprint, burndownSnapshots = [] }) {
 
 // Bar chart for velocity using real completed sprint data
 function VelocityChart({ completedPoints, completedSprints = [] }) {
+  const [hoveredBar, setHoveredBar] = useState(null);
+
   // Last 5 completed sprints (oldest first) + current sprint
   const history = [...completedSprints].reverse().slice(-5);
   const sprints = [
@@ -137,13 +188,32 @@ function VelocityChart({ completedPoints, completedSprints = [] }) {
         {sprints.map((s, i) => {
           const h = Math.max(Math.round((s.pts / maxPts) * 96), s.pts > 0 ? 4 : 0);
           const isCurrent = i === sprints.length - 1;
+          const isHovered = hoveredBar === i;
+          const baseColor = isCurrent ? "#3b82f6" : "#94a3b8";
           return (
-            <div key={`${s.name}-${i}`} className="flex-1 flex flex-col items-center gap-1">
+            <div key={`${s.name}-${i}`} className="flex-1 flex flex-col items-center gap-1 relative"
+              onMouseEnter={() => setHoveredBar(i)}
+              onMouseLeave={() => setHoveredBar(null)}>
               <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">{s.pts}</span>
               <div
-                className="w-full rounded-t-md transition-all"
-                style={{ height: h, backgroundColor: isCurrent ? "#3b82f6" : "#94a3b844" }}
+                className="w-full rounded-t-md transition-all cursor-pointer"
+                style={{
+                  height: h,
+                  backgroundColor: isCurrent
+                    ? (isHovered ? "#2563eb" : "#3b82f6")
+                    : (isHovered ? "#94a3b866" : "#94a3b844"),
+                  boxShadow: isHovered ? `0 0 8px ${baseColor}44` : "none",
+                }}
               />
+              {isHovered && (
+                <div className="absolute bottom-full mb-8 left-1/2 z-50 pointer-events-none px-3 py-2 rounded-lg shadow-lg border text-xs whitespace-nowrap
+                  bg-white dark:bg-[#1c2030] border-slate-200 dark:border-[#2a3044] text-slate-700 dark:text-slate-200"
+                  style={{ transform: "translateX(-50%)" }}>
+                  <p className="font-semibold" style={{ color: isCurrent ? "#3b82f6" : "#64748b" }}>{s.name}</p>
+                  <p>Completed: <span className="font-semibold">{s.pts} pts</span></p>
+                  {avg !== null && <p className="text-slate-400 dark:text-slate-500">Avg: {avg} pts</p>}
+                </div>
+              )}
             </div>
           );
         })}
@@ -240,6 +310,42 @@ export default function ReportsPage() {
     [projectTasks, projectEpics]
   );
 
+  // CSV Export
+  const exportCSV = useCallback(() => {
+    const headers = ["Title", "Status", "Priority", "Assignee", "Story Points", "Due Date", "Type", "Epic"];
+    const rows = projectTasks.map((t) => {
+      const statusLabel = STATUS_CONFIG[t.status]?.label || t.status || "";
+      const priorityLabel = PRIORITY_CONFIG[t.priority]?.label || t.priority || "";
+      const epicName = projectEpics.find((e) => e.id === t.epicId)?.title || "";
+      return [
+        `"${(t.title || "").replace(/"/g, '""')}"`,
+        statusLabel,
+        priorityLabel,
+        t.assignedTo || "Unassigned",
+        t.storyPoint || 0,
+        t.dueDate || "",
+        t.type || "task",
+        `"${epicName.replace(/"/g, '""')}"`,
+      ].join(",");
+    });
+    const csv = [headers.join(","), ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const dateStr = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `corechestra-report-${dateStr}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, [projectTasks, projectEpics]);
+
+  // Print
+  const handlePrint = useCallback(() => {
+    window.print();
+  }, []);
+
   const tabs = [
     { id: "overview", label: "Overview" },
     { id: "burndown", label: "Burndown" },
@@ -248,7 +354,26 @@ export default function ReportsPage() {
   ];
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-6 max-w-6xl mx-auto" id="reports-print-area">
+      {/* Print styles */}
+      <style>{`
+        @media print {
+          body * { visibility: hidden !important; }
+          #reports-print-area, #reports-print-area * { visibility: visible !important; }
+          #reports-print-area {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            padding: 20px !important;
+            margin: 0 !important;
+          }
+          nav, aside, header, [data-sidebar], [data-topbar], .no-print { display: none !important; }
+          .bg-white, .dark\\:bg-\\[\\#1c2030\\] { background: white !important; }
+          * { color: #1e293b !important; border-color: #e2e8f0 !important; }
+        }
+      `}</style>
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <FaChartBar className="w-5 h-5 text-blue-500" />
@@ -257,6 +382,27 @@ export default function ReportsPage() {
           <p className="text-sm text-slate-400 dark:text-slate-500">Sprint analytics and team performance</p>
         </div>
         <div className="ml-auto flex items-center gap-2 flex-wrap">
+          {/* Export buttons */}
+          <button
+            onClick={exportCSV}
+            className="no-print inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all
+              border-slate-200 dark:border-[#2a3044] text-slate-600 dark:text-slate-300
+              hover:bg-slate-50 dark:hover:bg-[#232838] hover:border-slate-300 dark:hover:border-[#3a4054]"
+            title="Export report data as CSV"
+          >
+            <FaDownload className="w-3 h-3" />
+            Export CSV
+          </button>
+          <button
+            onClick={handlePrint}
+            className="no-print inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all
+              border-slate-200 dark:border-[#2a3044] text-slate-600 dark:text-slate-300
+              hover:bg-slate-50 dark:hover:bg-[#232838] hover:border-slate-300 dark:hover:border-[#3a4054]"
+            title="Print report"
+          >
+            <FaPrint className="w-3 h-3" />
+            Print Report
+          </button>
           {/* Date range filter */}
           <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
             <FaCalendarAlt className="w-3 h-3" />

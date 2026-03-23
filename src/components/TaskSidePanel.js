@@ -4,6 +4,7 @@ import { Listbox } from "@headlessui/react";
 import {
   FaTimes, FaTrash, FaCheck, FaPlus, FaChevronDown, FaSearch,
   FaEye, FaEyeSlash, FaExpand, FaLink,
+  FaPaperclip, FaCloudUploadAlt, FaFileAlt, FaImage,
 } from "react-icons/fa";
 import { useApp } from "../context/AppContext";
 import { useToast } from "../context/ToastContext";
@@ -72,6 +73,7 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
   const [customFieldValues, setCustomFieldValues] = useState({});
   const [hasChanges,   setHasChanges]   = useState(false);
   const [confirmDelete,setConfirmDelete]= useState(false);
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
   const [activeTab,    setActiveTab]    = useState("details");
 
   // Subtask inline add
@@ -86,6 +88,10 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
   const [linkSearch,        setLinkSearch]        = useState("");
   const [linkRelationship,  setLinkRelationship]  = useState("relates to");
 
+  // Attachments
+  const [attachments, setAttachments] = useState([]);
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef(null);
 
   // Resize
   const [panelWidth, setPanelWidth] = useState(580);
@@ -134,6 +140,7 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
     setCustomFieldValues(task.customFieldValues || {});
     setTimeEstimate(task.timeEstimate || 0);
     setTimeSpent(task.timeSpent || 0);
+    setAttachments(task.attachments || []);
 
     // Only reset text-edit fields and UI state when switching to a different task,
     // so that in-progress title/description edits aren't lost on external updates.
@@ -142,6 +149,7 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
       setDescription(task.description || "");
       setHasChanges(false);
       setConfirmDelete(false);
+      setShowDiscardConfirm(false);
       setActiveTab("details");
       setInlineSubOpen(false);
       setLinkSearchOpen(false);
@@ -182,6 +190,7 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
     timeEstimate: Number(timeEstimate) || 0,
     timeSpent: Number(timeSpent) || 0,
     customFieldValues,
+    attachments,
     comments: task.comments || [],
   });
 
@@ -189,6 +198,20 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
   // patch overrides any stale local-state values captured by buildUpdated().
   const autoSave = (patch) => {
     onTaskUpdate?.({ ...buildUpdated(), ...patch });
+  };
+
+  const handleClose = () => {
+    if (hasChanges) {
+      setShowDiscardConfirm(true);
+    } else {
+      onClose();
+    }
+  };
+
+  const handleConfirmDiscard = () => {
+    setShowDiscardConfirm(false);
+    setHasChanges(false);
+    onClose();
   };
 
   const handleSave = () => {
@@ -243,6 +266,56 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
     onTaskUpdate?.({ ...buildUpdated(), linkedItems: newLinkedItems });
   };
 
+  // ── Attachments ─────────────────────────────────────────────────────────────
+  const formatFileSize = (bytes) => {
+    if (bytes >= 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+    return (bytes / 1024).toFixed(1) + " KB";
+  };
+
+  const processFiles = (files) => {
+    const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+    Array.from(files).forEach((file) => {
+      if (file.size > MAX_SIZE) {
+        addToast(`File "${file.name}" exceeds 5 MB limit`, "error");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const newAttachment = {
+          id: Date.now().toString() + Math.random().toString(36).slice(2, 8),
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          dataUrl: e.target.result,
+          addedAt: new Date().toISOString(),
+        };
+        setAttachments((prev) => {
+          const updated = [...prev, newAttachment];
+          onTaskUpdate?.({ ...buildUpdated(), attachments: updated });
+          return updated;
+        });
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleAttachmentDrop = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    if (e.dataTransfer.files?.length) processFiles(e.dataTransfer.files);
+  };
+
+  const handleAttachmentSelect = (e) => {
+    if (e.target.files?.length) processFiles(e.target.files);
+    e.target.value = "";
+  };
+
+  const removeAttachment = (id) => {
+    const updated = attachments.filter((a) => a.id !== id);
+    setAttachments(updated);
+    onTaskUpdate?.({ ...buildUpdated(), attachments: updated });
+  };
+
   const typeInfo     = TYPE_OPTIONS.find((t) => t.value === type) || TYPE_OPTIONS[0];
   const TypeIcon     = typeInfo.icon;
   const currentEpic  = epics.find((e) => e.id === epicId);
@@ -259,7 +332,7 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          onClick={onClose}
+          onClick={handleClose}
         />
       )}
       {shouldRender && (
@@ -330,7 +403,7 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
           </button>
           <button
             className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#232838] rounded transition-colors"
-            onClick={onClose}
+            onClick={handleClose}
           >
             <FaTimes className="w-4 h-4" />
           </button>
@@ -847,6 +920,79 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
               )}
             </div>
 
+            {/* ── Attachments ── */}
+            <div className="border border-slate-200 dark:border-[#2a3044] rounded-lg overflow-hidden">
+              <div className="flex items-center justify-between px-3 py-2 bg-slate-50 dark:bg-[#232838] border-b border-slate-200 dark:border-[#2a3044]">
+                <div className="flex items-center gap-1.5">
+                  <FaPaperclip className="w-3 h-3 text-slate-400" />
+                  <span className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wide">Attachments</span>
+                  {attachments.length > 0 && (
+                    <span className="text-xs text-slate-400 bg-slate-200 dark:bg-[#2a3044] px-1.5 rounded-full">{attachments.length}</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Drop zone */}
+              <div
+                className={`p-3 border-b border-slate-100 dark:border-[#2a3044] transition-colors cursor-pointer ${
+                  dragOver
+                    ? "bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-600"
+                    : "bg-white dark:bg-[#1c2030] hover:bg-slate-50 dark:hover:bg-[#232838]"
+                }`}
+                onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={handleAttachmentDrop}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <div className="flex flex-col items-center justify-center py-2 border-2 border-dashed border-slate-200 dark:border-[#2a3044] rounded-lg">
+                  <FaCloudUploadAlt className={`w-5 h-5 mb-1 ${dragOver ? "text-blue-500" : "text-slate-300 dark:text-slate-600"}`} />
+                  <span className="text-xs text-slate-400 dark:text-slate-500">
+                    {dragOver ? "Drop files here" : "Drop files here or click to browse"}
+                  </span>
+                  <span className="text-[10px] text-slate-300 dark:text-slate-600 mt-0.5">Max 5 MB per file</span>
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={handleAttachmentSelect}
+                />
+              </div>
+
+              {/* File list */}
+              {attachments.length > 0 && (
+                <div>
+                  {attachments.map((att) => (
+                    <div key={att.id} className="flex items-center gap-2 px-3 py-2 border-b border-slate-100 dark:border-[#2a3044] last:border-0 hover:bg-slate-50 dark:hover:bg-[#232838] group">
+                      {att.type?.startsWith("image/") ? (
+                        <img
+                          src={att.dataUrl}
+                          alt={att.name}
+                          className="w-10 h-10 rounded object-cover flex-shrink-0 border border-slate-200 dark:border-[#2a3044]"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded bg-slate-100 dark:bg-[#232838] flex items-center justify-center flex-shrink-0 border border-slate-200 dark:border-[#2a3044]">
+                          <FaFileAlt className="w-4 h-4 text-slate-400" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs text-slate-700 dark:text-slate-300 truncate">{att.name}</div>
+                        <div className="text-[10px] text-slate-400 dark:text-slate-500">{formatFileSize(att.size)}</div>
+                      </div>
+                      <button
+                        className="opacity-0 group-hover:opacity-100 p-0.5 text-slate-300 hover:text-red-500 transition-all flex-shrink-0"
+                        onClick={(e) => { e.stopPropagation(); removeAttachment(att.id); }}
+                        title="Remove"
+                      >
+                        <FaTimes className="w-2.5 h-2.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* ── Comments ── */}
             <CommentSection
               key={task.id}
@@ -956,11 +1102,32 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
 
       </div>
 
+      {/* ── Discard confirmation banner ── */}
+      {showDiscardConfirm && (
+        <div className="bg-amber-50 dark:bg-amber-900/20 border-t border-amber-200 dark:border-amber-800 px-4 py-2.5 flex items-center justify-between flex-shrink-0">
+          <span className="text-xs text-amber-700 dark:text-amber-400">You have unsaved changes. Discard?</span>
+          <div className="flex gap-2">
+            <button
+              className="px-2.5 py-1 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700 transition-colors"
+              onClick={handleConfirmDiscard}
+            >
+              Discard
+            </button>
+            <button
+              className="px-2.5 py-1 text-xs text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors"
+              onClick={() => setShowDiscardConfirm(false)}
+            >
+              Keep Editing
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── Footer ── */}
       <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 dark:border-[#232838] bg-slate-50/50 dark:bg-[#141720]/50 flex-shrink-0">
         <div className="text-xs text-orange-500 font-medium">{hasChanges ? "Unsaved changes" : ""}</div>
         <div className="flex gap-2">
-          <button className="px-3 py-1.5 text-xs text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-100 dark:hover:bg-[#232838]" onClick={onClose}>
+          <button className="px-3 py-1.5 text-xs text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-100 dark:hover:bg-[#232838]" onClick={handleClose}>
             Close
           </button>
           <button
