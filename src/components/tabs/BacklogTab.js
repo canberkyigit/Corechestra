@@ -47,11 +47,14 @@ export default function BacklogTab({ onTaskClick, onPokerClick }) {
     (t) => (t.projectId || "proj-1") === currentProjectId
   );
 
+  const TASKS_PER_PAGE = 20;
   const [expandedSubtasks, setExpandedSubtasks] = useState({});
   const [editingIdx, setEditingIdx] = useState(null);
   const [editingTitle, setEditingTitle] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [search, setSearch] = useState("");
+  const [activeVisibleCount, setActiveVisibleCount] = useState(TASKS_PER_PAGE);
+  const [sectionVisibleCounts, setSectionVisibleCounts] = useState({});
 
   const toggleSubtasks = (taskId) =>
     setExpandedSubtasks((prev) => ({ ...prev, [taskId]: !prev[taskId] }));
@@ -96,6 +99,26 @@ export default function BacklogTab({ onTaskClick, onPokerClick }) {
   };
 
   const filteredActive = useMemo(() => projectActiveTasks.filter(filterTask), [projectActiveTasks, search]); // eslint-disable-line
+
+  const totalBacklogTasks = backlogSections.reduce((sum, s) => sum + s.tasks.length, 0);
+  const isBacklogEmpty = projectActiveTasks.length === 0 && totalBacklogTasks === 0;
+
+  if (isBacklogEmpty) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-slate-300 dark:text-slate-600">
+          <rect x="14" y="8" width="36" height="10" rx="3" stroke="currentColor" strokeWidth="2" fill="none" />
+          <rect x="10" y="22" width="44" height="10" rx="3" stroke="currentColor" strokeWidth="2" fill="none" />
+          <rect x="6" y="36" width="52" height="10" rx="3" stroke="currentColor" strokeWidth="2" fill="none" />
+          <rect x="18" y="12" width="16" height="2" rx="1" fill="currentColor" opacity="0.3" />
+          <rect x="16" y="26" width="20" height="2" rx="1" fill="currentColor" opacity="0.3" />
+          <rect x="14" y="40" width="24" height="2" rx="1" fill="currentColor" opacity="0.3" />
+        </svg>
+        <h3 className="text-base font-semibold text-slate-600 dark:text-slate-300 mt-4">Backlog is empty</h3>
+        <p className="text-sm text-slate-400 dark:text-slate-500 mt-1 max-w-xs">Tasks moved from the sprint or created here will appear</p>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -146,8 +169,9 @@ export default function BacklogTab({ onTaskClick, onPokerClick }) {
                       <p>{search ? "No matching tasks" : "Drag tasks here from Backlog"}</p>
                     </div>
                   ) : (
+                    <>
                     <ul>
-                      {filteredActive.map((task, idx) => (
+                      {filteredActive.slice(0, activeVisibleCount).map((task, idx) => (
                         <Draggable key={task.id} draggableId={task.id} index={projectActiveTasks.indexOf(task)}>
                           {(provided, snapshot) => (
                             <div
@@ -171,7 +195,7 @@ export default function BacklogTab({ onTaskClick, onPokerClick }) {
                                   onToggle={(subId) => toggleSubtask(task, subId, true, null)}
                                 />
                               )}
-                              {idx !== filteredActive.length - 1 && (
+                              {idx !== Math.min(filteredActive.length, activeVisibleCount) - 1 && (
                                 <div className="border-b border-gray-200 dark:border-[#232838] -mx-4" />
                               )}
                             </div>
@@ -179,6 +203,15 @@ export default function BacklogTab({ onTaskClick, onPokerClick }) {
                         </Draggable>
                       ))}
                     </ul>
+                    {filteredActive.length > activeVisibleCount && (
+                      <button
+                        className="w-full text-center py-2.5 mt-2 text-xs text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-50 dark:hover:bg-[#232838] rounded-lg transition-colors font-medium"
+                        onClick={() => setActiveVisibleCount((prev) => prev + TASKS_PER_PAGE)}
+                      >
+                        Show {Math.min(TASKS_PER_PAGE, filteredActive.length - activeVisibleCount)} more task{Math.min(TASKS_PER_PAGE, filteredActive.length - activeVisibleCount) !== 1 ? "s" : ""} ({filteredActive.length - activeVisibleCount} remaining)
+                      </button>
+                    )}
+                    </>
                   )}
                   {provided.placeholder}
                 </div>
@@ -258,9 +291,14 @@ export default function BacklogTab({ onTaskClick, onPokerClick }) {
                         <div className="text-center py-8 text-gray-400 dark:text-slate-500">
                           <p>{search ? "No matching tasks" : `No tasks in ${section.title.toLowerCase()}`}</p>
                         </div>
-                      ) : (
+                      ) : (() => {
+                        const sectionVisibleCount = sectionVisibleCounts[section.id] || TASKS_PER_PAGE;
+                        const visibleTasks = filteredTasks.slice(0, sectionVisibleCount);
+                        const remaining = filteredTasks.length - sectionVisibleCount;
+                        return (
+                        <>
                         <ul>
-                          {filteredTasks.map((task, idx) => (
+                          {visibleTasks.map((task, idx) => (
                             <Draggable key={task.id} draggableId={task.id} index={section.tasks.indexOf(task)}>
                               {(provided, snapshot) => (
                                 <div
@@ -309,7 +347,7 @@ export default function BacklogTab({ onTaskClick, onPokerClick }) {
                                       onToggle={(subId) => toggleSubtask(task, subId, false, sectionIdx)}
                                     />
                                   )}
-                                  {idx !== filteredTasks.length - 1 && (
+                                  {idx !== visibleTasks.length - 1 && (
                                     <div className="border-b border-gray-200 dark:border-[#232838] mx-0" />
                                   )}
                                 </div>
@@ -317,7 +355,17 @@ export default function BacklogTab({ onTaskClick, onPokerClick }) {
                             </Draggable>
                           ))}
                         </ul>
-                      )}
+                        {remaining > 0 && (
+                          <button
+                            className="w-full text-center py-2.5 mt-2 text-xs text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-50 dark:hover:bg-[#232838] rounded-lg transition-colors font-medium"
+                            onClick={() => setSectionVisibleCounts((prev) => ({ ...prev, [section.id]: sectionVisibleCount + TASKS_PER_PAGE }))}
+                          >
+                            Show {Math.min(TASKS_PER_PAGE, remaining)} more task{Math.min(TASKS_PER_PAGE, remaining) !== 1 ? "s" : ""} ({remaining} remaining)
+                          </button>
+                        )}
+                        </>
+                        );
+                      })()}
                       {provided.placeholder}
                     </div>
                   )}

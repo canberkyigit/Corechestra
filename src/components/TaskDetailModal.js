@@ -5,6 +5,7 @@ import {
   FaTimes, FaTrash, FaCheck, FaPlus, FaChevronDown, FaSearch,
   FaEye, FaEyeSlash, FaClock, FaTag, FaLink,
   FaComment, FaCompress,
+  FaPaperclip, FaCloudUploadAlt, FaFileAlt, FaImage,
 } from "react-icons/fa";
 import { useApp } from "../context/AppContext";
 import { useToast } from "../context/ToastContext";
@@ -118,6 +119,12 @@ export default function TaskDetailModal({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [openSubtask, setOpenSubtask] = useState(null);
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+
+  // Attachments
+  const [attachments, setAttachments] = useState([]);
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef(null);
 
   const prevTaskId = useRef(null);
 
@@ -141,6 +148,7 @@ export default function TaskDetailModal({
     setSubtasks(task.subtasks || []);
     setLinkedItems(task.linkedItems || []);
     setCustomFieldValues(task.customFieldValues || {});
+    setAttachments(task.attachments || []);
     setInlineSubOpen(false);
     setInlineSubTitle("");
     setLinkSearchOpen(false);
@@ -148,6 +156,7 @@ export default function TaskDetailModal({
     setHasChanges(false);
     setActiveTab("details");
     setConfirmDelete(false);
+    setShowDiscardConfirm(false);
   }, [open, task]);
 
   // ── Must be before early return (hooks rules) ─────────────────────────────
@@ -193,6 +202,7 @@ export default function TaskDetailModal({
     subtasks,
     linkedItems,
     customFieldValues,
+    attachments,
     comments: task.comments || [],
   });
 
@@ -204,6 +214,20 @@ export default function TaskDetailModal({
     setHasChanges(false);
     addToast(isCreate ? "Task created" : "Changes saved", isCreate ? "info" : "success");
     if (isCreate) onClose();
+  };
+
+  const handleClose = () => {
+    if (hasChanges) {
+      setShowDiscardConfirm(true);
+    } else {
+      onClose();
+    }
+  };
+
+  const handleConfirmDiscard = () => {
+    setShowDiscardConfirm(false);
+    setHasChanges(false);
+    onClose();
   };
 
   const handleDelete = () => {
@@ -252,6 +276,52 @@ export default function TaskDetailModal({
     changed();
   };
 
+  // ── Attachments ─────────────────────────────────────────────────────────────
+  const formatFileSize = (bytes) => {
+    if (bytes >= 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+    return (bytes / 1024).toFixed(1) + " KB";
+  };
+
+  const processFiles = (files) => {
+    const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+    Array.from(files).forEach((file) => {
+      if (file.size > MAX_SIZE) {
+        addToast(`File "${file.name}" exceeds 5 MB limit`, "error");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const newAttachment = {
+          id: Date.now().toString() + Math.random().toString(36).slice(2, 8),
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          dataUrl: e.target.result,
+          addedAt: new Date().toISOString(),
+        };
+        setAttachments((prev) => [...prev, newAttachment]);
+        changed();
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleAttachmentDrop = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    if (e.dataTransfer.files?.length) processFiles(e.dataTransfer.files);
+  };
+
+  const handleAttachmentSelect = (e) => {
+    if (e.target.files?.length) processFiles(e.target.files);
+    e.target.value = "";
+  };
+
+  const removeAttachment = (id) => {
+    setAttachments((prev) => prev.filter((a) => a.id !== id));
+    changed();
+  };
+
   const typeInfo = TYPE_OPTIONS.find((t) => t.value === type) || TYPE_OPTIONS[0];
   const TypeIcon = typeInfo.icon;
 
@@ -278,7 +348,7 @@ export default function TaskDetailModal({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.15 }}
-      onClick={onClose}
+      onClick={handleClose}
     >
       <motion.div
         className="bg-white dark:bg-[#1c2030] rounded-2xl shadow-2xl w-full max-w-3xl mx-4 flex flex-col max-h-[90vh] overflow-hidden transition-colors relative"
@@ -335,7 +405,7 @@ export default function TaskDetailModal({
                 <FaTrash className="w-3.5 h-3.5" />
               </button>
             )}
-            <button className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#232838] rounded-lg transition-colors" onClick={onClose}>
+            <button className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#232838] rounded-lg transition-colors" onClick={handleClose}>
               <FaTimes className="w-4 h-4" />
             </button>
           </div>
@@ -609,6 +679,72 @@ export default function TaskDetailModal({
                     taskId={task.id}
                     onUpdate={(newComments) => onTaskUpdate?.({ ...buildUpdated(), comments: newComments })}
                   />
+                </div>
+
+                {/* Attachments */}
+                <div>
+                  <FieldLabel>Attachments {attachments.length > 0 && <span className="ml-1 text-[10px] bg-slate-200 dark:bg-[#2a3044] text-slate-500 dark:text-slate-400 px-1.5 rounded-full normal-case">{attachments.length}</span>}</FieldLabel>
+                  <div className="border border-slate-200 dark:border-[#2a3044] rounded-lg overflow-hidden">
+                    {/* Drop zone */}
+                    <div
+                      className={`p-3 transition-colors cursor-pointer ${
+                        dragOver
+                          ? "bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-600"
+                          : "bg-white dark:bg-[#1c2030] hover:bg-slate-50 dark:hover:bg-[#232838]"
+                      }`}
+                      onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                      onDragLeave={() => setDragOver(false)}
+                      onDrop={handleAttachmentDrop}
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <div className="flex flex-col items-center justify-center py-3 border-2 border-dashed border-slate-200 dark:border-[#2a3044] rounded-lg">
+                        <FaCloudUploadAlt className={`w-6 h-6 mb-1.5 ${dragOver ? "text-blue-500" : "text-slate-300 dark:text-slate-600"}`} />
+                        <span className="text-xs text-slate-400 dark:text-slate-500">
+                          {dragOver ? "Drop files here" : "Drop files here or click to browse"}
+                        </span>
+                        <span className="text-[10px] text-slate-300 dark:text-slate-600 mt-0.5">Max 5 MB per file</span>
+                      </div>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        multiple
+                        className="hidden"
+                        onChange={handleAttachmentSelect}
+                      />
+                    </div>
+
+                    {/* File list */}
+                    {attachments.length > 0 && (
+                      <div>
+                        {attachments.map((att) => (
+                          <div key={att.id} className="flex items-center gap-2.5 px-3 py-2 border-t border-slate-100 dark:border-[#2a3044] hover:bg-slate-50 dark:hover:bg-[#232838] group">
+                            {att.type?.startsWith("image/") ? (
+                              <img
+                                src={att.dataUrl}
+                                alt={att.name}
+                                className="w-10 h-10 rounded object-cover flex-shrink-0 border border-slate-200 dark:border-[#2a3044]"
+                              />
+                            ) : (
+                              <div className="w-10 h-10 rounded bg-slate-100 dark:bg-[#232838] flex items-center justify-center flex-shrink-0 border border-slate-200 dark:border-[#2a3044]">
+                                <FaFileAlt className="w-4 h-4 text-slate-400" />
+                              </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm text-slate-700 dark:text-slate-300 truncate">{att.name}</div>
+                              <div className="text-xs text-slate-400 dark:text-slate-500">{formatFileSize(att.size)}</div>
+                            </div>
+                            <button
+                              className="opacity-0 group-hover:opacity-100 p-1 text-slate-300 hover:text-red-500 transition-all flex-shrink-0"
+                              onClick={(e) => { e.stopPropagation(); removeAttachment(att.id); }}
+                              title="Remove"
+                            >
+                              <FaTimes className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -1034,6 +1170,27 @@ export default function TaskDetailModal({
           )}
         </div>
 
+        {/* Discard confirmation banner */}
+        {showDiscardConfirm && (
+          <div className="bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800 px-5 py-3 flex items-center justify-between flex-shrink-0">
+            <span className="text-sm text-amber-700 dark:text-amber-400">You have unsaved changes. Discard changes?</span>
+            <div className="flex gap-2">
+              <button
+                className="px-3 py-1 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700 transition-colors"
+                onClick={handleConfirmDiscard}
+              >
+                Discard
+              </button>
+              <button
+                className="px-3 py-1 text-xs text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors"
+                onClick={() => setShowDiscardConfirm(false)}
+              >
+                Keep Editing
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Footer */}
         <div className="flex items-center justify-between px-5 py-3 border-t border-slate-100 dark:border-[#232838] bg-slate-50/50 dark:bg-[#141720]/50 flex-shrink-0">
           <div className="text-xs text-slate-400">
@@ -1041,8 +1198,8 @@ export default function TaskDetailModal({
           </div>
           <div className="flex items-center gap-2">
             <button
-              className="px-4 py-1.5 text-sm text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors"
-              onClick={onClose}
+              className="px-4 py-1.5 text-sm text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-100 dark:hover:bg-[#232838] transition-colors"
+              onClick={handleClose}
             >
               {hasChanges ? "Discard" : "Close"}
             </button>

@@ -51,7 +51,7 @@ const STATUS_COLORS = {
   done: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
 };
 
-function ListView({ tasks, onTaskClick, selectedIds, onToggleSelect, bulkMode }) {
+function ListView({ tasks, onTaskClick, selectedIds, onToggleSelect, bulkMode, onCreateTask }) {
   const grouped = useMemo(() => {
     const map = {};
     ["todo","inprogress","review","awaiting","blocked","done"].forEach((s) => {
@@ -60,6 +60,33 @@ function ListView({ tasks, onTaskClick, selectedIds, onToggleSelect, bulkMode })
     });
     return map;
   }, [tasks]);
+
+  if (tasks.length === 0) {
+    return (
+      <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-slate-300 dark:text-slate-600">
+            <rect x="12" y="6" width="40" height="52" rx="4" stroke="currentColor" strokeWidth="2" fill="none" />
+            <rect x="20" y="16" width="24" height="3" rx="1.5" fill="currentColor" opacity="0.5" />
+            <rect x="20" y="24" width="18" height="3" rx="1.5" fill="currentColor" opacity="0.35" />
+            <rect x="20" y="32" width="22" height="3" rx="1.5" fill="currentColor" opacity="0.35" />
+            <rect x="20" y="40" width="16" height="3" rx="1.5" fill="currentColor" opacity="0.25" />
+            <path d="M12 14h40" stroke="currentColor" strokeWidth="2" opacity="0.5" />
+          </svg>
+          <h3 className="text-base font-semibold text-slate-600 dark:text-slate-300 mt-4">No tasks found</h3>
+          <p className="text-sm text-slate-400 dark:text-slate-500 mt-1 max-w-xs">Try adjusting your filters or create a new task</p>
+          {onCreateTask && (
+            <button
+              className="mt-4 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+              onClick={onCreateTask}
+            >
+              Create Task
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -109,7 +136,7 @@ function ListView({ tasks, onTaskClick, selectedIds, onToggleSelect, bulkMode })
   );
 }
 
-function TableView({ tasks, onTaskClick, selectedIds, onToggleSelect, bulkMode, onSelectAll }) {
+function TableView({ tasks, onTaskClick, selectedIds, onToggleSelect, bulkMode, onSelectAll, onCreateTask }) {
   return (
     <div className="flex-1 overflow-auto p-4">
       <table className="w-full text-sm border-collapse">
@@ -184,7 +211,26 @@ function TableView({ tasks, onTaskClick, selectedIds, onToggleSelect, bulkMode, 
         </tbody>
       </table>
       {tasks.length === 0 && (
-        <div className="text-center py-12 text-slate-400 dark:text-slate-500">No tasks match the current filters.</div>
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-slate-300 dark:text-slate-600">
+            <rect x="12" y="6" width="40" height="52" rx="4" stroke="currentColor" strokeWidth="2" fill="none" />
+            <rect x="20" y="16" width="24" height="3" rx="1.5" fill="currentColor" opacity="0.5" />
+            <rect x="20" y="24" width="18" height="3" rx="1.5" fill="currentColor" opacity="0.35" />
+            <rect x="20" y="32" width="22" height="3" rx="1.5" fill="currentColor" opacity="0.35" />
+            <rect x="20" y="40" width="16" height="3" rx="1.5" fill="currentColor" opacity="0.25" />
+            <path d="M12 14h40" stroke="currentColor" strokeWidth="2" opacity="0.5" />
+          </svg>
+          <h3 className="text-base font-semibold text-slate-600 dark:text-slate-300 mt-4">No tasks found</h3>
+          <p className="text-sm text-slate-400 dark:text-slate-500 mt-1 max-w-xs">Try adjusting your filters or create a new task</p>
+          {onCreateTask && (
+            <button
+              className="mt-4 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+              onClick={onCreateTask}
+            >
+              Create Task
+            </button>
+          )}
+        </div>
       )}
     </div>
   );
@@ -599,20 +645,41 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
       {/* Tab content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {activeTab === "active" && viewMode === "kanban" && (
-          <KanbanBoard
-            filter={filter.value}
-            member={member.value}
-            search={search}
-            tasks={projectActiveTasks}
-            setTasks={setProjectTasks}
-            idToGlobalIndex={idToGlobalIndex}
-            allBadgesOpen={showBadges}
-            priorityColorsOpen={showPriorityColors}
-            taskIdsOpen={showTaskIds}
-            subtaskButtonsOpen={showSubtaskButtons}
-            onTaskClick={handleTaskClick}
-            columns={columns}
-          />
+          filteredTasks.length === 0 ? (
+            <div className="flex-1 flex flex-col items-center justify-center py-16 text-center">
+              <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-slate-300 dark:text-slate-600">
+                <rect x="4" y="10" width="16" height="44" rx="3" stroke="currentColor" strokeWidth="2" fill="none" />
+                <rect x="24" y="10" width="16" height="44" rx="3" stroke="currentColor" strokeWidth="2" fill="none" />
+                <rect x="44" y="10" width="16" height="44" rx="3" stroke="currentColor" strokeWidth="2" fill="none" />
+                <rect x="7" y="16" width="10" height="6" rx="1.5" fill="currentColor" opacity="0.2" />
+                <rect x="27" y="16" width="10" height="6" rx="1.5" fill="currentColor" opacity="0.2" />
+                <rect x="47" y="16" width="10" height="6" rx="1.5" fill="currentColor" opacity="0.2" />
+              </svg>
+              <h3 className="text-base font-semibold text-slate-600 dark:text-slate-300 mt-4">No tasks found</h3>
+              <p className="text-sm text-slate-400 dark:text-slate-500 mt-1 max-w-xs">Try adjusting your filters or create a new task</p>
+              <button
+                className="mt-4 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                onClick={() => { setSelectedSprint(sprintOptions[0]); setCreateModalOpen(true); }}
+              >
+                Create Task
+              </button>
+            </div>
+          ) : (
+            <KanbanBoard
+              filter={filter.value}
+              member={member.value}
+              search={search}
+              tasks={projectActiveTasks}
+              setTasks={setProjectTasks}
+              idToGlobalIndex={idToGlobalIndex}
+              allBadgesOpen={showBadges}
+              priorityColorsOpen={showPriorityColors}
+              taskIdsOpen={showTaskIds}
+              subtaskButtonsOpen={showSubtaskButtons}
+              onTaskClick={handleTaskClick}
+              columns={columns}
+            />
+          )
         )}
         {activeTab === "active" && viewMode === "list" && (
           <ListView
@@ -621,6 +688,7 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
             selectedIds={selectedIds}
             onToggleSelect={toggleSelect}
             bulkMode={bulkMode}
+            onCreateTask={() => { setSelectedSprint(sprintOptions[0]); setCreateModalOpen(true); }}
           />
         )}
         {activeTab === "active" && viewMode === "table" && (
@@ -631,6 +699,7 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
             onToggleSelect={toggleSelect}
             bulkMode={bulkMode}
             onSelectAll={selectAll}
+            onCreateTask={() => { setSelectedSprint(sprintOptions[0]); setCreateModalOpen(true); }}
           />
         )}
         {activeTab === "backlog" && (

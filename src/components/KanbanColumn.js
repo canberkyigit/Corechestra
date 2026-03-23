@@ -27,6 +27,8 @@ export default function KanbanColumn({
   const { createTask } = useApp();
   const [inlineOpen, setInlineOpen] = useState(false);
   const [inlineTitle, setInlineTitle] = useState("");
+  const TASKS_PER_PAGE = 20;
+  const [visibleCount, setVisibleCount] = useState(TASKS_PER_PAGE);
 
   const colors = COLUMN_COLORS[columnId] || { dot: "bg-slate-400", header: "text-slate-600" };
 
@@ -79,7 +81,7 @@ export default function KanbanColumn({
               </div>
             )}
 
-            {tasks.map((task, idx) => (
+            {tasks.slice(0, visibleCount).map((task, idx) => (
               <Draggable draggableId={task.id} index={idx} key={task.id}>
                 {(provided, snapshot) => (
                   <div
@@ -109,6 +111,15 @@ export default function KanbanColumn({
             ))}
 
             {provided.placeholder}
+
+            {tasks.length > visibleCount && (
+              <button
+                className="w-full text-center py-2 text-xs text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-[#232838] rounded-lg transition-colors font-medium"
+                onClick={() => setVisibleCount((prev) => prev + TASKS_PER_PAGE)}
+              >
+                Show {Math.min(TASKS_PER_PAGE, tasks.length - visibleCount)} more task{Math.min(TASKS_PER_PAGE, tasks.length - visibleCount) !== 1 ? "s" : ""} ({tasks.length - visibleCount} remaining)
+              </button>
+            )}
 
             {/* Inline create */}
             {inlineOpen && (
