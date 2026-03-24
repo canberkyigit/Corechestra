@@ -770,27 +770,33 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
           />
         )}
         {activeTab === "backlog" && (
-          <BacklogTab
-            onTaskClick={handleTaskClick}
-            onPokerClick={handlePokerClick}
-            focusSectionId={backlogFocusSectionId}
-            onFocusHandled={() => setBacklogFocusSectionId(null)}
-          />
+          <div className="flex-1 overflow-y-auto">
+            <BacklogTab
+              onTaskClick={handleTaskClick}
+              onPokerClick={handlePokerClick}
+              focusSectionId={backlogFocusSectionId}
+              onFocusHandled={() => setBacklogFocusSectionId(null)}
+            />
+          </div>
         )}
-        {activeTab === "epics" && <EpicsTab />}
+        {activeTab === "epics" && <div className="flex-1 overflow-y-auto"><EpicsTab /></div>}
         {activeTab === "refinement" && (
-          <RefinementTab onTaskClick={handleTaskClick} onPokerClick={handlePokerClick} />
+          <div className="flex-1 overflow-y-auto">
+            <RefinementTab onTaskClick={handleTaskClick} onPokerClick={handlePokerClick} />
+          </div>
         )}
-        {activeTab === "review" && <SprintReviewTab onTaskClick={handleTaskClick} />}
-        {activeTab === "retrospective" && <RetrospectiveTab />}
-        {activeTab === "planning" && <PlanningTab />}
+        {activeTab === "review" && <div className="flex-1 overflow-y-auto"><SprintReviewTab onTaskClick={handleTaskClick} /></div>}
+        {activeTab === "retrospective" && <div className="flex-1 overflow-y-auto"><RetrospectiveTab /></div>}
+        {activeTab === "planning" && <div className="flex-1 overflow-y-auto"><PlanningTab /></div>}
         {activeTab === "allsprints" && (
-          <AllSprintsTab onNavigate={(tab, sectionId) => {
-            if (sectionId) setBacklogFocusSectionId(sectionId);
-            setActiveTab(tab);
-          }} />
+          <div className="flex-1 overflow-y-auto">
+            <AllSprintsTab onNavigate={(tab, sectionId) => {
+              if (sectionId) setBacklogFocusSectionId(sectionId);
+              setActiveTab(tab);
+            }} />
+          </div>
         )}
-        {activeTab === "settings" && <BoardSettingsTab />}
+        {activeTab === "settings" && <div className="flex-1 overflow-y-auto"><BoardSettingsTab /></div>}
       </div>
 
       {/* Create Task Modal */}
