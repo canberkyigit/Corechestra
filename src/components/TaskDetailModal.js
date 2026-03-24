@@ -9,6 +9,7 @@ import {
 } from "react-icons/fa";
 import { useApp } from "../context/AppContext";
 import { useToast } from "../context/ToastContext";
+import { taskSchema } from "../schemas";
 import CommentSection from "./CommentSection";
 import SubtaskDetailPanel from "./SubtaskDetailPanel";
 import { format, parseISO } from "date-fns";
@@ -91,7 +92,7 @@ export default function TaskDetailModal({
   setSelectedSprint,
   onOpenPanel,
 }) {
-  const { epics, labels, deleteTask, logActivity } = useApp();
+  const { epics, labels, deleteTask, logActivity, sprint } = useApp();
   const { addToast } = useToast();
 
   const [title, setTitle] = useState("");
@@ -119,6 +120,9 @@ export default function TaskDetailModal({
   const [hasChanges, setHasChanges] = useState(false);
   const [openSubtask, setOpenSubtask] = useState(null);
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+  const [titleError, setTitleError] = useState(false);
+
+  const fmtDate = (d) => { if (!d) return "—"; try { return format(parseISO(d), "MMM d, yyyy"); } catch { return d; } };
 
   // Attachments
   const [attachments, setAttachments] = useState([]);
@@ -201,10 +205,28 @@ export default function TaskDetailModal({
     linkedItems,
     attachments,
     comments: task.comments || [],
+    ...(isCreate && selectedSprint?.value === "active" && sprint && {
+      createdSprintName: sprint.name,
+      createdSprintStart: sprint.startDate,
+      createdSprintEnd: sprint.endDate,
+    }),
   });
 
   const handleSave = () => {
-    if (!title.trim()) return;
+    if (isCreate) {
+      const result = taskSchema.safeParse({ title, description, type, priority, status, assignedTo, dueDate, storyPoint });
+      if (!result.success) {
+        const firstIssue = result.error.issues[0];
+        if (firstIssue.path[0] === "title") setTitleError(true);
+        addToast(firstIssue.message, "error");
+        return;
+      }
+    } else if (!title.trim()) {
+      setTitleError(true);
+      addToast("Title is required", "error");
+      return;
+    }
+    setTitleError(false);
     const updated = buildUpdated();
     if (onTaskUpdate) onTaskUpdate(updated);
     if (!isCreate && task.id) logActivity(task.id, "updated task");
@@ -328,8 +350,10 @@ export default function TaskDetailModal({
     { id: "details",  label: "Details" },
     { id: "subtasks", label: `Subtasks${subtasks.length > 0 ? ` (${subtasks.length})` : ""}` },
     { id: "links",    label: `Links${linkedItems.length > 0 ? ` (${linkedItems.length})` : ""}` },
-    { id: "comments", label: "Comments" },
-    { id: "activity", label: "Activity" },
+    ...(!isCreate ? [
+      { id: "comments", label: "Comments" },
+      { id: "activity", label: "Activity" },
+    ] : []),
     { id: "time",     label: "Time" },
   ];
 
@@ -378,10 +402,10 @@ export default function TaskDetailModal({
             </span>
           )}
           <input
-            className="flex-1 text-base font-semibold text-slate-800 dark:text-slate-200 bg-transparent border-none outline-none placeholder-slate-300 focus:ring-0"
-            placeholder="Task title..."
+            className={`flex-1 text-base font-semibold bg-transparent border-none outline-none focus:ring-0 ${titleError ? "text-red-500 placeholder-red-300" : "text-slate-800 dark:text-slate-200 placeholder-slate-300"}`}
+            placeholder={titleError ? "Title is required!" : "Task title..."}
             value={title}
-            onChange={(e) => { setTitle(e.target.value); changed(); }}
+            onChange={(e) => { setTitle(e.target.value); setTitleError(false); changed(); }}
           />
           <div className="flex items-center gap-1 ml-auto">
             {!isCreate && onOpenPanel && (
@@ -665,8 +689,8 @@ export default function TaskDetailModal({
                   </div>
                 </div>
 
-                {/* Inline Comments */}
-                <div>
+                {/* Inline Comments — hidden during task creation */}
+                {!isCreate && <div>
                   <FieldLabel>Comments</FieldLabel>
                   <CommentSection
                     key={task.id}
@@ -676,7 +700,7 @@ export default function TaskDetailModal({
                     taskId={task.id}
                     onUpdate={(newComments) => onTaskUpdate?.({ ...buildUpdated(), comments: newComments })}
                   />
-                </div>
+                </div>}
 
                 {/* Attachments */}
                 <div>
@@ -836,6 +860,22 @@ export default function TaskDetailModal({
                         </Listbox.Options>
                       </div>
                     </Listbox>
+                    {selectedSprint?.value === "active" && sprint?.startDate && (
+                      <div className="mt-1.5 text-[11px] text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-[#232838] border border-slate-100 dark:border-[#2a3044] rounded px-2 py-1">
+                        {fmtDate(sprint.startDate)} → {fmtDate(sprint.endDate)}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {!isCreate && task?.createdSprintStart && (
+                  <div>
+                    <FieldLabel>Created in Sprint</FieldLabel>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-[#232838] border border-slate-100 dark:border-[#2a3044] rounded-lg px-2.5 py-2 space-y-0.5">
+                      {task.createdSprintName && (
+                        <div className="font-medium text-slate-600 dark:text-slate-300 text-xs">{task.createdSprintName}</div>
+                      )}
+                      <div>{fmtDate(task.createdSprintStart)} → {fmtDate(task.createdSprintEnd)}</div>
+                    </div>
                   </div>
                 )}
               </div>
@@ -1150,9 +1190,8 @@ export default function TaskDetailModal({
               {hasChanges ? "Discard" : "Close"}
             </button>
             <button
-              className="px-4 py-1.5 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+              className="px-4 py-1.5 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               onClick={handleSave}
-              disabled={!title.trim()}
             >
               {isCreate ? "Create Task" : "Save Changes"}
             </button>

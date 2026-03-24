@@ -1,6 +1,9 @@
 import React, { useState, useCallback, useMemo, useEffect } from "react";
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ErrorBoundary } from "react-error-boundary";
+import AppErrorFallback from "./components/AppErrorFallback";
 import Layout from "./components/Layout";
 import BoardPage from "./pages/BoardPage";
 import DashboardPage from "./pages/DashboardPage";
@@ -21,6 +24,18 @@ import { AppProvider, useApp } from "./context/AppContext";
 import { ToastProvider } from "./context/ToastContext";
 import "./App.css";
 
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 3,
+      retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10000),
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      staleTime: Infinity,
+    },
+  },
+});
+
 const PATH_TO_PAGE = {
   "/":          "board",
   "/board":     "board",
@@ -40,6 +55,7 @@ const PATH_TO_PAGE = {
 function PageTransition({ children }) {
   return (
     <motion.div
+      className="h-full overflow-hidden"
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -8 }}
@@ -184,12 +200,16 @@ function AppInner() {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <AppProvider>
-        <ToastProvider>
-          <AppInner />
-        </ToastProvider>
-      </AppProvider>
-    </BrowserRouter>
+    <ErrorBoundary FallbackComponent={AppErrorFallback}>
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <AppProvider>
+            <ToastProvider>
+              <AppInner />
+            </ToastProvider>
+          </AppProvider>
+        </BrowserRouter>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }

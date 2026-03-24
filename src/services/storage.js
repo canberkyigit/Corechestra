@@ -10,7 +10,7 @@ export const DOMAIN_FIELDS = {
   entities:  ["projects", "teams", "users", "epics", "labels"],
   tasks:     ["activeTasks", "perProjectBacklog"],
   sprints:   ["perProjectSprint", "projectColumns", "perProjectBoardSettings",
-              "perProjectBurndownSnapshots", "perProjectCompletedSprints"],
+              "perProjectBurndownSnapshots", "perProjectCompletedSprints", "perProjectPlannedSprints"],
   activity:  ["globalActivityLog", "notifications"],
   workspace: ["perProjectRetrospective", "perProjectPokerHistory", "perProjectNotes"],
   docs:      ["spaces", "docPages"],
