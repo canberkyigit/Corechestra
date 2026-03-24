@@ -244,6 +244,7 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
     sprint, columns,
     updateBoardSettings,
     currentProjectId,
+    perProjectBoardFilters, setPerProjectBoardFilters,
   } = useApp();
 
   const projectActiveTasks = activeTasks.filter(
@@ -259,11 +260,8 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
     }
   }, [forcedTab]); // eslint-disable-line
 
-  // Filter persistence — load from localStorage per project
-  const filterKey = `board_filters_${currentProjectId}`;
-  const savedFilters = useMemo(() => {
-    try { return JSON.parse(localStorage.getItem(filterKey)) || {}; } catch { return {}; }
-  }, [filterKey]);
+  // Filter persistence — from Firestore via AppContext
+  const savedFilters = perProjectBoardFilters[currentProjectId] || {};
 
   const [filter, setFilter] = useState(() =>
     TYPE_OPTIONS.find((o) => o.value === savedFilters.filterValue) || TYPE_OPTIONS[0]
@@ -274,15 +272,18 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
   const [search, setSearch] = useState(savedFilters.search || "");
   const [viewMode, setViewMode] = useState(savedFilters.viewMode || "kanban");
 
-  // Persist filters whenever they change
+  // Persist filters to Firestore
   useEffect(() => {
-    localStorage.setItem(filterKey, JSON.stringify({
-      filterValue: filter.value,
-      memberValue: member.value,
-      search,
-      viewMode,
+    setPerProjectBoardFilters((prev) => ({
+      ...prev,
+      [currentProjectId]: {
+        filterValue: filter.value,
+        memberValue: member.value,
+        search,
+        viewMode,
+      },
     }));
-  }, [filter, member, search, viewMode, filterKey]);
+  }, [filter, member, search, viewMode, currentProjectId, setPerProjectBoardFilters]);
 
   // Bulk selection
   const [bulkMode, setBulkMode] = useState(false);

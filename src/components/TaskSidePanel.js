@@ -52,7 +52,7 @@ function MiniSelect({ value, options, onChange, renderValue, renderOption }) {
 }
 
 export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpenModal }) {
-  const { epics, labels, deleteTask, logActivity, allTasks, customFields } = useApp();
+  const { epics, labels, deleteTask, logActivity, allTasks } = useApp();
   const { addToast } = useToast();
 
   const [title,        setTitle]        = useState("");
@@ -70,7 +70,6 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
   const [linkedItems,   setLinkedItems]   = useState([]);
   const [timeEstimate,  setTimeEstimate]  = useState(0);
   const [timeSpent,     setTimeSpent]     = useState(0);
-  const [customFieldValues, setCustomFieldValues] = useState({});
   const [hasChanges,   setHasChanges]   = useState(false);
   const [confirmDelete,setConfirmDelete]= useState(false);
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
@@ -137,7 +136,6 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
     setWatchers(task.watchers || []);
     setSubtasks(task.subtasks || []);
     setLinkedItems(task.linkedItems || []);
-    setCustomFieldValues(task.customFieldValues || {});
     setTimeEstimate(task.timeEstimate || 0);
     setTimeSpent(task.timeSpent || 0);
     setAttachments(task.attachments || []);
@@ -189,7 +187,6 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
     epicId, labels: taskLabels, watchers, subtasks, linkedItems,
     timeEstimate: Number(timeEstimate) || 0,
     timeSpent: Number(timeSpent) || 0,
-    customFieldValues,
     attachments,
     comments: task.comments || [],
   });
@@ -533,61 +530,6 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
                 </Listbox>
               </div>
             </div>
-
-            {/* Custom Fields */}
-            {customFields && customFields.length > 0 && (
-              <div className="border border-slate-100 dark:border-[#232838] rounded-lg p-3 space-y-3">
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">Custom Fields</p>
-                {customFields.map((cf) => (
-                  <div key={cf.id}>
-                    <div className="text-xs text-slate-400 dark:text-slate-500 mb-1">{cf.name}</div>
-                    {cf.type === "dropdown" ? (
-                      <select
-                        className="w-full border border-slate-200 dark:border-[#2a3044] rounded-md px-2 py-1 text-xs text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-[#232838] focus:outline-none focus:ring-1 focus:ring-blue-400"
-                        value={customFieldValues[cf.id] || ""}
-                        onChange={(e) => { const v = e.target.value; setCustomFieldValues((p) => ({ ...p, [cf.id]: v })); autoSave({ customFieldValues: { ...customFieldValues, [cf.id]: v } }); }}
-                      >
-                        <option value="">— Select —</option>
-                        {(cf.options || []).map((opt) => <option key={opt} value={opt}>{opt}</option>)}
-                      </select>
-                    ) : cf.type === "url" ? (
-                      <input
-                        type="url"
-                        className="w-full border border-slate-200 dark:border-[#2a3044] rounded-md px-2 py-1 text-xs text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-[#232838] focus:outline-none focus:ring-1 focus:ring-blue-400"
-                        placeholder="https://..."
-                        value={customFieldValues[cf.id] || ""}
-                        onChange={(e) => { setCustomFieldValues((p) => ({ ...p, [cf.id]: e.target.value })); changed(); }}
-                        onBlur={(e) => autoSave({ customFieldValues: { ...customFieldValues, [cf.id]: e.target.value } })}
-                      />
-                    ) : cf.type === "number" ? (
-                      <input
-                        type="number"
-                        className="w-full border border-slate-200 dark:border-[#2a3044] rounded-md px-2 py-1 text-xs text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-[#232838] focus:outline-none focus:ring-1 focus:ring-blue-400"
-                        value={customFieldValues[cf.id] || ""}
-                        onChange={(e) => { setCustomFieldValues((p) => ({ ...p, [cf.id]: e.target.value })); changed(); }}
-                        onBlur={(e) => autoSave({ customFieldValues: { ...customFieldValues, [cf.id]: e.target.value } })}
-                      />
-                    ) : cf.type === "date" ? (
-                      <input
-                        type="date"
-                        className="w-full border border-slate-200 dark:border-[#2a3044] rounded-md px-2 py-1 text-xs text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-[#232838] focus:outline-none focus:ring-1 focus:ring-blue-400"
-                        value={customFieldValues[cf.id] || ""}
-                        onChange={(e) => { const v = e.target.value; setCustomFieldValues((p) => ({ ...p, [cf.id]: v })); autoSave({ customFieldValues: { ...customFieldValues, [cf.id]: v } }); }}
-                      />
-                    ) : (
-                      <input
-                        type="text"
-                        className="w-full border border-slate-200 dark:border-[#2a3044] rounded-md px-2 py-1 text-xs text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-[#232838] focus:outline-none focus:ring-1 focus:ring-blue-400"
-                        placeholder={cf.description || ""}
-                        value={customFieldValues[cf.id] || ""}
-                        onChange={(e) => { setCustomFieldValues((p) => ({ ...p, [cf.id]: e.target.value })); changed(); }}
-                        onBlur={(e) => autoSave({ customFieldValues: { ...customFieldValues, [cf.id]: e.target.value } })}
-                      />
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
 
             {/* Description */}
             <div>

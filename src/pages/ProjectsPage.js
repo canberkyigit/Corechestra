@@ -139,15 +139,11 @@ function CreateProjectModal({ onClose, onCreate }) {
 }
 
 export default function ProjectsPage({ onNavigate }) {
-  const { projects, currentProjectId, setCurrentProjectId, activeTasks, createProject } = useApp();
+  const { projects, currentProjectId, setCurrentProjectId, activeTasks, createProject, projectsViewMode, setProjectsViewMode } = useApp();
   const [showCreate, setShowCreate] = useState(false);
   const [settingsProject, setSettingsProject] = useState(null);
-  const [viewMode, setViewMode] = useState(() => localStorage.getItem("projects_view") || "grid");
-
-  const setView = (mode) => {
-    setViewMode(mode);
-    localStorage.setItem("projects_view", mode);
-  };
+  const viewMode = projectsViewMode;
+  const setView = setProjectsViewMode;
 
   const handleSelect = (projectId) => {
     setCurrentProjectId(projectId);

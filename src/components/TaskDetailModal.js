@@ -91,7 +91,7 @@ export default function TaskDetailModal({
   setSelectedSprint,
   onOpenPanel,
 }) {
-  const { epics, labels, deleteTask, logActivity, customFields } = useApp();
+  const { epics, labels, deleteTask, logActivity } = useApp();
   const { addToast } = useToast();
 
   const [title, setTitle] = useState("");
@@ -109,7 +109,6 @@ export default function TaskDetailModal({
   const [watchers, setWatchers] = useState([]);
   const [subtasks, setSubtasks] = useState([]);
   const [linkedItems, setLinkedItems] = useState([]);
-  const [customFieldValues, setCustomFieldValues] = useState({});
   const [inlineSubOpen, setInlineSubOpen] = useState(false);
   const [inlineSubTitle, setInlineSubTitle] = useState("");
   const [linkSearchOpen, setLinkSearchOpen] = useState(false);
@@ -147,7 +146,6 @@ export default function TaskDetailModal({
     setWatchers(task.watchers || []);
     setSubtasks(task.subtasks || []);
     setLinkedItems(task.linkedItems || []);
-    setCustomFieldValues(task.customFieldValues || {});
     setAttachments(task.attachments || []);
     setInlineSubOpen(false);
     setInlineSubTitle("");
@@ -201,7 +199,6 @@ export default function TaskDetailModal({
     watchers,
     subtasks,
     linkedItems,
-    customFieldValues,
     attachments,
     comments: task.comments || [],
   });
@@ -818,57 +815,6 @@ export default function TaskDetailModal({
                     onChange={(e) => { setStoryPoint(e.target.value); changed(); }}
                   />
                 </div>
-
-                {customFields && customFields.length > 0 && (
-                  <div className="border-t border-slate-100 dark:border-[#232838] pt-3 space-y-3">
-                    <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">Custom Fields</p>
-                    {customFields.map((cf) => (
-                      <div key={cf.id}>
-                        <FieldLabel>{cf.name}</FieldLabel>
-                        {cf.type === "dropdown" ? (
-                          <select
-                            className="w-full border border-slate-200 dark:border-[#2a3044] rounded-lg px-2.5 py-1.5 text-sm text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-[#232838] focus:outline-none focus:ring-2 focus:ring-blue-400"
-                            value={customFieldValues[cf.id] || ""}
-                            onChange={(e) => { setCustomFieldValues((p) => ({ ...p, [cf.id]: e.target.value })); changed(); }}
-                          >
-                            <option value="">— Select —</option>
-                            {(cf.options || []).map((opt) => <option key={opt} value={opt}>{opt}</option>)}
-                          </select>
-                        ) : cf.type === "url" ? (
-                          <input
-                            type="url"
-                            className="w-full border border-slate-200 dark:border-[#2a3044] rounded-lg px-2.5 py-1.5 text-sm text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-[#232838] focus:outline-none focus:ring-2 focus:ring-blue-400"
-                            placeholder="https://..."
-                            value={customFieldValues[cf.id] || ""}
-                            onChange={(e) => { setCustomFieldValues((p) => ({ ...p, [cf.id]: e.target.value })); changed(); }}
-                          />
-                        ) : cf.type === "number" ? (
-                          <input
-                            type="number"
-                            className="w-full border border-slate-200 dark:border-[#2a3044] rounded-lg px-2.5 py-1.5 text-sm text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-[#232838] focus:outline-none focus:ring-2 focus:ring-blue-400"
-                            value={customFieldValues[cf.id] || ""}
-                            onChange={(e) => { setCustomFieldValues((p) => ({ ...p, [cf.id]: e.target.value })); changed(); }}
-                          />
-                        ) : cf.type === "date" ? (
-                          <input
-                            type="date"
-                            className="w-full border border-slate-200 dark:border-[#2a3044] rounded-lg px-2.5 py-1.5 text-sm text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-[#232838] focus:outline-none focus:ring-2 focus:ring-blue-400"
-                            value={customFieldValues[cf.id] || ""}
-                            onChange={(e) => { setCustomFieldValues((p) => ({ ...p, [cf.id]: e.target.value })); changed(); }}
-                          />
-                        ) : (
-                          <input
-                            type="text"
-                            className="w-full border border-slate-200 dark:border-[#2a3044] rounded-lg px-2.5 py-1.5 text-sm text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-[#232838] focus:outline-none focus:ring-2 focus:ring-blue-400"
-                            placeholder={cf.description || ""}
-                            value={customFieldValues[cf.id] || ""}
-                            onChange={(e) => { setCustomFieldValues((p) => ({ ...p, [cf.id]: e.target.value })); changed(); }}
-                          />
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
 
                 {isCreate && sprintOptions.length > 0 && (
                   <div>
