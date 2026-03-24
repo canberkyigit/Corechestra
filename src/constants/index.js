@@ -23,10 +23,6 @@ export const TYPE_OPTIONS = [
   { value: "precondition", label: "Precondition" },
 ];
 
-export const TEAM_MEMBERS = [
-  { value: "", label: "All Members" },
-  { value: "unassigned", label: "Unassigned" },
-];
 
 export const COLUMNS_DATA = [
   { id: "todo", title: "To Do" },

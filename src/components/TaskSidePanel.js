@@ -4,7 +4,7 @@ import { Listbox } from "@headlessui/react";
 import {
   FaTimes, FaTrash, FaCheck, FaPlus, FaChevronDown, FaSearch,
   FaEye, FaEyeSlash, FaExpand, FaLink,
-  FaPaperclip, FaCloudUploadAlt, FaFileAlt, FaImage,
+  FaPaperclip, FaCloudUploadAlt, FaFileAlt,
 } from "react-icons/fa";
 import { useApp } from "../context/AppContext";
 import { useToast } from "../context/ToastContext";
