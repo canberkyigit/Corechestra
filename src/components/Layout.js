@@ -11,6 +11,7 @@ import {
 } from "react-icons/fa";
 import { useApp } from "../context/AppContext";
 import { useToast } from "../context/ToastContext";
+import Logo from "./Logo";
 
 const NOTIF_META = {
   assignment:      { icon: FaArrowRight,          color: "text-blue-500   bg-blue-50   dark:bg-blue-900/20"   },
@@ -261,17 +262,17 @@ export default function Layout({
           {collapsed ? (
             <div className="flex justify-center">
               <div
-                className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center cursor-pointer"
+                className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center cursor-pointer"
                 title="Corechestra"
                 onClick={() => setCollapsed(false)}
               >
-                <span className="text-white text-xs font-bold">CO</span>
+                <Logo size={20} color="white" />
               </div>
             </div>
           ) : (
             <div className="flex items-center gap-2.5 px-2 py-1.5">
-              <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center flex-shrink-0">
-                <span className="text-white text-[11px] font-bold">CO</span>
+              <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center flex-shrink-0">
+                <Logo size={18} color="white" />
               </div>
               <div>
                 <div className={`text-sm font-bold ${projNameText}`}>Corechestra</div>
