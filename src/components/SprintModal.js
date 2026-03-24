@@ -1,23 +1,67 @@
-import React, { useState } from "react";
+import React, { useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { FaTimes, FaRocket, FaCheckCircle } from "react-icons/fa";
 import { useApp } from "../context/AppContext";
+import { sprintSchema } from "../schemas";
 import { format, parseISO } from "date-fns";
+
+const fmt = (d) => {
+  if (!d) return "-";
+  try { return format(parseISO(d), "MMM d, yyyy"); } catch { return d; }
+};
+
+function FieldError({ message }) {
+  if (!message) return null;
+  return (
+    <p className="mt-1 text-xs text-red-500 flex items-center gap-1">
+      <span>⚠</span> {message}
+    </p>
+  );
+}
 
 export default function SprintModal({ open, onClose, mode = "start" }) {
   const { sprint, activeTasks, backlogSections, startSprint, completeSprint, updateSprint } = useApp();
 
-  const [name, setName] = useState(sprint?.name || "");
-  const [goal, setGoal] = useState(sprint?.goal || "");
-  const [startDate, setStartDate] = useState(sprint?.startDate || "");
-  const [endDate, setEndDate] = useState(sprint?.endDate || "");
-  const [moveBacklogId, setMoveBacklogId] = useState(backlogSections[0]?.id ?? null);
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm({
+    resolver: zodResolver(sprintSchema),
+    defaultValues: {
+      name:      sprint?.name || "",
+      goal:      sprint?.goal || "",
+      startDate: sprint?.startDate || "",
+      endDate:   sprint?.endDate || "",
+    },
+  });
+
+  const [moveBacklogId, setMoveBacklogId] = React.useState(backlogSections[0]?.id ?? null);
+
+  // Re-sync form values when modal opens
+  useEffect(() => {
+    if (open) {
+      reset({
+        name:      sprint?.name || "",
+        goal:      sprint?.goal || "",
+        startDate: sprint?.startDate || "",
+        endDate:   sprint?.endDate || "",
+      });
+    }
+  }, [open, sprint, reset]);
 
   if (!open) return null;
 
   const incomplete = activeTasks.filter((t) => t.status !== "done");
 
-  const handleStart = () => {
-    startSprint({ ...sprint, name, goal, startDate, endDate, id: sprint?.id || `sprint-${Date.now()}` });
+  const onSubmit = (data) => {
+    if (mode === "start") {
+      startSprint({ ...sprint, ...data, id: sprint?.id || `sprint-${Date.now()}` });
+    } else if (mode === "edit") {
+      updateSprint(data);
+    }
     onClose();
   };
 
@@ -26,23 +70,18 @@ export default function SprintModal({ open, onClose, mode = "start" }) {
     onClose();
   };
 
-  const handleEdit = () => {
-    updateSprint({ name, goal, startDate, endDate });
-    onClose();
-  };
-
-  const fmt = (d) => {
-    if (!d) return "-";
-    try { return format(parseISO(d), "MMM d, yyyy"); } catch { return d; }
-  };
+  const inputCls = (hasError) =>
+    `w-full border rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 transition-colors ${
+      hasError
+        ? "border-red-400 focus:ring-red-300 bg-red-50"
+        : "border-slate-200 focus:ring-blue-400 bg-white"
+    }`;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
       <div className="bg-white dark:bg-[#1c2030] rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
         {/* Header */}
-        <div className={`px-6 py-4 flex items-center justify-between ${
-          mode === "complete" ? "bg-green-600" : "bg-blue-600"
-        }`}>
+        <div className={`px-6 py-4 flex items-center justify-between ${mode === "complete" ? "bg-green-600" : "bg-blue-600"}`}>
           <div className="flex items-center gap-3 text-white">
             {mode === "complete" ? <FaCheckCircle className="w-5 h-5" /> : <FaRocket className="w-5 h-5" />}
             <h2 className="font-semibold text-lg">
@@ -54,6 +93,7 @@ export default function SprintModal({ open, onClose, mode = "start" }) {
           </button>
         </div>
 
+        {/* Body */}
         <div className="p-6 space-y-4">
           {mode === "complete" ? (
             <>
@@ -85,83 +125,73 @@ export default function SprintModal({ open, onClose, mode = "start" }) {
               )}
             </>
           ) : (
-            <>
+            <form id="sprint-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
               <div>
                 <label className="text-sm font-medium text-slate-700 block mb-1.5">Sprint Name</label>
                 <input
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  {...register("name")}
+                  className={inputCls(!!errors.name)}
                   placeholder="e.g. Sprint 87"
                 />
+                <FieldError message={errors.name?.message} />
               </div>
+
               <div>
                 <label className="text-sm font-medium text-slate-700 block mb-1.5">Sprint Goal</label>
                 <textarea
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none"
+                  {...register("goal")}
+                  className={`${inputCls(false)} resize-none`}
                   rows={3}
-                  value={goal}
-                  onChange={(e) => setGoal(e.target.value)}
                   placeholder="What is the goal of this sprint?"
                 />
               </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-sm font-medium text-slate-700 block mb-1.5">Start Date</label>
-                  <input
-                    type="date"
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                  />
+                  <input type="date" {...register("startDate")} className={inputCls(!!errors.startDate)} />
+                  <FieldError message={errors.startDate?.message} />
                 </div>
                 <div>
                   <label className="text-sm font-medium text-slate-700 block mb-1.5">End Date</label>
-                  <input
-                    type="date"
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                  />
+                  <input type="date" {...register("endDate")} className={inputCls(!!errors.endDate)} />
+                  <FieldError message={errors.endDate?.message} />
                 </div>
               </div>
+
               {sprint?.status === "active" && (
                 <div className="text-xs text-slate-400 bg-slate-50 rounded-lg p-3 border border-slate-200">
                   Running: {fmt(sprint.startDate)} → {fmt(sprint.endDate)}
                 </div>
               )}
-            </>
+            </form>
           )}
         </div>
 
+        {/* Footer */}
         <div className="px-6 pb-6 flex justify-end gap-3">
           <button
             className="px-4 py-2 text-sm text-slate-600 hover:text-slate-800 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
             onClick={onClose}
+            type="button"
           >
             Cancel
           </button>
           {mode === "start" && (
-            <button
-              className="px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              onClick={handleStart}
-            >
+            <button form="sprint-form" type="submit"
+              className="px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
               Start Sprint
             </button>
           )}
           {mode === "edit" && (
-            <button
-              className="px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              onClick={handleEdit}
-            >
+            <button form="sprint-form" type="submit"
+              className="px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
               Save Changes
             </button>
           )}
           {mode === "complete" && (
-            <button
-              className="px-4 py-2 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-              onClick={handleComplete}
-            >
+            <button type="button" onClick={handleComplete}
+              className="px-4 py-2 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
               Complete Sprint
             </button>
           )}

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { FaArrowRight, FaTrash, FaPencilAlt, FaSearch } from "react-icons/fa";
 import TaskRow from "../common/TaskRow";
@@ -28,7 +28,7 @@ function SubtaskList({ task, onToggle }) {
   );
 }
 
-export default function BacklogTab({ onTaskClick, onPokerClick }) {
+export default function BacklogTab({ onTaskClick, onPokerClick, focusSectionId, onFocusHandled }) {
   const {
     activeTasks,
     setActiveTasks,
@@ -55,6 +55,18 @@ export default function BacklogTab({ onTaskClick, onPokerClick }) {
   const [search, setSearch] = useState("");
   const [activeVisibleCount, setActiveVisibleCount] = useState(TASKS_PER_PAGE);
   const [sectionVisibleCounts, setSectionVisibleCounts] = useState({});
+
+  const sectionRefs = useRef({});
+  useEffect(() => {
+    if (!focusSectionId) return;
+    const el = sectionRefs.current[focusSectionId];
+    if (el) {
+      setTimeout(() => {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 100);
+      onFocusHandled?.();
+    }
+  }, [focusSectionId]); // eslint-disable-line
 
   const toggleSubtasks = (taskId) =>
     setExpandedSubtasks((prev) => ({ ...prev, [taskId]: !prev[taskId] }));
@@ -222,8 +234,13 @@ export default function BacklogTab({ onTaskClick, onPokerClick }) {
           {/* Backlog sections */}
           {backlogSections.map((section, sectionIdx) => {
             const filteredTasks = section.tasks.filter(filterTask);
+            const isFocused = focusSectionId === section.id;
             return (
-              <div key={section.id} className="mt-4 mb-12">
+              <div
+                key={section.id}
+                ref={(el) => { sectionRefs.current[section.id] = el; }}
+                className={`mt-4 mb-12 rounded-xl transition-all duration-500 ${isFocused ? "ring-2 ring-indigo-400 dark:ring-indigo-500 ring-offset-2 ring-offset-white dark:ring-offset-[#141720]" : ""}`}
+              >
                 <div className="text-lg font-bold text-gray-700 dark:text-slate-200 mb-2 flex items-center gap-2">
                   {editingIdx === sectionIdx ? (
                     <input

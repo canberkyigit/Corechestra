@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { loadAllDomains, saveDomain, clearAllDomains, subscribeToAll } from "../services/storage";
 import { generateId } from "../utils/helpers";
 import { DEFAULT_SPRINT_DEFAULTS, DEFAULT_BOARD_SETTINGS, DEFAULT_COLUMNS } from "./AppSeeds";
@@ -38,6 +39,7 @@ export function AppProvider({ children }) {
   const [testCases, setTestCases] = useState([]);
   const [testRuns, setTestRuns] = useState([]);
   const [perProjectCompletedSprints, setPerProjectCompletedSprints] = useState({});
+  const [perProjectPlannedSprints, setPerProjectPlannedSprints] = useState({});
 
   // ── Archive ───────────────────────────────────────────────────────────────
   const [archivedTasks, setArchivedTasks] = useState([]);
@@ -143,6 +145,9 @@ export function AppProvider({ children }) {
   // Computed: completed sprints for current project
   const completedSprints = perProjectCompletedSprints[currentProjectId] ?? [];
 
+  // Computed: planned future sprints for current project
+  const plannedSprints = perProjectPlannedSprints[currentProjectId] ?? [];
+
   // Auto-snapshot: record today's remaining story points once per day
   useEffect(() => {
     const today = new Date().toISOString().slice(0, 10);
@@ -185,6 +190,7 @@ export function AppProvider({ children }) {
     testCases: setTestCases,
     testRuns: setTestRuns,
     perProjectCompletedSprints: setPerProjectCompletedSprints,
+    perProjectPlannedSprints: setPerProjectPlannedSprints,
     darkMode: setDarkMode,
     sidebarCollapsed: setSidebarCollapsed,
     projectsViewMode: setProjectsViewMode,
@@ -194,31 +200,42 @@ export function AppProvider({ children }) {
     archivedEpics: setArchivedEpics,
   }), []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Load from Firestore on mount + start real-time sync ───────────────────
+  // ── Initial load via React Query (retry, error state, devtools) ──────────
+  const { data: remoteData, isError: loadFailed } = useQuery({
+    queryKey: ["corechestra-app-data"],
+    queryFn: loadAllDomains,
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
+    staleTime: Infinity,
+    gcTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
+
+  // Apply loaded data to state when query resolves
   useEffect(() => {
-    const applyField = (field, value) => {
-      const setter = fieldSetters[field];
-      if (setter) setter(value);
-    };
+    if (remoteData === undefined) return;
+    if (remoteData) {
+      Object.entries(remoteData).forEach(([field, value]) => {
+        if (value !== undefined) fieldSetters[field]?.(value);
+      });
+    }
+    setDbReady(true);
+  }, [remoteData]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Initial load
-    Promise.resolve()
-      .then(() => loadAllDomains())
-      .then((data) => {
-        if (data) {
-          Object.entries(data).forEach(([field, value]) => {
-            if (value !== undefined) applyField(field, value);
-          });
-        }
-      })
-      .catch((e) => console.warn("[Firestore] initial load failed:", e))
-      .finally(() => setDbReady(true));
+  // On permanent load failure, still mark ready so app doesn't hang
+  useEffect(() => {
+    if (loadFailed) {
+      console.warn("[AppContext] Initial load failed — starting with empty state");
+      setDbReady(true);
+    }
+  }, [loadFailed]);
 
-    // Real-time listener — syncs remote changes from other tabs/devices
+  // ── Real-time listener — syncs remote changes from other tabs/devices ─────
+  useEffect(() => {
     const unsubscribe = subscribeToAll((field, value) => {
-      applyField(field, value);
+      fieldSetters[field]?.(value);
     });
-
     return unsubscribe;
   }, [fieldSetters]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -246,10 +263,10 @@ export function AppProvider({ children }) {
     if (!dbReady) return;
     saveDomain("sprints", {
       perProjectSprint, projectColumns, perProjectBoardSettings,
-      perProjectBurndownSnapshots, perProjectCompletedSprints,
+      perProjectBurndownSnapshots, perProjectCompletedSprints, perProjectPlannedSprints,
     });
   }, [perProjectSprint, projectColumns, perProjectBoardSettings,
-      perProjectBurndownSnapshots, perProjectCompletedSprints, dbReady]);
+      perProjectBurndownSnapshots, perProjectCompletedSprints, perProjectPlannedSprints, dbReady]);
 
   useEffect(() => {
     if (!dbReady) return;
@@ -508,6 +525,40 @@ export function AppProvider({ children }) {
     setSprint((prev) => ({ ...prev, ...patch }));
   }, [setSprint]);
 
+  const createPlannedSprint = useCallback((data) => {
+    const sectionId = Date.now();
+    const newSprint = {
+      id: `ps-${sectionId}`,
+      name: data.name,
+      goal: data.goal || "",
+      startDate: data.startDate,
+      endDate: data.endDate,
+      createdAt: new Date().toISOString(),
+      status: "planned",
+      backlogSectionId: sectionId,
+    };
+    // Create a dedicated backlog section for this future sprint
+    setBacklogSections((prev) => [
+      ...prev,
+      { id: sectionId, title: data.name, tasks: [] },
+    ]);
+    setPerProjectPlannedSprints((prev) => ({
+      ...prev,
+      [currentProjectId]: [...(prev[currentProjectId] || []), newSprint],
+    }));
+  }, [currentProjectId, setBacklogSections]);
+
+  const deletePlannedSprint = useCallback((sprintId) => {
+    const sprintToDelete = (perProjectPlannedSprints[currentProjectId] || []).find((s) => s.id === sprintId);
+    if (sprintToDelete?.backlogSectionId) {
+      setBacklogSections((prev) => prev.filter((s) => s.id !== sprintToDelete.backlogSectionId));
+    }
+    setPerProjectPlannedSprints((prev) => ({
+      ...prev,
+      [currentProjectId]: (prev[currentProjectId] || []).filter((s) => s.id !== sprintId),
+    }));
+  }, [currentProjectId, perProjectPlannedSprints, setBacklogSections]);
+
   // ── Project Actions ────────────────────────────────────────────────────────
   const createProject = useCallback((data) => {
     const id = `proj-${Date.now()}`;
@@ -521,6 +572,7 @@ export function AppProvider({ children }) {
     setPerProjectNotes((prev) => ({ ...prev, [id]: [] }));
     setPerProjectBoardSettings((prev) => ({ ...prev, [id]: { ...DEFAULT_BOARD_SETTINGS, boardName: data.name || "New Project", projectKey: data.key || "NP" } }));
     setPerProjectCompletedSprints((prev) => ({ ...prev, [id]: [] }));
+    setPerProjectPlannedSprints((prev) => ({ ...prev, [id]: [] }));
     addNotification({ type: "project_created", text: `Project "${data.name}" created` });
   }, [addNotification]);
 
@@ -1058,6 +1110,7 @@ export function AppProvider({ children }) {
     labels, createLabel, deleteLabel,
     // Sprint
     sprint, startSprint, completeSprint, updateSprint,
+    plannedSprints, createPlannedSprint, deletePlannedSprint,
     // Columns
     columns, renameColumn, createColumn, deleteColumn, reorderColumns,
     projectColumns, updateProjectColumns,
