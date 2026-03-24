@@ -1,10 +1,7 @@
-import { doc, getDoc, setDoc, deleteDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, deleteDoc, onSnapshot } from "firebase/firestore";
 import { db } from "./firebase";
 
 // ── Firestore domain structure ──────────────────────────────────────────────
-// Each domain maps to a separate document under "appData" collection.
-// Keeps documents small (<1MB) and writes granular.
-
 const COLLECTION = "appData";
 
 export const DOMAIN_FIELDS = {
@@ -19,14 +16,13 @@ export const DOMAIN_FIELDS = {
   docs:      ["spaces", "docPages"],
   releases:  ["releases"],
   testing:   ["testSuites", "testCases", "testRuns"],
+  archive:   ["archivedTasks", "archivedProjects", "archivedEpics"],
 };
 
-// ── Load all domains from Firestore ─────────────────────────────────────────
-// Tries: 1) new domain-split format  2) old single-doc format  3) localStorage
+// ── Load all domains (one-time, for initial hydration) ──────────────────────
 
 export async function loadAllDomains() {
   try {
-    // 1. Try new domain-split format
     const domains = Object.keys(DOMAIN_FIELDS);
     const snaps = await Promise.all(
       domains.map((d) => getDoc(doc(db, COLLECTION, d)))
@@ -47,7 +43,7 @@ export async function loadAllDomains() {
 
     if (hasData) return merged;
 
-    // 2. Try old single-doc format (migration from previous setup)
+    // Legacy migration: old single-doc format
     const oldSnap = await getDoc(doc(db, "appState", "default"));
     if (oldSnap.exists()) {
       const data = oldSnap.data();
@@ -55,7 +51,7 @@ export async function loadAllDomains() {
       return data;
     }
 
-    // 3. Try localStorage (one-time migration)
+    // Legacy migration: localStorage
     const raw = localStorage.getItem("corechestra_v1");
     if (raw) {
       const local = JSON.parse(raw);
@@ -71,20 +67,55 @@ export async function loadAllDomains() {
 }
 
 // ── Per-domain debounced save ───────────────────────────────────────────────
+// Tracks write timestamps so real-time listeners can ignore own writes.
 
 const _timers = {};
+const _lastWriteTs = {};
 
 export function saveDomain(domain, data) {
   clearTimeout(_timers[domain]);
   _timers[domain] = setTimeout(async () => {
     try {
       const clean = JSON.parse(JSON.stringify(data));
-      clean._updatedAt = Date.now();
+      const ts = Date.now();
+      clean._updatedAt = ts;
+      _lastWriteTs[domain] = ts;
       await setDoc(doc(db, COLLECTION, domain), clean);
     } catch (e) {
       console.warn(`[Firestore] save "${domain}" failed:`, e.message);
     }
   }, 1500);
+}
+
+// ── Real-time listeners ─────────────────────────────────────────────────────
+// Subscribes to all domain documents. Calls `onUpdate(field, value)` when
+// a REMOTE change is detected (ignores own writes via timestamp comparison).
+
+export function subscribeToAll(onUpdate) {
+  const unsubscribers = Object.entries(DOMAIN_FIELDS).map(([domain, fields]) => {
+    const ref = doc(db, COLLECTION, domain);
+    return onSnapshot(ref, (snap) => {
+      if (!snap.exists()) return;
+      const data = snap.data();
+      const remoteTs = data._updatedAt || 0;
+      const localTs = _lastWriteTs[domain] || 0;
+
+      // Skip if this snapshot is from our own write
+      if (remoteTs <= localTs) return;
+
+      // Remote change detected — push each field
+      fields.forEach((field) => {
+        if (data[field] !== undefined) {
+          onUpdate(field, data[field]);
+        }
+      });
+    }, (err) => {
+      console.warn(`[Firestore] listener "${domain}" error:`, err.message);
+    });
+  });
+
+  // Return cleanup function
+  return () => unsubscribers.forEach((unsub) => unsub());
 }
 
 // ── Clear all domains (for resetAllData) ────────────────────────────────────

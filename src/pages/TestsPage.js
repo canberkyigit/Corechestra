@@ -14,21 +14,21 @@ function generateTestId(prefix = "t") {
 
 // ─── Priority config ──────────────────────────────────────────────────────────
 const PRIORITY_BORDER = { high: "border-red-500", medium: "border-yellow-500", low: "border-green-500" };
-const PRIORITY_TEXT   = { high: "text-red-400",   medium: "text-yellow-400",   low: "text-green-400" };
-const PRIORITY_BG     = { high: "bg-red-500/10",  medium: "bg-yellow-500/10",  low: "bg-green-500/10" };
+const PRIORITY_TEXT   = { high: "text-red-600 dark:text-red-400",   medium: "text-yellow-600 dark:text-yellow-400",   low: "text-green-600 dark:text-green-400" };
+const PRIORITY_BG     = { high: "bg-red-100 dark:bg-red-500/10",  medium: "bg-yellow-100 dark:bg-yellow-500/10",  low: "bg-green-100 dark:bg-green-500/10" };
 const PRIORITY_DOT    = { high: "bg-red-500",      medium: "bg-yellow-500",     low: "bg-green-500" };
 
 const STATUS_CONFIG = {
-  passed:   { label: "Passed",   color: "text-green-400",  bg: "bg-green-500/15",  border: "border-green-500/30" },
-  failed:   { label: "Failed",   color: "text-red-400",    bg: "bg-red-500/15",    border: "border-red-500/30" },
-  untested: { label: "Untested", color: "text-slate-400",  bg: "bg-slate-500/15",  border: "border-slate-500/30" },
-  skipped:  { label: "Skipped",  color: "text-yellow-400", bg: "bg-yellow-500/15", border: "border-yellow-500/30" },
+  passed:   { label: "Passed",   color: "text-green-600 dark:text-green-400",  bg: "bg-green-100 dark:bg-green-500/15",  border: "border-green-500/30" },
+  failed:   { label: "Failed",   color: "text-red-600 dark:text-red-400",    bg: "bg-red-100 dark:bg-red-500/15",    border: "border-red-500/30" },
+  untested: { label: "Untested", color: "text-slate-600 dark:text-slate-400",  bg: "bg-slate-100 dark:bg-slate-500/15",  border: "border-slate-500/30" },
+  skipped:  { label: "Skipped",  color: "text-yellow-600 dark:text-yellow-400", bg: "bg-yellow-100 dark:bg-yellow-500/15", border: "border-yellow-500/30" },
 };
 
 const RUN_STATUS_CONFIG = {
-  "in-progress": { label: "In Progress", color: "text-blue-400",  bg: "bg-blue-500/15",  border: "border-blue-500/30" },
-  completed:     { label: "Completed",   color: "text-green-400", bg: "bg-green-500/15", border: "border-green-500/30" },
-  aborted:       { label: "Aborted",     color: "text-red-400",   bg: "bg-red-500/15",   border: "border-red-500/30" },
+  "in-progress": { label: "In Progress", color: "text-blue-600 dark:text-blue-400",  bg: "bg-blue-100 dark:bg-blue-500/15",  border: "border-blue-500/30" },
+  completed:     { label: "Completed",   color: "text-green-600 dark:text-green-400", bg: "bg-green-100 dark:bg-green-500/15", border: "border-green-500/30" },
+  aborted:       { label: "Aborted",     color: "text-red-600 dark:text-red-400",   bg: "bg-red-100 dark:bg-red-500/15",   border: "border-red-500/30" },
 };
 
 // ─── Small reusable components ────────────────────────────────────────────────
@@ -89,12 +89,12 @@ function NewSuiteModal({ onClose, onCreate }) {
 
   return (
     <ModalOverlay onClose={onClose}>
-      <div className="bg-[#1c2030] border border-[#2a3044] rounded-2xl shadow-2xl w-full max-w-md mx-4">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#252b3b]">
-          <h2 className="text-base font-bold text-white flex items-center gap-2">
+      <div className="bg-white dark:bg-white dark:bg-[#1c2030] border border-slate-200 dark:border-[#2a3044] rounded-2xl shadow-2xl w-full max-w-md mx-4">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-[#252b3b]">
+          <h2 className="text-base font-bold text-slate-800 dark:text-white flex items-center gap-2">
             <FaFlask className="text-blue-400 w-4 h-4" /> New Test Suite
           </h2>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-[#232838] transition-colors">
+          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#232838] transition-colors">
             <FaTimes className="w-4 h-4" />
           </button>
         </div>
@@ -105,28 +105,28 @@ function NewSuiteModal({ onClose, onCreate }) {
             </div>
           )}
           <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1.5">Suite Name *</label>
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1.5">Suite Name *</label>
             <input
               ref={inputRef}
               value={name}
               onChange={(e) => { setName(e.target.value); setError(""); }}
               placeholder="e.g. Authentication Flow"
-              className="w-full px-3 py-2 bg-[#141720] border border-[#2a3044] text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-600"
+              className="w-full px-3 py-2 bg-white dark:bg-[#141720] border border-slate-200 dark:border-[#2a3044] text-slate-800 dark:text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-600"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1.5">Description</label>
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1.5">Description</label>
             <textarea
               value={desc}
               onChange={(e) => setDesc(e.target.value)}
               placeholder="Optional description of this test suite..."
               rows={3}
-              className="w-full px-3 py-2 bg-[#141720] border border-[#2a3044] text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-600 resize-none"
+              className="w-full px-3 py-2 bg-white dark:bg-[#141720] border border-slate-200 dark:border-[#2a3044] text-slate-800 dark:text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-600 resize-none"
             />
           </div>
         </div>
-        <div className="flex justify-end gap-2 px-6 py-4 border-t border-[#252b3b]">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-slate-400 hover:text-white rounded-lg hover:bg-[#232838] transition-colors">
+        <div className="flex justify-end gap-2 px-6 py-4 border-t border-slate-200 dark:border-[#252b3b]">
+          <button onClick={onClose} className="px-4 py-2 text-sm text-slate-400 hover:text-slate-800 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-[#232838] transition-colors">
             Cancel
           </button>
           <button onClick={handleSubmit} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors">
@@ -192,12 +192,12 @@ function TestCaseModal({ initialData, allTasks, onClose, onSave }) {
 
   return (
     <ModalOverlay onClose={onClose}>
-      <div className="bg-[#1c2030] border border-[#2a3044] rounded-2xl shadow-2xl w-full max-w-xl mx-4 max-h-[90vh] flex flex-col">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#252b3b] flex-shrink-0">
-          <h2 className="text-base font-bold text-white">
+      <div className="bg-white dark:bg-white dark:bg-[#1c2030] border border-slate-200 dark:border-[#2a3044] rounded-2xl shadow-2xl w-full max-w-xl mx-4 max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-[#252b3b] flex-shrink-0">
+          <h2 className="text-base font-bold text-slate-800 dark:text-white">
             {isEdit ? "Edit Test Case" : "New Test Case"}
           </h2>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-[#232838] transition-colors">
+          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#232838] transition-colors">
             <FaTimes className="w-4 h-4" />
           </button>
         </div>
@@ -211,36 +211,36 @@ function TestCaseModal({ initialData, allTasks, onClose, onSave }) {
 
           {/* Title */}
           <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1.5">Title *</label>
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1.5">Title *</label>
             <input
               ref={titleRef}
               value={title}
               onChange={(e) => { setTitle(e.target.value); setError(""); }}
               placeholder="e.g. Verify login with valid credentials"
-              className="w-full px-3 py-2 bg-[#141720] border border-[#2a3044] text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-600"
+              className="w-full px-3 py-2 bg-white dark:bg-[#141720] border border-slate-200 dark:border-[#2a3044] text-slate-800 dark:text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-600"
             />
           </div>
 
           {/* Description */}
           <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1.5">Description</label>
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1.5">Description</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="What is this test case validating?"
               rows={2}
-              className="w-full px-3 py-2 bg-[#141720] border border-[#2a3044] text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-600 resize-none"
+              className="w-full px-3 py-2 bg-white dark:bg-[#141720] border border-slate-200 dark:border-[#2a3044] text-slate-800 dark:text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-600 resize-none"
             />
           </div>
 
           {/* Priority + Status row */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1.5">Priority</label>
+              <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1.5">Priority</label>
               <select
                 value={priority}
                 onChange={(e) => setPriority(e.target.value)}
-                className="w-full px-3 py-2 bg-[#141720] border border-[#2a3044] text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 bg-white dark:bg-[#141720] border border-slate-200 dark:border-[#2a3044] text-slate-800 dark:text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="high">High</option>
                 <option value="medium">Medium</option>
@@ -248,11 +248,11 @@ function TestCaseModal({ initialData, allTasks, onClose, onSave }) {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1.5">Status</label>
+              <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1.5">Status</label>
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value)}
-                className="w-full px-3 py-2 bg-[#141720] border border-[#2a3044] text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 bg-white dark:bg-[#141720] border border-slate-200 dark:border-[#2a3044] text-slate-800 dark:text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="untested">Untested</option>
                 <option value="passed">Passed</option>
@@ -265,7 +265,7 @@ function TestCaseModal({ initialData, allTasks, onClose, onSave }) {
           {/* Steps */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-medium text-slate-300">Test Steps</label>
+              <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Test Steps</label>
               <button
                 onClick={addStep}
                 className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors"
@@ -276,19 +276,19 @@ function TestCaseModal({ initialData, allTasks, onClose, onSave }) {
             <div className="space-y-2">
               {steps.map((step, i) => (
                 <div key={i} className="flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-[#232838] text-slate-400 text-xs flex items-center justify-center flex-shrink-0 font-mono">
+                  <span className="w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-100 dark:bg-[#232838] text-slate-500 dark:text-slate-400 text-xs flex items-center justify-center flex-shrink-0 font-mono">
                     {i + 1}
                   </span>
                   <input
                     value={step}
                     onChange={(e) => updateStep(i, e.target.value)}
                     placeholder={`Step ${i + 1}`}
-                    className="flex-1 px-3 py-1.5 bg-[#141720] border border-[#2a3044] text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-600"
+                    className="flex-1 px-3 py-1.5 bg-white dark:bg-[#141720] border border-slate-200 dark:border-[#2a3044] text-slate-800 dark:text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-600"
                   />
                   <button
                     onClick={() => moveStep(i, -1)}
                     disabled={i === 0}
-                    className="text-slate-500 hover:text-slate-300 disabled:opacity-20 transition-colors text-xs px-1"
+                    className="text-slate-500 hover:text-slate-600 dark:text-slate-300 disabled:opacity-20 transition-colors text-xs px-1"
                     title="Move up"
                   >
                     ▲
@@ -296,7 +296,7 @@ function TestCaseModal({ initialData, allTasks, onClose, onSave }) {
                   <button
                     onClick={() => moveStep(i, 1)}
                     disabled={i === steps.length - 1}
-                    className="text-slate-500 hover:text-slate-300 disabled:opacity-20 transition-colors text-xs px-1"
+                    className="text-slate-500 hover:text-slate-600 dark:text-slate-300 disabled:opacity-20 transition-colors text-xs px-1"
                     title="Move down"
                   >
                     ▼
@@ -316,47 +316,47 @@ function TestCaseModal({ initialData, allTasks, onClose, onSave }) {
 
           {/* Expected Result */}
           <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1.5">Expected Result</label>
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1.5">Expected Result</label>
             <textarea
               value={expectedResult}
               onChange={(e) => setExpectedResult(e.target.value)}
               placeholder="What should happen after executing the steps?"
               rows={2}
-              className="w-full px-3 py-2 bg-[#141720] border border-[#2a3044] text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-600 resize-none"
+              className="w-full px-3 py-2 bg-white dark:bg-[#141720] border border-slate-200 dark:border-[#2a3044] text-slate-800 dark:text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-600 resize-none"
             />
           </div>
 
           {/* Link Task */}
           <div className="relative">
-            <label className="block text-xs font-medium text-slate-300 mb-1.5">
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1.5">
               <FaLink className="inline w-3 h-3 mr-1 text-slate-500" /> Link to Task (optional)
             </label>
             {linkedTask ? (
               <div className="flex items-center gap-2 px-3 py-2 bg-blue-600/10 border border-blue-500/30 rounded-lg">
                 <span className="text-xs text-blue-400 font-mono">{linkedTask.id}</span>
-                <span className="text-sm text-white flex-1 truncate">{linkedTask.title}</span>
+                <span className="text-sm text-slate-800 dark:text-white flex-1 truncate">{linkedTask.title}</span>
                 <button onClick={() => setLinkedTaskId("")} className="text-slate-500 hover:text-red-400 transition-colors">
                   <FaTimes className="w-3 h-3" />
                 </button>
               </div>
             ) : (
               <div>
-                <div className="flex items-center gap-2 px-3 py-2 bg-[#141720] border border-[#2a3044] rounded-lg">
+                <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-[#141720] border border-slate-200 dark:border-[#2a3044] rounded-lg">
                   <FaSearch className="w-3 h-3 text-slate-500" />
                   <input
                     value={taskSearch}
                     onChange={(e) => { setTaskSearch(e.target.value); setTaskDropOpen(true); }}
                     onFocus={() => setTaskDropOpen(true)}
                     placeholder="Search tasks..."
-                    className="flex-1 bg-transparent text-sm text-white placeholder-slate-600 focus:outline-none"
+                    className="flex-1 bg-transparent text-sm text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none"
                   />
                 </div>
                 {taskDropOpen && taskSearch && filteredTasks.length > 0 && (
-                  <div className="absolute z-10 mt-1 w-full bg-[#1c2030] border border-[#2a3044] rounded-xl shadow-2xl overflow-hidden">
+                  <div className="absolute z-10 mt-1 w-full bg-white dark:bg-white dark:bg-[#1c2030] border border-slate-200 dark:border-[#2a3044] rounded-xl shadow-2xl overflow-hidden">
                     {filteredTasks.map((t) => (
                       <button
                         key={t.id}
-                        className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#232838] transition-colors text-left"
+                        className="w-full flex items-center gap-2 px-3 py-2 hover:bg-slate-100 dark:hover:bg-[#232838] transition-colors text-left"
                         onClick={() => {
                           setLinkedTaskId(t.id);
                           setTaskSearch("");
@@ -364,7 +364,7 @@ function TestCaseModal({ initialData, allTasks, onClose, onSave }) {
                         }}
                       >
                         <span className="text-xs text-slate-500 font-mono flex-shrink-0">{t.id}</span>
-                        <span className="text-sm text-white truncate">{t.title}</span>
+                        <span className="text-sm text-slate-800 dark:text-white truncate">{t.title}</span>
                       </button>
                     ))}
                   </div>
@@ -374,8 +374,8 @@ function TestCaseModal({ initialData, allTasks, onClose, onSave }) {
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 px-6 py-4 border-t border-[#252b3b] flex-shrink-0">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-slate-400 hover:text-white rounded-lg hover:bg-[#232838] transition-colors">
+        <div className="flex justify-end gap-2 px-6 py-4 border-t border-slate-200 dark:border-[#252b3b] flex-shrink-0">
+          <button onClick={onClose} className="px-4 py-2 text-sm text-slate-400 hover:text-slate-800 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-[#232838] transition-colors">
             Cancel
           </button>
           <button onClick={handleSubmit} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors">
@@ -403,26 +403,26 @@ function NewRunModal({ suite, onClose, onCreate }) {
 
   return (
     <ModalOverlay onClose={onClose}>
-      <div className="bg-[#1c2030] border border-[#2a3044] rounded-2xl shadow-2xl w-full max-w-sm mx-4">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#252b3b]">
-          <h2 className="text-base font-bold text-white flex items-center gap-2">
+      <div className="bg-white dark:bg-white dark:bg-[#1c2030] border border-slate-200 dark:border-[#2a3044] rounded-2xl shadow-2xl w-full max-w-sm mx-4">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-[#252b3b]">
+          <h2 className="text-base font-bold text-slate-800 dark:text-white flex items-center gap-2">
             <FaPlay className="text-blue-400 w-3.5 h-3.5" /> New Test Run
           </h2>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-[#232838] transition-colors">
+          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#232838] transition-colors">
             <FaTimes className="w-4 h-4" />
           </button>
         </div>
         <div className="px-6 py-5">
-          <label className="block text-xs font-medium text-slate-300 mb-1.5">Run Name</label>
+          <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1.5">Run Name</label>
           <input
             ref={inputRef}
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full px-3 py-2 bg-[#141720] border border-[#2a3044] text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 bg-white dark:bg-[#141720] border border-slate-200 dark:border-[#2a3044] text-slate-800 dark:text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
-        <div className="flex justify-end gap-2 px-6 py-4 border-t border-[#252b3b]">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-slate-400 hover:text-white rounded-lg hover:bg-[#232838] transition-colors">
+        <div className="flex justify-end gap-2 px-6 py-4 border-t border-slate-200 dark:border-[#252b3b]">
+          <button onClick={onClose} className="px-4 py-2 text-sm text-slate-400 hover:text-slate-800 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-[#232838] transition-colors">
             Cancel
           </button>
           <button onClick={handleSubmit} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors">
@@ -453,7 +453,7 @@ function ExecuteRunView({ run, cases, onUpdateResult, onCompleteRun, onExit }) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-slate-500">
         <FaCheckCircle className="w-10 h-10 text-green-500 mb-3" />
-        <p className="text-white font-semibold">All cases executed!</p>
+        <p className="text-slate-800 dark:text-white font-semibold">All cases executed!</p>
         <button onClick={onCompleteRun} className="mt-4 px-5 py-2 bg-green-600 hover:bg-green-500 text-white text-sm font-medium rounded-lg transition-colors">
           Complete Run
         </button>
@@ -473,7 +473,7 @@ function ExecuteRunView({ run, cases, onUpdateResult, onCompleteRun, onExit }) {
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-white font-semibold">{run.name}</h3>
+          <h3 className="text-slate-800 dark:text-white font-semibold">{run.name}</h3>
           <p className="text-xs text-slate-500 mt-0.5">
             Executing {executedCount} / {cases.length} cases
           </p>
@@ -487,7 +487,7 @@ function ExecuteRunView({ run, cases, onUpdateResult, onCompleteRun, onExit }) {
           </button>
           <button
             onClick={onExit}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#232838] text-slate-400 hover:text-white text-sm rounded-lg transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-100 dark:bg-[#232838] text-slate-400 hover:text-slate-800 dark:hover:text-white text-sm rounded-lg transition-colors"
           >
             Save & Exit
           </button>
@@ -495,7 +495,7 @@ function ExecuteRunView({ run, cases, onUpdateResult, onCompleteRun, onExit }) {
       </div>
 
       {/* Progress bar */}
-      <div className="h-1.5 bg-[#232838] rounded-full mb-5 overflow-hidden">
+      <div className="h-1.5 bg-slate-200 dark:bg-slate-100 dark:bg-[#232838] rounded-full mb-5 overflow-hidden">
         <div
           className="h-full bg-blue-500 rounded-full transition-all duration-500"
           style={{ width: `${cases.length > 0 ? (executedCount / cases.length) * 100 : 0}%` }}
@@ -514,7 +514,7 @@ function ExecuteRunView({ run, cases, onUpdateResult, onCompleteRun, onExit }) {
               key={c.id}
               onClick={() => setCurrentIdx(i)}
               className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors ${
-                isActive ? "bg-blue-600 text-white" : "bg-[#232838] text-slate-400 hover:text-white"
+                isActive ? "bg-blue-600 text-white" : "bg-slate-100 dark:bg-slate-100 dark:bg-[#232838] text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white"
               }`}
             >
               <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />
@@ -525,14 +525,14 @@ function ExecuteRunView({ run, cases, onUpdateResult, onCompleteRun, onExit }) {
       </div>
 
       {/* Current case */}
-      <div className="flex-1 bg-[#1c2030] border border-[#2a3044] rounded-xl p-5 space-y-4 overflow-y-auto">
+      <div className="flex-1 bg-white dark:bg-white dark:bg-[#1c2030] border border-slate-200 dark:border-[#2a3044] rounded-xl p-5 space-y-4 overflow-y-auto">
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2 mb-1">
               <span className="text-xs text-slate-500 font-mono">Case {currentIdx + 1} of {cases.length}</span>
               <PriorityBadge priority={currentCase.priority} />
             </div>
-            <h4 className="text-white font-semibold text-base">{currentCase.title}</h4>
+            <h4 className="text-slate-800 dark:text-white font-semibold text-base">{currentCase.title}</h4>
           </div>
           {currentResult && currentResult.status !== "untested" && (
             <StatusChip status={currentResult.status} />
@@ -548,8 +548,8 @@ function ExecuteRunView({ run, cases, onUpdateResult, onCompleteRun, onExit }) {
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Steps</p>
             <ol className="space-y-2">
               {currentCase.steps.map((step, i) => (
-                <li key={i} className="flex gap-2.5 text-sm text-slate-300">
-                  <span className="w-5 h-5 rounded-full bg-[#232838] text-slate-400 text-xs flex items-center justify-center flex-shrink-0 font-mono mt-0.5">
+                <li key={i} className="flex gap-2.5 text-sm text-slate-600 dark:text-slate-300">
+                  <span className="w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-100 dark:bg-[#232838] text-slate-500 dark:text-slate-400 text-xs flex items-center justify-center flex-shrink-0 font-mono mt-0.5">
                     {i + 1}
                   </span>
                   {step}
@@ -560,9 +560,9 @@ function ExecuteRunView({ run, cases, onUpdateResult, onCompleteRun, onExit }) {
         )}
 
         {currentCase.expectedResult && (
-          <div className="bg-[#141720] border border-[#2a3044] rounded-lg p-3">
+          <div className="bg-slate-50 dark:bg-[#141720] border border-slate-200 dark:border-[#2a3044] rounded-lg p-3">
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Expected Result</p>
-            <p className="text-sm text-slate-300">{currentCase.expectedResult}</p>
+            <p className="text-sm text-slate-600 dark:text-slate-300">{currentCase.expectedResult}</p>
           </div>
         )}
 
@@ -574,7 +574,7 @@ function ExecuteRunView({ run, cases, onUpdateResult, onCompleteRun, onExit }) {
             onChange={(e) => setNotes((prev) => ({ ...prev, [currentCase.id]: e.target.value }))}
             placeholder="Describe what happened, attach error info..."
             rows={2}
-            className="w-full px-3 py-2 bg-[#141720] border border-[#2a3044] text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-600 resize-none"
+            className="w-full px-3 py-2 bg-white dark:bg-[#141720] border border-slate-200 dark:border-[#2a3044] text-slate-800 dark:text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-600 resize-none"
           />
         </div>
 
@@ -617,12 +617,12 @@ function ViewResultsView({ run, cases, onBack }) {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-white font-semibold">{run.name}</h3>
+          <h3 className="text-slate-800 dark:text-white font-semibold">{run.name}</h3>
           <p className="text-xs text-slate-500 mt-0.5">
             {run.completedAt ? new Date(run.completedAt).toLocaleDateString() : ""}
           </p>
         </div>
-        <button onClick={onBack} className="px-3 py-1.5 bg-[#232838] text-slate-400 hover:text-white text-sm rounded-lg transition-colors">
+        <button onClick={onBack} className="px-3 py-1.5 bg-slate-100 dark:bg-slate-100 dark:bg-[#232838] text-slate-400 hover:text-slate-800 dark:hover:text-white text-sm rounded-lg transition-colors">
           ← Back to Runs
         </button>
       </div>
@@ -646,19 +646,19 @@ function ViewResultsView({ run, cases, onBack }) {
         </div>
         <div className="flex items-center gap-2 px-4 py-2 bg-slate-500/10 border border-slate-500/20 rounded-xl">
           <FaClipboardList className="text-slate-400 w-4 h-4" />
-          <span className="text-slate-300 font-bold text-lg">{total - results.length}</span>
+          <span className="text-slate-600 dark:text-slate-300 font-bold text-lg">{total - results.length}</span>
           <span className="text-slate-400 text-sm">Untested</span>
         </div>
       </div>
 
       {/* Results table */}
-      <div className="bg-[#1c2030] border border-[#2a3044] rounded-xl overflow-hidden">
-        <div className="grid grid-cols-[1fr_auto_auto] text-xs font-semibold text-slate-500 uppercase tracking-wide px-4 py-2.5 border-b border-[#252b3b]">
+      <div className="bg-white dark:bg-white dark:bg-[#1c2030] border border-slate-200 dark:border-[#2a3044] rounded-xl overflow-hidden">
+        <div className="grid grid-cols-[1fr_auto_auto] text-xs font-semibold text-slate-500 uppercase tracking-wide px-4 py-2.5 border-b border-slate-200 dark:border-[#252b3b]">
           <span>Test Case</span>
           <span className="w-24 text-center">Status</span>
           <span className="w-48">Notes</span>
         </div>
-        <div className="divide-y divide-[#252b3b]">
+        <div className="divide-y divide-slate-200 dark:divide-[#252b3b]">
           {cases.map((c) => {
             const r = results.find((r) => r.caseId === c.id);
             const status = r?.status || "untested";
@@ -666,7 +666,7 @@ function ViewResultsView({ run, cases, onBack }) {
             return (
               <div key={c.id} className={`grid grid-cols-[1fr_auto_auto] items-center px-4 py-3 gap-4 ${rowBg}`}>
                 <div>
-                  <p className="text-sm text-white">{c.title}</p>
+                  <p className="text-sm text-slate-800 dark:text-white">{c.title}</p>
                   <PriorityBadge priority={c.priority} />
                 </div>
                 <div className="w-24 flex justify-center">
@@ -777,8 +777,8 @@ function AnalyticsTab({ cases, runs }) {
       </div>
 
       {/* Pass/Fail trend chart */}
-      <div className="bg-[#1c2030] border border-[#2a3044] rounded-xl p-5">
-        <h3 className="text-sm font-semibold text-white mb-4">Pass / Fail Trend (Last 5 Runs)</h3>
+      <div className="bg-white dark:bg-white dark:bg-[#1c2030] border border-slate-200 dark:border-[#2a3044] rounded-xl p-5">
+        <h3 className="text-sm font-semibold text-slate-800 dark:text-white mb-4">Pass / Fail Trend (Last 5 Runs)</h3>
         {last5Runs.length === 0 ? (
           <p className="text-sm text-slate-500 text-center py-6">No completed runs yet.</p>
         ) : (
@@ -797,7 +797,7 @@ function AnalyticsTab({ cases, runs }) {
                   <div className="w-36 text-xs text-slate-400 truncate text-right flex-shrink-0" title={run.name}>
                     {run.name}
                   </div>
-                  <div className="flex-1 flex h-5 rounded-lg overflow-hidden bg-[#232838] gap-px">
+                  <div className="flex-1 flex h-5 rounded-lg overflow-hidden bg-slate-100 dark:bg-[#232838] gap-px">
                     {pPct > 0 && (
                       <div
                         className="bg-green-500 h-full flex items-center justify-center transition-all"
@@ -819,7 +819,7 @@ function AnalyticsTab({ cases, runs }) {
                         title={`${s} skipped`}
                       />
                     )}
-                    {tot === 0 && <div className="flex-1 bg-[#232838]" />}
+                    {tot === 0 && <div className="flex-1 bg-slate-100 dark:bg-[#232838]" />}
                   </div>
                   <div className="w-28 text-xs text-slate-500 flex-shrink-0">
                     <span className="text-green-400">{p}P</span>
@@ -841,19 +841,19 @@ function AnalyticsTab({ cases, runs }) {
       </div>
 
       {/* Failure Analysis */}
-      <div className="bg-[#1c2030] border border-[#2a3044] rounded-xl p-5">
-        <h3 className="text-sm font-semibold text-white mb-4">Failure Analysis</h3>
+      <div className="bg-white dark:bg-white dark:bg-[#1c2030] border border-slate-200 dark:border-[#2a3044] rounded-xl p-5">
+        <h3 className="text-sm font-semibold text-slate-800 dark:text-white mb-4">Failure Analysis</h3>
         {failureList.length === 0 ? (
           <p className="text-sm text-slate-500 text-center py-6">No failures recorded yet.</p>
         ) : (
           <div className="space-y-2">
             {failureList.map((c, i) => (
-              <div key={c.id} className="flex items-center gap-3 px-3 py-2.5 bg-[#141720] border border-[#2a3044] rounded-lg">
+              <div key={c.id} className="flex items-center gap-3 px-3 py-2.5 bg-slate-50 dark:bg-[#141720] border border-slate-200 dark:border-[#2a3044] rounded-lg">
                 <span className="w-6 h-6 rounded-full bg-red-500/20 text-red-400 text-xs flex items-center justify-center font-bold flex-shrink-0">
                   {i + 1}
                 </span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-white truncate">{c.title}</p>
+                  <p className="text-sm text-slate-800 dark:text-white truncate">{c.title}</p>
                   <p className="text-xs text-slate-500">
                     Last failed: {c.lastFailDate ? new Date(c.lastFailDate).toLocaleDateString() : "—"}
                   </p>
@@ -879,11 +879,11 @@ function StatCard({ label, value, sub, icon, accent }) {
     yellow: "bg-yellow-500/10 border-yellow-500/20",
   };
   return (
-    <div className="bg-[#1c2030] border border-[#2a3044] rounded-xl p-4">
+    <div className="bg-white dark:bg-white dark:bg-[#1c2030] border border-slate-200 dark:border-[#2a3044] rounded-xl p-4">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">{label}</p>
-          <p className="text-2xl font-bold text-white mt-0.5">{value}</p>
+          <p className="text-2xl font-bold text-slate-800 dark:text-white mt-0.5">{value}</p>
           {sub && <p className="text-xs text-slate-500 mt-0.5 truncate">{sub}</p>}
         </div>
         <div className={`w-9 h-9 rounded-lg border flex items-center justify-center flex-shrink-0 ${accentClasses[accent] || accentClasses.blue}`}>
@@ -936,7 +936,7 @@ function TestCasesTab({ suite, cases, runs, allTasks, onCreateCase, onUpdateCase
   return (
     <div className="flex flex-col h-full">
       {/* Suite header */}
-      <div className="px-5 pt-5 pb-4 border-b border-[#252b3b]">
+      <div className="px-5 pt-5 pb-4 border-b border-slate-200 dark:border-[#252b3b]">
         <div className="flex items-start gap-2">
           <div className="flex-1 min-w-0">
             <EditableField
@@ -945,7 +945,7 @@ function TestCasesTab({ suite, cases, runs, allTasks, onCreateCase, onUpdateCase
               onStartEdit={() => setEditingSuiteName(true)}
               onSave={(val) => { onUpdateCase && onUpdateCase({ ...suite, name: val }); setEditingSuiteName(false); }}
               onCancel={() => setEditingSuiteName(false)}
-              className="text-lg font-bold text-white"
+              className="text-lg font-bold text-slate-800 dark:text-white"
               placeholder="Suite name"
             />
             <EditableField
@@ -959,30 +959,30 @@ function TestCasesTab({ suite, cases, runs, allTasks, onCreateCase, onUpdateCase
               multiline
             />
           </div>
-          <span className="text-xs text-slate-500 px-2 py-1 bg-[#232838] rounded-full flex-shrink-0">
+          <span className="text-xs text-slate-500 px-2 py-1 bg-slate-100 dark:bg-[#232838] rounded-full flex-shrink-0">
             {cases.length} {cases.length === 1 ? "case" : "cases"}
           </span>
         </div>
       </div>
 
       {/* Toolbar */}
-      <div className="flex items-center gap-2 px-5 py-3 border-b border-[#252b3b] flex-wrap">
-        <div className="flex items-center gap-1.5 flex-1 min-w-[160px] px-3 py-1.5 bg-[#141720] border border-[#2a3044] rounded-lg">
+      <div className="flex items-center gap-2 px-5 py-3 border-b border-slate-200 dark:border-[#252b3b] flex-wrap">
+        <div className="flex items-center gap-1.5 flex-1 min-w-[160px] px-3 py-1.5 bg-slate-50 dark:bg-[#141720] border border-slate-200 dark:border-[#2a3044] rounded-lg">
           <FaSearch className="w-3 h-3 text-slate-500 flex-shrink-0" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search cases..."
-            className="flex-1 bg-transparent text-sm text-white placeholder-slate-600 focus:outline-none"
+            className="flex-1 bg-transparent text-sm text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none"
           />
           {search && (
-            <button onClick={() => setSearch("")} className="text-slate-500 hover:text-white"><FaTimes className="w-3 h-3" /></button>
+            <button onClick={() => setSearch("")} className="text-slate-500 hover:text-slate-800 dark:hover:text-white"><FaTimes className="w-3 h-3" /></button>
           )}
         </div>
         <select
           value={priFilter}
           onChange={(e) => setPriFilter(e.target.value)}
-          className="px-2.5 py-1.5 bg-[#141720] border border-[#2a3044] text-slate-300 rounded-lg text-xs focus:outline-none"
+          className="px-2.5 py-1.5 bg-slate-50 dark:bg-[#141720] border border-slate-200 dark:border-[#2a3044] text-slate-700 dark:text-slate-300 rounded-lg text-xs focus:outline-none"
         >
           <option value="all">All Priorities</option>
           <option value="high">High</option>
@@ -992,7 +992,7 @@ function TestCasesTab({ suite, cases, runs, allTasks, onCreateCase, onUpdateCase
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="px-2.5 py-1.5 bg-[#141720] border border-[#2a3044] text-slate-300 rounded-lg text-xs focus:outline-none"
+          className="px-2.5 py-1.5 bg-slate-50 dark:bg-[#141720] border border-slate-200 dark:border-[#2a3044] text-slate-700 dark:text-slate-300 rounded-lg text-xs focus:outline-none"
         >
           <option value="all">All Statuses</option>
           <option value="passed">Passed</option>
@@ -1033,22 +1033,22 @@ function TestCasesTab({ suite, cases, runs, allTasks, onCreateCase, onUpdateCase
             return (
               <div
                 key={c.id}
-                className={`bg-[#1c2030] border-l-[3px] border-r border-t border-b rounded-xl overflow-hidden transition-shadow ${
+                className={`bg-white dark:bg-[#1c2030] border-l-[3px] border-r border-t border-b rounded-xl overflow-hidden transition-shadow ${
                   PRIORITY_BORDER[c.priority] || "border-l-slate-500"
-                } border-[#2a3044]`}
+                } border-slate-200 dark:border-[#2a3044]`}
               >
                 {/* Case header row */}
                 <div className="flex items-center gap-3 px-4 py-3">
                   <button
                     onClick={() => setExpandedId(isExpanded ? null : c.id)}
-                    className="text-slate-500 hover:text-slate-300 transition-colors flex-shrink-0"
+                    className="text-slate-500 hover:text-slate-600 dark:text-slate-300 transition-colors flex-shrink-0"
                   >
                     {isExpanded ? <FaChevronDown className="w-3 h-3" /> : <FaChevronRight className="w-3 h-3" />}
                   </button>
                   <div className="flex-1 min-w-0">
                     <button
                       onClick={() => setExpandedId(isExpanded ? null : c.id)}
-                      className="text-sm font-medium text-white hover:text-blue-300 text-left truncate block w-full transition-colors"
+                      className="text-sm font-medium text-slate-800 dark:text-white hover:text-blue-500 dark:hover:text-blue-300 text-left truncate block w-full transition-colors"
                     >
                       {c.title}
                     </button>
@@ -1073,7 +1073,7 @@ function TestCasesTab({ suite, cases, runs, allTasks, onCreateCase, onUpdateCase
 
                 {/* Expanded accordion */}
                 {isExpanded && (
-                  <div className="px-4 pb-4 pt-1 border-t border-[#252b3b] space-y-3">
+                  <div className="px-4 pb-4 pt-1 border-t border-slate-200 dark:border-[#252b3b] space-y-3">
                     {c.description && (
                       <p className="text-sm text-slate-400">{c.description}</p>
                     )}
@@ -1082,8 +1082,8 @@ function TestCasesTab({ suite, cases, runs, allTasks, onCreateCase, onUpdateCase
                         <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Steps</p>
                         <ol className="space-y-1.5">
                           {c.steps.map((step, i) => (
-                            <li key={i} className="flex gap-2.5 text-sm text-slate-300">
-                              <span className="w-5 h-5 rounded-full bg-[#232838] text-slate-400 text-xs flex items-center justify-center flex-shrink-0 font-mono mt-0.5">
+                            <li key={i} className="flex gap-2.5 text-sm text-slate-600 dark:text-slate-300">
+                              <span className="w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-100 dark:bg-[#232838] text-slate-500 dark:text-slate-400 text-xs flex items-center justify-center flex-shrink-0 font-mono mt-0.5">
                                 {i + 1}
                               </span>
                               {step}
@@ -1093,9 +1093,9 @@ function TestCasesTab({ suite, cases, runs, allTasks, onCreateCase, onUpdateCase
                       </div>
                     )}
                     {c.expectedResult && (
-                      <div className="bg-[#141720] border border-[#2a3044] rounded-lg p-3">
+                      <div className="bg-slate-50 dark:bg-[#141720] border border-slate-200 dark:border-[#2a3044] rounded-lg p-3">
                         <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Expected Result</p>
-                        <p className="text-sm text-slate-300">{c.expectedResult}</p>
+                        <p className="text-sm text-slate-600 dark:text-slate-300">{c.expectedResult}</p>
                       </div>
                     )}
                     {linkedTask && (
@@ -1156,7 +1156,7 @@ function EditableField({ value, isEditing, onStartEdit, onSave, onCancel, classN
   };
 
   if (isEditing) {
-    const sharedClass = `bg-[#141720] border border-blue-500 text-white rounded-lg px-2 py-1 text-sm focus:outline-none w-full`;
+    const sharedClass = `bg-white dark:bg-[#141720] border border-blue-500 text-slate-800 dark:text-white rounded-lg px-2 py-1 text-sm focus:outline-none w-full`;
     return multiline ? (
       <textarea
         ref={ref}
@@ -1244,8 +1244,8 @@ function TestRunsTab({ suite, cases, runs, onCreateRun, onUpdateRun, onUpdateRes
   return (
     <div className="flex flex-col h-full">
       {/* Toolbar */}
-      <div className="flex items-center justify-between px-5 py-3 border-b border-[#252b3b]">
-        <h3 className="text-sm font-semibold text-slate-300">Test Runs</h3>
+      <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 dark:border-[#252b3b]">
+        <h3 className="text-sm font-semibold text-slate-600 dark:text-slate-300">Test Runs</h3>
         <button
           onClick={() => setNewRunModal(true)}
           className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors"
@@ -1278,10 +1278,10 @@ function TestRunsTab({ suite, cases, runs, onCreateRun, onUpdateRun, onUpdateRes
             const progress = total > 0 ? (executed / total) * 100 : 0;
 
             return (
-              <div key={run.id} className="bg-[#1c2030] border border-[#2a3044] rounded-xl p-4 space-y-3">
+              <div key={run.id} className="bg-white dark:bg-white dark:bg-[#1c2030] border border-slate-200 dark:border-[#2a3044] rounded-xl p-4 space-y-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold text-white truncate">{run.name}</p>
+                    <p className="text-sm font-semibold text-slate-800 dark:text-white truncate">{run.name}</p>
                     <p className="text-xs text-slate-500 mt-0.5">
                       {new Date(run.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
                     </p>
@@ -1299,7 +1299,7 @@ function TestRunsTab({ suite, cases, runs, onCreateRun, onUpdateRun, onUpdateRes
                     {run.status === "completed" && (
                       <button
                         onClick={() => setActiveView({ type: "results", runId: run.id })}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-[#232838] text-slate-300 hover:text-white text-xs font-medium rounded-lg transition-colors"
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-100 dark:bg-[#232838] text-slate-700 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white text-xs font-medium rounded-lg transition-colors"
                       >
                         <FaChartPie className="w-2.5 h-2.5" /> View Results
                       </button>
@@ -1325,7 +1325,7 @@ function TestRunsTab({ suite, cases, runs, onCreateRun, onUpdateRun, onUpdateRes
                     <span>{executed} / {total} cases executed</span>
                     <span>{Math.round(progress)}%</span>
                   </div>
-                  <div className="h-1.5 bg-[#232838] rounded-full overflow-hidden">
+                  <div className="h-1.5 bg-slate-200 dark:bg-slate-100 dark:bg-[#232838] rounded-full overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all ${run.status === "completed" ? "bg-green-500" : run.status === "aborted" ? "bg-red-500" : "bg-blue-500"}`}
                       style={{ width: `${progress}%` }}
@@ -1511,14 +1511,14 @@ export default function TestsPage() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="flex h-full bg-[#141720] overflow-hidden">
+    <div className="flex h-full bg-slate-100 dark:bg-[#141720] overflow-hidden">
       {/* ── Sidebar ── */}
-      <aside className="w-[260px] flex-shrink-0 bg-[#1a1f2e] border-r border-[#2a3044] flex flex-col">
+      <aside className="w-[260px] flex-shrink-0 bg-slate-50 dark:bg-[#1a1f2e] border-r border-slate-200 dark:border-[#2a3044] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-4 border-b border-[#252b3b]">
+        <div className="flex items-center justify-between px-4 py-4 border-b border-slate-200 dark:border-[#252b3b]">
           <div className="flex items-center gap-2">
             <FaFlask className="text-blue-400 w-4 h-4" />
-            <span className="text-sm font-bold text-white">Test Management</span>
+            <span className="text-sm font-bold text-slate-800 dark:text-white">Test Management</span>
           </div>
           <button
             onClick={() => setNewSuiteModal(true)}
@@ -1565,14 +1565,14 @@ export default function TestsPage() {
                   onClick={() => { setSelectedSuiteId(suite.id); setActiveTab("cases"); }}
                   className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-left transition-colors group ${
                     isSelected
-                      ? "bg-blue-600/20 text-white"
-                      : "text-slate-400 hover:text-white hover:bg-[#232838]"
+                      ? "bg-blue-600/20 text-blue-700 dark:text-white"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-[#232838]"
                   }`}
                 >
-                  <span className={`flex-1 text-sm font-medium truncate ${isSelected ? "text-white" : ""}`}>
+                  <span className={`flex-1 text-sm font-medium truncate ${isSelected ? "text-blue-700 dark:text-white" : ""}`}>
                     {suite.name}
                   </span>
-                  <span className="text-xs text-slate-600 bg-[#141720] px-1.5 py-0.5 rounded-full flex-shrink-0">
+                  <span className="text-xs text-slate-600 bg-slate-100 dark:bg-[#141720] px-1.5 py-0.5 rounded-full flex-shrink-0">
                     {caseCount}
                   </span>
                   <span className={`w-2 h-2 rounded-full flex-shrink-0 ${statusDotColor}`} title={lastStatus || "no runs"} />
@@ -1590,10 +1590,10 @@ export default function TestsPage() {
         </div>
 
         {/* Bottom stats */}
-        <div className="border-t border-[#252b3b] px-4 py-3 space-y-2">
+        <div className="border-t border-slate-200 dark:border-[#252b3b] px-4 py-3 space-y-2">
           <div className="flex items-center justify-between text-xs">
             <span className="text-slate-500">Total Cases</span>
-            <span className="text-slate-300 font-semibold">{sidebarStats.totalCases}</span>
+            <span className="text-slate-600 dark:text-slate-300 font-semibold">{sidebarStats.totalCases}</span>
           </div>
           <div className="flex items-center justify-between text-xs">
             <span className="text-slate-500">Pass Rate</span>
@@ -1609,7 +1609,7 @@ export default function TestsPage() {
       </aside>
 
       {/* ── Main content ── */}
-      <main className="flex-1 flex flex-col min-w-0 bg-[#141720]">
+      <main className="flex-1 flex flex-col min-w-0 bg-slate-100 dark:bg-[#141720]">
         {!selectedSuite ? (
           /* Empty state */
           <div className="flex flex-col items-center justify-center h-full text-slate-500">
@@ -1632,7 +1632,7 @@ export default function TestsPage() {
         ) : (
           <>
             {/* Tab bar */}
-            <div className="flex items-center gap-1 px-5 pt-4 pb-0 border-b border-[#252b3b]">
+            <div className="flex items-center gap-1 px-5 pt-4 pb-0 border-b border-slate-200 dark:border-[#252b3b]">
               {[
                 { key: "cases",     label: "Test Cases",  icon: FaClipboardList },
                 { key: "runs",      label: "Test Runs",   icon: FaPlay },
@@ -1643,19 +1643,19 @@ export default function TestsPage() {
                   onClick={() => setActiveTab(key)}
                   className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${
                     activeTab === key
-                      ? "border-blue-500 text-white bg-blue-500/5"
-                      : "border-transparent text-slate-500 hover:text-slate-300 hover:bg-[#1c2030]"
+                      ? "border-blue-500 text-blue-600 dark:text-white bg-blue-50 dark:bg-blue-500/5"
+                      : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#1c2030]"
                   }`}
                 >
                   <Icon className="w-3.5 h-3.5" />
                   {label}
                   {key === "cases" && suiteCases.length > 0 && (
-                    <span className="ml-1 px-1.5 py-0.5 bg-[#232838] text-slate-400 text-xs rounded-full">
+                    <span className="ml-1 px-1.5 py-0.5 bg-slate-100 dark:bg-[#232838] text-slate-400 text-xs rounded-full">
                       {suiteCases.length}
                     </span>
                   )}
                   {key === "runs" && suiteRuns.length > 0 && (
-                    <span className="ml-1 px-1.5 py-0.5 bg-[#232838] text-slate-400 text-xs rounded-full">
+                    <span className="ml-1 px-1.5 py-0.5 bg-slate-100 dark:bg-[#232838] text-slate-400 text-xs rounded-full">
                       {suiteRuns.length}
                     </span>
                   )}
