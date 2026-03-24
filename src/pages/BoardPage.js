@@ -475,7 +475,7 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
   }, [projectActiveTasks, filter, member, search]);
 
   return (
-    <div className="w-full min-h-screen bg-slate-50 dark:bg-[#141720] flex flex-col transition-colors">
+    <div className="h-full bg-slate-50 dark:bg-[#141720] flex flex-col transition-colors">
       {/* Sprint header banner */}
       {sprint && (
         <div className="bg-white dark:bg-[#1c2030] border-b border-slate-200 dark:border-[#2a3044] px-6 py-2.5 flex items-center gap-4 transition-colors">
