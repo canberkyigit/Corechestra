@@ -1,9 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from "react";
-import { loadAllDomains, saveDomain, clearAllDomains } from "../services/storage";
+import { loadAllDomains, saveDomain, clearAllDomains, subscribeToAll } from "../services/storage";
 import { generateId } from "../utils/helpers";
 import { DEFAULT_SPRINT_DEFAULTS, DEFAULT_BOARD_SETTINGS, DEFAULT_COLUMNS } from "./AppSeeds";
 
 // ─── Context ──────────────────────────────────────────────────────────────────
+const _cachedDark = (() => { try { return localStorage.getItem("corechestra_dark") === "1"; } catch { return false; } })();
 const AppContext = createContext(null);
 
 export function AppProvider({ children }) {
@@ -38,17 +39,25 @@ export function AppProvider({ children }) {
   const [testRuns, setTestRuns] = useState([]);
   const [perProjectCompletedSprints, setPerProjectCompletedSprints] = useState({});
 
+  // ── Archive ───────────────────────────────────────────────────────────────
+  const [archivedTasks, setArchivedTasks] = useState([]);
+  const [archivedProjects, setArchivedProjects] = useState([]);
+  const [archivedEpics, setArchivedEpics] = useState([]);
+
   // ── User preferences (previously in localStorage) ────────────────────────
   const [darkMode, setDarkMode] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [projectsViewMode, setProjectsViewMode] = useState("grid");
   const [perProjectBoardFilters, setPerProjectBoardFilters] = useState({});
 
-  // Sync dark mode class to DOM
+  // Sync dark mode class to DOM (only after Firestore loaded)
+  // Also cache in localStorage for instant loading screen color on next visit
   useEffect(() => {
+    if (!dbReady) return;
     if (darkMode) document.documentElement.classList.add("dark");
     else document.documentElement.classList.remove("dark");
-  }, [darkMode]);
+    try { localStorage.setItem("corechestra_dark", darkMode ? "1" : "0"); } catch (_) {}
+  }, [darkMode, dbReady]);
 
   // Computed: per-project columns
   const columns = useMemo(
@@ -148,48 +157,70 @@ export function AppProvider({ children }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTasks, currentProjectId]);
 
-  // ── Load from Firestore on mount ───────────────────────────────────────────
+  // ── Field → setter map (used by both initial load and real-time sync) ─────
+  const fieldSetters = useMemo(() => ({
+    projects: setProjects,
+    currentProjectId: setCurrentProjectId,
+    currentUser: setCurrentUser,
+    epics: setEpics,
+    labels: setLabels,
+    perProjectSprint: setPerProjectSprint,
+    projectColumns: setProjectColumns,
+    activeTasks: setActiveTasks,
+    perProjectBacklog: setPerProjectBacklog,
+    perProjectRetrospective: setPerProjectRetrospective,
+    perProjectPokerHistory: setPerProjectPokerHistory,
+    perProjectNotes: setPerProjectNotes,
+    perProjectBoardSettings: setPerProjectBoardSettings,
+    globalActivityLog: setGlobalActivityLog,
+    notifications: setNotifications,
+    teams: setTeams,
+    users: setUsers,
+    sprintDefaults: setSprintDefaults,
+    perProjectBurndownSnapshots: setPerProjectBurndownSnapshots,
+    spaces: setSpaces,
+    docPages: setDocPages,
+    releases: setReleases,
+    testSuites: setTestSuites,
+    testCases: setTestCases,
+    testRuns: setTestRuns,
+    perProjectCompletedSprints: setPerProjectCompletedSprints,
+    darkMode: setDarkMode,
+    sidebarCollapsed: setSidebarCollapsed,
+    projectsViewMode: setProjectsViewMode,
+    perProjectBoardFilters: setPerProjectBoardFilters,
+    archivedTasks: setArchivedTasks,
+    archivedProjects: setArchivedProjects,
+    archivedEpics: setArchivedEpics,
+  }), []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Load from Firestore on mount + start real-time sync ───────────────────
   useEffect(() => {
-    const hydrate = (data) => {
-      if (!data) return;
-      if (data.projects) setProjects(data.projects);
-      if (data.currentProjectId) setCurrentProjectId(data.currentProjectId);
-      if (data.currentUser) setCurrentUser(data.currentUser);
-      if (data.epics) setEpics(data.epics);
-      if (data.labels) setLabels(data.labels);
-      if (data.perProjectSprint) setPerProjectSprint(data.perProjectSprint);
-      if (data.projectColumns) setProjectColumns(data.projectColumns);
-      if (data.activeTasks) setActiveTasks(data.activeTasks);
-      if (data.perProjectBacklog) setPerProjectBacklog(data.perProjectBacklog);
-      if (data.perProjectRetrospective) setPerProjectRetrospective(data.perProjectRetrospective);
-      if (data.perProjectPokerHistory) setPerProjectPokerHistory(data.perProjectPokerHistory);
-      if (data.perProjectNotes) setPerProjectNotes(data.perProjectNotes);
-      if (data.perProjectBoardSettings) setPerProjectBoardSettings(data.perProjectBoardSettings);
-      if (data.globalActivityLog) setGlobalActivityLog(data.globalActivityLog);
-      if (data.notifications) setNotifications(data.notifications);
-      if (data.teams) setTeams(data.teams);
-      if (data.users) setUsers(data.users);
-      if (data.sprintDefaults) setSprintDefaults(data.sprintDefaults);
-      if (data.perProjectBurndownSnapshots) setPerProjectBurndownSnapshots(data.perProjectBurndownSnapshots);
-      if (data.spaces) setSpaces(data.spaces);
-      if (data.docPages) setDocPages(data.docPages);
-      if (data.releases) setReleases(data.releases);
-      if (data.testSuites) setTestSuites(data.testSuites);
-      if (data.testCases) setTestCases(data.testCases);
-      if (data.testRuns) setTestRuns(data.testRuns);
-      if (data.perProjectCompletedSprints) setPerProjectCompletedSprints(data.perProjectCompletedSprints);
-      if (data.darkMode !== undefined) setDarkMode(data.darkMode);
-      if (data.sidebarCollapsed !== undefined) setSidebarCollapsed(data.sidebarCollapsed);
-      if (data.projectsViewMode) setProjectsViewMode(data.projectsViewMode);
-      if (data.perProjectBoardFilters) setPerProjectBoardFilters(data.perProjectBoardFilters);
+    const applyField = (field, value) => {
+      const setter = fieldSetters[field];
+      if (setter) setter(value);
     };
 
+    // Initial load
     Promise.resolve()
       .then(() => loadAllDomains())
-      .then(hydrate)
+      .then((data) => {
+        if (data) {
+          Object.entries(data).forEach(([field, value]) => {
+            if (value !== undefined) applyField(field, value);
+          });
+        }
+      })
       .catch((e) => console.warn("[Firestore] initial load failed:", e))
       .finally(() => setDbReady(true));
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Real-time listener — syncs remote changes from other tabs/devices
+    const unsubscribe = subscribeToAll((field, value) => {
+      applyField(field, value);
+    });
+
+    return unsubscribe;
+  }, [fieldSetters]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Domain-based Firestore persistence ────────────────────────────────────
   useEffect(() => {
@@ -244,6 +275,11 @@ export function AppProvider({ children }) {
     if (!dbReady) return;
     saveDomain("testing", { testSuites, testCases, testRuns });
   }, [testSuites, testCases, testRuns, dbReady]);
+
+  useEffect(() => {
+    if (!dbReady) return;
+    saveDomain("archive", { archivedTasks, archivedProjects, archivedEpics });
+  }, [archivedTasks, archivedProjects, archivedEpics, dbReady]);
 
   // Derived
   const allTasks = useMemo(() => {
@@ -358,10 +394,14 @@ export function AppProvider({ children }) {
       setActiveTasks((prev) => [...prev, newTask]);
     }
     logActivity(newTask.id, "created task");
+    addNotification({ type: "task_created", taskId: newTask.id, taskTitle: newTask.title, text: `"${newTask.title}" created` });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [logActivity, currentProjectId, setBacklogSections]);
+  }, [logActivity, addNotification, currentProjectId, setBacklogSections]);
 
+  // deleteTask now archives instead of permanently removing
   const deleteTask = useCallback((taskId) => {
+    const task = activeTasks.find((t) => t.id === taskId)
+      || Object.values(perProjectBacklog).flatMap((s) => s.flatMap((sec) => sec.tasks)).find((t) => t.id === taskId);
     setActiveTasks((prev) => prev.filter((t) => t.id !== taskId));
     setPerProjectBacklog((prev) => {
       const next = {};
@@ -370,7 +410,35 @@ export function AppProvider({ children }) {
       }
       return next;
     });
-  }, []);
+    if (task) {
+      setArchivedTasks((prev) => [{ ...task, archivedAt: new Date().toISOString() }, ...prev]);
+      addNotification({ type: "task_archived", taskId, taskTitle: task.title, text: `"${task.title}" moved to archive` });
+    }
+  }, [activeTasks, perProjectBacklog, addNotification]);
+
+  // ── Archive Actions ─────────────────────────────────────────────────────────
+  const restoreTask = useCallback((taskId) => {
+    const task = archivedTasks.find((t) => t.id === taskId);
+    if (!task) return;
+    const { archivedAt, ...restored } = task;
+    setArchivedTasks((prev) => prev.filter((t) => t.id !== taskId));
+    setActiveTasks((prev) => [...prev, { ...restored, status: "todo" }]);
+    addNotification({ type: "task_restored", taskId, taskTitle: restored.title, text: `"${restored.title}" restored from archive` });
+  }, [archivedTasks, addNotification]);
+
+  const permanentDeleteTask = useCallback((taskId) => {
+    const task = archivedTasks.find((t) => t.id === taskId);
+    setArchivedTasks((prev) => prev.filter((t) => t.id !== taskId));
+    if (task) addNotification({ type: "task_deleted", taskId, taskTitle: task.title, text: `"${task.title}" permanently deleted` });
+  }, [archivedTasks, addNotification]);
+
+  const emptyArchive = useCallback(() => {
+    const count = archivedTasks.length + archivedProjects.length + archivedEpics.length;
+    setArchivedTasks([]);
+    setArchivedProjects([]);
+    setArchivedEpics([]);
+    addNotification({ type: "archive_emptied", text: `Archive emptied (${count} items removed)` });
+  }, [archivedTasks, archivedProjects, archivedEpics, addNotification]);
 
   const updateBacklogTask = useCallback((updatedTask) => {
     setPerProjectBacklog((prev) => {
@@ -390,7 +458,8 @@ export function AppProvider({ children }) {
   const startSprint = useCallback((sprintData) => {
     setSprint({ ...sprintData, status: "active" });
     logActivity("sprint", "started sprint", { name: sprintData.name });
-  }, [logActivity]);
+    addNotification({ type: "sprint_started", text: `Sprint "${sprintData.name}" started` });
+  }, [logActivity, addNotification]);
 
   const completeSprint = useCallback((moveToBacklogSectionId) => {
     const projectTasks = activeTasks.filter((t) => (t.projectId || "proj-1") === currentProjectId);
@@ -431,6 +500,7 @@ export function AppProvider({ children }) {
     }
     setSprint((prev) => ({ ...prev, status: "completed" }));
     logActivity("sprint", "completed sprint");
+    addNotification({ type: "sprint_completed", text: `Sprint completed — ${done.length}/${projectTasks.length} tasks done` });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTasks, currentProjectId, perProjectSprint, logActivity, setBacklogSections, setSprint]);
 
@@ -451,7 +521,8 @@ export function AppProvider({ children }) {
     setPerProjectNotes((prev) => ({ ...prev, [id]: [] }));
     setPerProjectBoardSettings((prev) => ({ ...prev, [id]: { ...DEFAULT_BOARD_SETTINGS, boardName: data.name || "New Project", projectKey: data.key || "NP" } }));
     setPerProjectCompletedSprints((prev) => ({ ...prev, [id]: [] }));
-  }, []);
+    addNotification({ type: "project_created", text: `Project "${data.name}" created` });
+  }, [addNotification]);
 
   const updateProject = useCallback((updated) => {
     setProjects((prev) => prev.map((p) => p.id === updated.id ? updated : p));
@@ -467,20 +538,24 @@ export function AppProvider({ children }) {
   }, []);
 
   const deleteProject = useCallback((projectId) => {
+    const proj = projects.find((p) => p.id === projectId);
     setProjects((prev) => prev.filter((p) => p.id !== projectId));
-  }, []);
+    if (proj) addNotification({ type: "project_deleted", text: `Project "${proj.name}" deleted` });
+  }, [projects, addNotification]);
 
   // ── Epic Actions ───────────────────────────────────────────────────────────
   const createEpic = useCallback((epicData) => {
     const newEpic = { ...epicData, id: `epic-${Date.now()}`, projectId: currentProjectId };
     setEpics((prev) => [...prev, newEpic]);
-  }, [currentProjectId]);
+    addNotification({ type: "epic_created", text: `Epic "${epicData.title}" created` });
+  }, [currentProjectId, addNotification]);
 
   const updateEpic = useCallback((updatedEpic) => {
     setEpics((prev) => prev.map((e) => (e.id === updatedEpic.id ? updatedEpic : e)));
   }, []);
 
   const deleteEpic = useCallback((epicId) => {
+    const epic = epics.find((e) => e.id === epicId);
     setEpics((prev) => prev.filter((e) => e.id !== epicId));
     const unsetEpic = (tasks) => tasks.map((t) => t.epicId === epicId ? { ...t, epicId: null } : t);
     setActiveTasks((prev) => unsetEpic(prev));
@@ -491,7 +566,8 @@ export function AppProvider({ children }) {
       }
       return next;
     });
-  }, []);
+    if (epic) addNotification({ type: "epic_deleted", text: `Epic "${epic.title}" deleted` });
+  }, [epics, addNotification]);
 
   // ── Label Actions ──────────────────────────────────────────────────────────
   const createLabel = useCallback((labelData) => {
@@ -955,6 +1031,9 @@ export function AppProvider({ children }) {
     setTestCases([]);
     setTestRuns([]);
     setPerProjectCompletedSprints({});
+    setArchivedTasks([]);
+    setArchivedProjects([]);
+    setArchivedEpics([]);
     setDarkMode(false);
     setSidebarCollapsed(false);
     setProjectsViewMode("grid");
@@ -1000,6 +1079,9 @@ export function AppProvider({ children }) {
     burndownSnapshots,
     // Completed sprints history
     completedSprints,
+    // Archive
+    archivedTasks, archivedProjects, archivedEpics,
+    restoreTask, permanentDeleteTask, emptyArchive,
     // Settings
     boardSettings, updateBoardSettings, resetAllData, dbReady,
     // User preferences
@@ -1024,11 +1106,8 @@ export function AppProvider({ children }) {
   return (
     <AppContext.Provider value={value}>
       {!dbReady && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-white dark:bg-[#181c2a]">
-          <div className="text-center">
-            <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-sm text-slate-400 font-medium">Loading from cloud...</p>
-          </div>
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center" style={{ backgroundColor: _cachedDark ? "#181c2a" : "#ffffff" }}>
+          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
         </div>
       )}
       {children}

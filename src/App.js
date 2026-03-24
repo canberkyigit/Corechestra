@@ -13,6 +13,7 @@ import ProjectsPage from "./pages/ProjectsPage";
 import DocsPage from "./pages/DocsPage";
 import ReleasesPage from "./pages/ReleasesPage";
 import TestsPage from "./pages/TestsPage";
+import ArchivePage from "./pages/ArchivePage";
 import TaskDetailModal from "./components/TaskDetailModal";
 import TaskSidePanel from "./components/TaskSidePanel";
 import CommandPalette from "./components/CommandPalette";
@@ -33,6 +34,7 @@ const PATH_TO_PAGE = {
   "/docs":      "docs",
   "/releases":  "releases",
   "/tests":     "tests",
+  "/archive":   "archive",
 };
 
 function PageTransition({ children }) {
@@ -139,6 +141,7 @@ function AppInner() {
           <Route path="/docs"      element={<PageTransition><DocsPage /></PageTransition>} />
           <Route path="/releases"  element={<PageTransition><ReleasesPage /></PageTransition>} />
           <Route path="/tests"     element={<PageTransition><TestsPage /></PageTransition>} />
+          <Route path="/archive"  element={<PageTransition><ArchivePage /></PageTransition>} />
           <Route path="*"          element={boardPage} />
         </Routes>
       </Layout>

@@ -10,25 +10,25 @@ import { useToast } from "../context/ToastContext";
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const STATUS_META = {
-  released:    { label: "Released",    dot: "bg-green-500",  badge: "bg-green-500/20 text-green-400 border border-green-500/30",  versionBg: "bg-green-600" },
-  "in-progress": { label: "In Progress", dot: "bg-blue-500",   badge: "bg-blue-500/20 text-blue-400 border border-blue-500/30",    versionBg: "bg-blue-600" },
-  planned:     { label: "Planned",     dot: "bg-slate-400",  badge: "bg-slate-500/20 text-slate-300 border border-slate-500/30", versionBg: "bg-slate-600" },
+  released:    { label: "Released",    dot: "bg-green-500",  badge: "bg-green-100 text-green-600 dark:bg-green-500/20 dark:text-green-400 border border-green-200 dark:border-green-500/30",  versionBg: "bg-green-600", color: "text-green-600 dark:text-green-400" },
+  "in-progress": { label: "In Progress", dot: "bg-blue-500",   badge: "bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 border border-blue-200 dark:border-blue-500/30",    versionBg: "bg-blue-600", color: "text-blue-600 dark:text-blue-400" },
+  planned:     { label: "Planned",     dot: "bg-slate-400",  badge: "bg-slate-100 text-slate-600 dark:bg-slate-500/20 dark:text-slate-300 border border-slate-200 dark:border-slate-500/30", versionBg: "bg-slate-600", color: "text-slate-600 dark:text-slate-400" },
 };
 
 const CHANGELOG_TYPE_META = {
-  feature:     { label: "Features",         color: "text-blue-400",   bg: "bg-blue-500/10 border-blue-500/20",   icon: FaStar,                badgeCls: "bg-blue-500/20 text-blue-400" },
-  bugfix:      { label: "Bug Fixes",        color: "text-red-400",    bg: "bg-red-500/10 border-red-500/20",     icon: FaBug,                 badgeCls: "bg-red-500/20 text-red-400" },
-  improvement: { label: "Improvements",     color: "text-green-400",  bg: "bg-green-500/10 border-green-500/20", icon: FaArrowUp,             badgeCls: "bg-green-500/20 text-green-400" },
-  breaking:    { label: "Breaking Changes", color: "text-orange-400", bg: "bg-orange-500/10 border-orange-500/20", icon: FaExclamationTriangle, badgeCls: "bg-orange-500/20 text-orange-400" },
+  feature:     { label: "Features",         color: "text-blue-600 dark:text-blue-400",   bg: "bg-blue-50 border-blue-200 dark:bg-blue-500/10 dark:border-blue-500/20",   icon: FaStar,                badgeCls: "bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400" },
+  bugfix:      { label: "Bug Fixes",        color: "text-red-600 dark:text-red-400",    bg: "bg-red-50 border-red-200 dark:bg-red-500/10 dark:border-red-500/20",     icon: FaBug,                 badgeCls: "bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400" },
+  improvement: { label: "Improvements",     color: "text-green-600 dark:text-green-400",  bg: "bg-green-50 border-green-200 dark:bg-green-500/10 dark:border-green-500/20", icon: FaArrowUp,             badgeCls: "bg-green-100 text-green-600 dark:bg-green-500/20 dark:text-green-400" },
+  breaking:    { label: "Breaking Changes", color: "text-orange-600 dark:text-orange-400", bg: "bg-orange-50 border-orange-200 dark:bg-orange-500/10 dark:border-orange-500/20", icon: FaExclamationTriangle, badgeCls: "bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400" },
 };
 
 const TASK_STATUS_CHIP = {
-  todo:       "bg-slate-600/50 text-slate-300",
-  inprogress: "bg-blue-600/40 text-blue-300",
-  review:     "bg-purple-600/40 text-purple-300",
-  awaiting:   "bg-yellow-600/40 text-yellow-300",
-  blocked:    "bg-red-600/40 text-red-300",
-  done:       "bg-green-600/40 text-green-300",
+  todo:       "bg-slate-100 text-slate-600 dark:bg-slate-600/50 dark:text-slate-300",
+  inprogress: "bg-blue-100 text-blue-600 dark:bg-blue-600/40 dark:text-blue-300",
+  review:     "bg-purple-100 text-purple-600 dark:bg-purple-600/40 dark:text-purple-300",
+  awaiting:   "bg-yellow-100 text-yellow-600 dark:bg-yellow-600/40 dark:text-yellow-300",
+  blocked:    "bg-red-100 text-red-600 dark:bg-red-600/40 dark:text-red-300",
+  done:       "bg-green-100 text-green-600 dark:bg-green-600/40 dark:text-green-300",
 };
 
 const TASK_STATUS_LABEL = {
@@ -121,14 +121,14 @@ function ReleaseModal({ initial, onSave, onClose, allTasks = [] }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-[#1a1f2e] border border-[#2a3044] rounded-2xl shadow-2xl w-full max-w-2xl mx-4 flex flex-col max-h-[90vh]">
+      <div className="bg-white dark:bg-[#1a1f2e] border border-slate-200 dark:border-[#2a3044] rounded-2xl shadow-2xl w-full max-w-2xl mx-4 flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#252b3b] flex-shrink-0">
-          <h2 className="text-white font-semibold text-base flex items-center gap-2">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-[#252b3b] flex-shrink-0">
+          <h2 className="text-slate-800 dark:text-white font-semibold text-base flex items-center gap-2">
             <FaRocket className="text-blue-400 w-4 h-4" />
             {initial ? "Edit Release" : "New Release"}
           </h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors">
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-800 dark:hover:text-white transition-colors">
             <FaTimes className="w-4 h-4" />
           </button>
         </div>
@@ -145,7 +145,7 @@ function ReleaseModal({ initial, onSave, onClose, allTasks = [] }) {
                   onChange={(e) => set("version", e.target.value)}
                   placeholder="v1.0.0"
                   required
-                  className="w-full bg-[#232838] border border-[#2a3044] text-white placeholder-slate-500 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500/60 transition-colors"
+                  className="w-full bg-white dark:bg-slate-100 dark:bg-[#232838] border border-slate-200 dark:border-[#2a3044] text-slate-700 dark:text-white placeholder-slate-500 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500/60 transition-colors"
                 />
               </div>
               <div className="flex-1">
@@ -153,7 +153,7 @@ function ReleaseModal({ initial, onSave, onClose, allTasks = [] }) {
                 <select
                   value={form.status}
                   onChange={(e) => set("status", e.target.value)}
-                  className="w-full bg-[#232838] border border-[#2a3044] text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500/60 transition-colors"
+                  className="w-full bg-white dark:bg-slate-100 dark:bg-[#232838] border border-slate-200 dark:border-[#2a3044] text-slate-700 dark:text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500/60 transition-colors"
                 >
                   <option value="planned">Planned</option>
                   <option value="in-progress">In Progress</option>
@@ -169,7 +169,7 @@ function ReleaseModal({ initial, onSave, onClose, allTasks = [] }) {
                 value={form.name}
                 onChange={(e) => set("name", e.target.value)}
                 placeholder="e.g. Q1 2026 Release"
-                className="w-full bg-[#232838] border border-[#2a3044] text-white placeholder-slate-500 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500/60 transition-colors"
+                className="w-full bg-white dark:bg-slate-100 dark:bg-[#232838] border border-slate-200 dark:border-[#2a3044] text-slate-700 dark:text-white placeholder-slate-500 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500/60 transition-colors"
               />
             </div>
 
@@ -179,7 +179,7 @@ function ReleaseModal({ initial, onSave, onClose, allTasks = [] }) {
                 type="date"
                 value={form.releaseDate}
                 onChange={(e) => set("releaseDate", e.target.value)}
-                className="w-full bg-[#232838] border border-[#2a3044] text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500/60 transition-colors [color-scheme:dark]"
+                className="w-full bg-white dark:bg-slate-100 dark:bg-[#232838] border border-slate-200 dark:border-[#2a3044] text-slate-700 dark:text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500/60 transition-colors dark:[color-scheme:dark]"
               />
             </div>
 
@@ -190,7 +190,7 @@ function ReleaseModal({ initial, onSave, onClose, allTasks = [] }) {
                 onChange={(e) => set("description", e.target.value)}
                 placeholder="Describe this release..."
                 rows={2}
-                className="w-full bg-[#232838] border border-[#2a3044] text-white placeholder-slate-500 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500/60 transition-colors resize-none"
+                className="w-full bg-white dark:bg-slate-100 dark:bg-[#232838] border border-slate-200 dark:border-[#2a3044] text-slate-700 dark:text-white placeholder-slate-500 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500/60 transition-colors resize-none"
               />
             </div>
 
@@ -228,15 +228,15 @@ function ReleaseModal({ initial, onSave, onClose, allTasks = [] }) {
               )}
 
               {/* Task search + list */}
-              <div className="bg-[#232838] border border-[#2a3044] rounded-lg overflow-hidden">
-                <div className="flex items-center gap-2 px-3 py-2 border-b border-[#2a3044]">
+              <div className="bg-white dark:bg-slate-100 dark:bg-[#232838] border border-slate-200 dark:border-[#2a3044] rounded-lg overflow-hidden">
+                <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-200 dark:border-[#2a3044]">
                   <FaSearch className="text-slate-500 w-3 h-3 flex-shrink-0" />
                   <input
                     type="text"
                     value={taskSearch}
                     onChange={(e) => setTaskSearch(e.target.value)}
                     placeholder="Search tasks to add..."
-                    className="flex-1 bg-transparent text-white placeholder-slate-500 text-xs focus:outline-none"
+                    className="flex-1 bg-transparent text-slate-700 dark:text-white placeholder-slate-500 text-xs focus:outline-none"
                   />
                 </div>
                 <div className="max-h-40 overflow-y-auto">
@@ -262,8 +262,8 @@ function ReleaseModal({ initial, onSave, onClose, allTasks = [] }) {
                             {checked && <FaCheck className="w-2 h-2 text-white" />}
                           </span>
                           <span className="font-mono text-slate-500 flex-shrink-0">CY-{t.id}</span>
-                          <span className={`flex-1 truncate ${checked ? "text-blue-200" : "text-slate-300"}`}>{t.title}</span>
-                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium flex-shrink-0 ${TASK_STATUS_CHIP[t.status] || "bg-slate-600/50 text-slate-300"}`}>
+                          <span className={`flex-1 truncate ${checked ? "text-blue-700 dark:text-blue-200" : "text-slate-700 dark:text-slate-300"}`}>{t.title}</span>
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium flex-shrink-0 ${TASK_STATUS_CHIP[t.status] || "bg-slate-100 text-slate-600 dark:bg-slate-600/50 dark:text-slate-300"}`}>
                             {TASK_STATUS_LABEL[t.status] || t.status}
                           </span>
                         </button>
@@ -275,11 +275,11 @@ function ReleaseModal({ initial, onSave, onClose, allTasks = [] }) {
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 px-6 py-4 border-t border-[#252b3b] flex-shrink-0">
+          <div className="flex justify-end gap-2 px-6 py-4 border-t border-slate-200 dark:border-[#252b3b] flex-shrink-0">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm text-slate-400 hover:text-white border border-[#2a3044] rounded-lg hover:border-slate-500 transition-colors"
+              className="px-4 py-2 text-sm text-slate-400 hover:text-slate-800 dark:hover:text-white border border-slate-200 dark:border-[#2a3044] rounded-lg hover:border-slate-500 transition-colors"
             >
               Cancel
             </button>
@@ -315,10 +315,10 @@ function TaskSearchPopup({ allTasks, linkedIds, onAdd, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="bg-[#1a1f2e] border border-[#2a3044] rounded-2xl shadow-2xl w-full max-w-md mx-4"
+        className="bg-white dark:bg-[#1a1f2e] border border-slate-200 dark:border-[#2a3044] rounded-2xl shadow-2xl w-full max-w-md mx-4"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-[#252b3b]">
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 dark:border-[#252b3b]">
           <FaSearch className="text-slate-500 w-3.5 h-3.5 flex-shrink-0" />
           <input
             ref={inputRef}
@@ -326,9 +326,9 @@ function TaskSearchPopup({ allTasks, linkedIds, onAdd, onClose }) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search tasks..."
-            className="flex-1 bg-transparent text-white placeholder-slate-500 text-sm focus:outline-none"
+            className="flex-1 bg-transparent text-slate-700 dark:text-white placeholder-slate-500 text-sm focus:outline-none"
           />
-          <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors">
+          <button onClick={onClose} className="text-slate-500 hover:text-slate-800 dark:hover:text-white transition-colors">
             <FaTimes className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -341,12 +341,12 @@ function TaskSearchPopup({ allTasks, linkedIds, onAdd, onClose }) {
               <button
                 key={t.id}
                 onClick={() => { onAdd(t.id); onClose(); }}
-                className="w-full text-left px-4 py-2.5 hover:bg-[#232838] transition-colors flex items-center gap-3"
+                className="w-full text-left px-4 py-2.5 hover:bg-slate-100 dark:bg-[#232838] transition-colors flex items-center gap-3"
               >
-                <span className={`text-xs px-2 py-0.5 rounded font-medium ${TASK_STATUS_CHIP[t.status] || "bg-slate-600/50 text-slate-300"}`}>
+                <span className={`text-xs px-2 py-0.5 rounded font-medium ${TASK_STATUS_CHIP[t.status] || "bg-slate-100 text-slate-600 dark:bg-slate-600/50 dark:text-slate-300"}`}>
                   {TASK_STATUS_LABEL[t.status] || t.status}
                 </span>
-                <span className="text-slate-200 text-sm truncate flex-1">{t.title}</span>
+                <span className="text-slate-800 dark:text-slate-200 text-sm truncate flex-1">{t.title}</span>
                 {t.storyPoint != null && (
                   <span className="text-slate-500 text-xs font-mono flex-shrink-0">{t.storyPoint}pt</span>
                 )}
@@ -363,9 +363,9 @@ function TaskSearchPopup({ allTasks, linkedIds, onAdd, onClose }) {
 
 function StatCard({ label, value, sub }) {
   return (
-    <div className="bg-[#1c2030] border border-[#2a3044] rounded-xl px-4 py-3 flex flex-col gap-1">
+    <div className="bg-slate-50 dark:bg-white dark:bg-[#1c2030] border border-slate-200 dark:border-[#2a3044] rounded-xl px-4 py-3 flex flex-col gap-1">
       <span className="text-slate-500 text-xs font-medium uppercase tracking-wide">{label}</span>
-      <span className="text-white text-2xl font-bold leading-none">{value}</span>
+      <span className="text-slate-800 dark:text-white text-2xl font-bold leading-none">{value}</span>
       {sub && <span className="text-slate-500 text-xs">{sub}</span>}
     </div>
   );
@@ -510,14 +510,14 @@ export default function ReleasesPage() {
       <div>
         <button
           onClick={() => toggleSection(statusKey)}
-          className="w-full flex items-center gap-2 px-3 py-1.5 text-slate-400 hover:text-slate-300 transition-colors group"
+          className="w-full flex items-center gap-2 px-3 py-1.5 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300 transition-colors group"
         >
           {collapsed
             ? <FaChevronRight className="w-2.5 h-2.5 flex-shrink-0" />
             : <FaChevronDown className="w-2.5 h-2.5 flex-shrink-0" />}
           <StatusDot status={statusKey} />
           <span className="text-xs font-semibold uppercase tracking-wide">{label}</span>
-          <span className="ml-auto text-xs bg-[#232838] text-slate-400 px-1.5 py-0.5 rounded font-mono">
+          <span className="ml-auto text-xs bg-slate-100 dark:bg-[#232838] text-slate-400 px-1.5 py-0.5 rounded font-mono">
             {items.length}
           </span>
         </button>
@@ -530,11 +530,11 @@ export default function ReleasesPage() {
                 className={`w-full text-left px-3 py-2 rounded-lg transition-colors group flex flex-col gap-0.5 ${
                   selectedId === rel.id
                     ? "bg-blue-600/20 border border-blue-500/30"
-                    : "hover:bg-[#232838] border border-transparent"
+                    : "hover:bg-slate-200 dark:hover:bg-[#232838] border border-transparent"
                 }`}
               >
                 <div className="flex items-center gap-2">
-                  <span className={`text-xs font-mono font-semibold ${meta.color || "text-slate-300"}`}>
+                  <span className={`text-xs font-mono font-semibold ${meta.color || "text-slate-700 dark:text-slate-300"}`}>
                     {rel.version}
                   </span>
                   <span className="text-slate-400 text-xs truncate flex-1">{rel.name}</span>
@@ -555,14 +555,14 @@ export default function ReleasesPage() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="flex h-full bg-[#141720] overflow-hidden">
+    <div className="flex h-full bg-slate-100 dark:bg-[#141720] overflow-hidden">
       {/* ── Sidebar ──────────────────────────────────────────────────────── */}
-      <aside className="w-[260px] flex-shrink-0 bg-[#1a1f2e] border-r border-[#252b3b] flex flex-col overflow-hidden">
+      <aside className="w-[260px] flex-shrink-0 bg-slate-50 dark:bg-[#1a1f2e] border-r border-slate-200 dark:border-[#252b3b] flex flex-col overflow-hidden">
         {/* Sidebar header */}
-        <div className="flex items-center justify-between px-4 py-4 border-b border-[#252b3b]">
+        <div className="flex items-center justify-between px-4 py-4 border-b border-slate-200 dark:border-[#252b3b]">
           <div className="flex items-center gap-2">
             <FaRocket className="text-blue-400 w-4 h-4" />
-            <span className="text-white font-semibold text-sm">Releases</span>
+            <span className="text-slate-800 dark:text-white font-semibold text-sm">Releases</span>
           </div>
           <button
             onClick={() => setShowCreateModal(true)}
@@ -586,7 +586,7 @@ export default function ReleasesPage() {
         {!selected ? (
           /* Empty state */
           <div className="flex flex-col items-center justify-center h-full gap-4 text-center px-8">
-            <div className="w-16 h-16 rounded-2xl bg-[#1a1f2e] border border-[#2a3044] flex items-center justify-center">
+            <div className="w-16 h-16 rounded-2xl bg-white dark:bg-[#1a1f2e] border border-slate-200 dark:border-[#2a3044] flex items-center justify-center">
               <FaRocket className="w-7 h-7 text-slate-600" />
             </div>
             <div>
@@ -614,7 +614,7 @@ export default function ReleasesPage() {
                     <span className="text-slate-500 text-sm">{formatDate(selected.releaseDate)}</span>
                   )}
                 </div>
-                <h1 className="text-white text-2xl font-bold leading-tight">
+                <h1 className="text-slate-800 dark:text-white text-2xl font-bold leading-tight">
                   {selected.name || selected.version}
                 </h1>
               </div>
@@ -622,7 +622,7 @@ export default function ReleasesPage() {
               <div className="flex items-center gap-2 flex-shrink-0">
                 <button
                   onClick={() => setEditingRelease(selected)}
-                  className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-white border border-[#2a3044] hover:border-slate-500 px-3 py-1.5 rounded-lg transition-colors"
+                  className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-800 dark:hover:text-white border border-slate-200 dark:border-[#2a3044] hover:border-slate-500 px-3 py-1.5 rounded-lg transition-colors"
                 >
                   <FaEdit className="w-3 h-3" />
                   Edit
@@ -638,7 +638,7 @@ export default function ReleasesPage() {
                     </button>
                     <button
                       onClick={() => setDeleteConfirmId(null)}
-                      className="text-xs text-slate-400 hover:text-white border border-[#2a3044] px-2.5 py-1.5 rounded-lg transition-colors"
+                      className="text-xs text-slate-400 hover:text-slate-800 dark:hover:text-white border border-slate-200 dark:border-[#2a3044] px-2.5 py-1.5 rounded-lg transition-colors"
                     >
                       No
                     </button>
@@ -646,7 +646,7 @@ export default function ReleasesPage() {
                 ) : (
                   <button
                     onClick={() => setDeleteConfirmId(selected.id)}
-                    className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-red-400 border border-[#2a3044] hover:border-red-500/40 px-3 py-1.5 rounded-lg transition-colors"
+                    className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-red-400 border border-slate-200 dark:border-[#2a3044] hover:border-red-500/40 px-3 py-1.5 rounded-lg transition-colors"
                   >
                     <FaTrash className="w-3 h-3" />
                     Delete
@@ -679,13 +679,13 @@ export default function ReleasesPage() {
             </div>
 
             {/* ── Description card ───────────────────────────────────────── */}
-            <div className="bg-[#1a1f2e] border border-[#2a3044] rounded-xl px-5 py-4">
+            <div className="bg-white dark:bg-[#1a1f2e] border border-slate-200 dark:border-[#2a3044] rounded-xl px-5 py-4">
               <div className="flex items-center justify-between mb-3">
                 <span className="text-slate-400 text-xs font-semibold uppercase tracking-wide">Description</span>
                 {!editingDesc && (
                   <button
                     onClick={handleStartEditDesc}
-                    className="text-slate-500 hover:text-white transition-colors"
+                    className="text-slate-500 hover:text-slate-800 dark:hover:text-white transition-colors"
                     title="Edit description"
                   >
                     <FaEdit className="w-3.5 h-3.5" />
@@ -699,13 +699,13 @@ export default function ReleasesPage() {
                     value={descDraft}
                     onChange={(e) => setDescDraft(e.target.value)}
                     rows={4}
-                    className="w-full bg-[#232838] border border-[#2a3044] focus:border-blue-500/60 text-white placeholder-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none transition-colors"
+                    className="w-full bg-white dark:bg-slate-100 dark:bg-[#232838] border border-slate-200 dark:border-[#2a3044] focus:border-blue-500/60 text-slate-700 dark:text-white placeholder-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none transition-colors"
                     placeholder="Describe what's in this release..."
                   />
                   <div className="flex gap-2 justify-end">
                     <button
                       onClick={() => setEditingDesc(false)}
-                      className="text-xs text-slate-400 hover:text-white border border-[#2a3044] px-3 py-1.5 rounded-lg transition-colors"
+                      className="text-xs text-slate-400 hover:text-slate-800 dark:hover:text-white border border-slate-200 dark:border-[#2a3044] px-3 py-1.5 rounded-lg transition-colors"
                     >
                       Cancel
                     </button>
@@ -720,7 +720,7 @@ export default function ReleasesPage() {
                 </div>
               ) : (
                 <p
-                  className={`text-sm leading-relaxed ${selected.description ? "text-slate-300" : "text-slate-600 italic"}`}
+                  className={`text-sm leading-relaxed ${selected.description ? "text-slate-700 dark:text-slate-300" : "text-slate-600 italic"}`}
                   onClick={handleStartEditDesc}
                   style={{ cursor: "text" }}
                 >
@@ -730,12 +730,12 @@ export default function ReleasesPage() {
             </div>
 
             {/* ── Changelog section ──────────────────────────────────────── */}
-            <div className="bg-[#1a1f2e] border border-[#2a3044] rounded-xl overflow-hidden">
-              <div className="flex items-center justify-between px-5 py-4 border-b border-[#252b3b]">
+            <div className="bg-white dark:bg-[#1a1f2e] border border-slate-200 dark:border-[#2a3044] rounded-xl overflow-hidden">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-[#252b3b]">
                 <div className="flex items-center gap-2">
                   <FaTag className="text-slate-400 w-3.5 h-3.5" />
-                  <span className="text-white font-semibold text-sm">Changelog</span>
-                  <span className="text-slate-500 text-xs font-mono bg-[#232838] px-1.5 py-0.5 rounded">
+                  <span className="text-slate-800 dark:text-white font-semibold text-sm">Changelog</span>
+                  <span className="text-slate-500 text-xs font-mono bg-slate-100 dark:bg-[#232838] px-1.5 py-0.5 rounded">
                     {(selected.changelog || []).length}
                   </span>
                 </div>
@@ -750,12 +750,12 @@ export default function ReleasesPage() {
 
               {/* Add entry form */}
               {showAddEntry && (
-                <div className="px-5 py-4 bg-[#1c2030] border-b border-[#252b3b] flex flex-col gap-3">
+                <div className="px-5 py-4 bg-slate-50 dark:bg-white dark:bg-[#1c2030] border-b border-slate-200 dark:border-[#252b3b] flex flex-col gap-3">
                   <div className="flex gap-2">
                     <select
                       value={entryDraft.type}
                       onChange={(e) => setEntryDraft((p) => ({ ...p, type: e.target.value }))}
-                      className="bg-[#232838] border border-[#2a3044] text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500/60 transition-colors flex-shrink-0"
+                      className="bg-white dark:bg-slate-100 dark:bg-[#232838] border border-slate-200 dark:border-[#2a3044] text-slate-700 dark:text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500/60 transition-colors flex-shrink-0"
                     >
                       <option value="feature">Feature</option>
                       <option value="bugfix">Bug Fix</option>
@@ -769,13 +769,13 @@ export default function ReleasesPage() {
                       onKeyDown={(e) => { if (e.key === "Enter") handleAddEntry(); if (e.key === "Escape") setShowAddEntry(false); }}
                       placeholder="Describe the change..."
                       autoFocus
-                      className="flex-1 bg-[#232838] border border-[#2a3044] text-white placeholder-slate-500 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500/60 transition-colors"
+                      className="flex-1 bg-white dark:bg-slate-100 dark:bg-[#232838] border border-slate-200 dark:border-[#2a3044] text-slate-700 dark:text-white placeholder-slate-500 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500/60 transition-colors"
                     />
                   </div>
                   <div className="flex gap-2 justify-end">
                     <button
                       onClick={() => setShowAddEntry(false)}
-                      className="text-xs text-slate-400 hover:text-white border border-[#2a3044] px-3 py-1.5 rounded-lg transition-colors"
+                      className="text-xs text-slate-400 hover:text-slate-800 dark:hover:text-white border border-slate-200 dark:border-[#2a3044] px-3 py-1.5 rounded-lg transition-colors"
                     >
                       Cancel
                     </button>
@@ -800,7 +800,7 @@ export default function ReleasesPage() {
                   const Icon = meta.icon;
                   return (
                     <div key={type}>
-                      <div className={`flex items-center gap-2 mb-2 pb-1.5 border-b border-[#2a3044]`}>
+                      <div className={`flex items-center gap-2 mb-2 pb-1.5 border-b border-slate-200 dark:border-[#2a3044]`}>
                         <Icon className={`w-3.5 h-3.5 ${meta.color}`} />
                         <span className={`text-xs font-semibold uppercase tracking-wide ${meta.color}`}>
                           {meta.label}
@@ -831,16 +831,16 @@ export default function ReleasesPage() {
             </div>
 
             {/* ── Linked Tasks section ───────────────────────────────────── */}
-            <div className="bg-[#1a1f2e] border border-[#2a3044] rounded-xl overflow-hidden mb-8">
+            <div className="bg-white dark:bg-[#1a1f2e] border border-slate-200 dark:border-[#2a3044] rounded-xl overflow-hidden mb-8">
               <button
                 onClick={() => setTasksExpanded((v) => !v)}
-                className="w-full flex items-center justify-between px-5 py-4 border-b border-[#252b3b] hover:bg-[#1c2030] transition-colors"
+                className="w-full flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-[#252b3b] hover:bg-slate-50 dark:bg-white dark:bg-[#1c2030] transition-colors"
               >
                 <div className="flex items-center gap-2">
                   {tasksExpanded ? <FaChevronDown className="w-3 h-3 text-slate-500" /> : <FaChevronRight className="w-3 h-3 text-slate-500" />}
                   <FaLink className="text-slate-400 w-3.5 h-3.5" />
-                  <span className="text-white font-semibold text-sm">Linked Tasks</span>
-                  <span className="text-slate-500 text-xs font-mono bg-[#232838] px-1.5 py-0.5 rounded">
+                  <span className="text-slate-800 dark:text-white font-semibold text-sm">Linked Tasks</span>
+                  <span className="text-slate-500 text-xs font-mono bg-slate-100 dark:bg-[#232838] px-1.5 py-0.5 rounded">
                     {linkedTasks.length}
                   </span>
                 </div>
@@ -856,7 +856,7 @@ export default function ReleasesPage() {
               </button>
 
               {tasksExpanded && (
-                <div className="divide-y divide-[#252b3b]">
+                <div className="divide-y divide-slate-200 dark:divide-[#252b3b]">
                   {linkedTasks.length === 0 ? (
                     <p className="text-slate-600 text-sm text-center py-6 italic">
                       No tasks linked — click "Add Task" to link one
@@ -910,7 +910,7 @@ function ChangelogEntryRow({ entry, meta, onDelete }) {
       onMouseLeave={() => setHovered(false)}
     >
       <Icon className={`w-3 h-3 mt-0.5 flex-shrink-0 ${meta.color} opacity-70`} />
-      <span className="text-slate-300 text-sm leading-relaxed flex-1">{entry.text}</span>
+      <span className="text-slate-700 dark:text-slate-300 text-sm leading-relaxed flex-1">{entry.text}</span>
       {hovered && (
         <button
           onClick={onDelete}
@@ -930,21 +930,21 @@ function LinkedTaskRow({ task, onRemove }) {
   const [hovered, setHovered] = useState(false);
   return (
     <div
-      className="flex items-center gap-3 px-5 py-3 hover:bg-[#1c2030] transition-colors"
+      className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50 dark:bg-white dark:bg-[#1c2030] transition-colors"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
       <span
-        className={`text-xs px-2 py-0.5 rounded font-medium flex-shrink-0 ${TASK_STATUS_CHIP[task.status] || "bg-slate-600/50 text-slate-300"}`}
+        className={`text-xs px-2 py-0.5 rounded font-medium flex-shrink-0 ${TASK_STATUS_CHIP[task.status] || "bg-slate-100 text-slate-600 dark:bg-slate-600/50 dark:text-slate-300"}`}
       >
         {TASK_STATUS_LABEL[task.status] || task.status}
       </span>
-      <span className="text-slate-200 text-sm truncate flex-1">{task.title}</span>
+      <span className="text-slate-800 dark:text-slate-200 text-sm truncate flex-1">{task.title}</span>
       {task.assignedTo && task.assignedTo !== "unassigned" && (
         <span className="text-slate-500 text-xs flex-shrink-0">{task.assignedTo}</span>
       )}
       {task.storyPoint != null && (
-        <span className="text-slate-500 text-xs font-mono flex-shrink-0 bg-[#232838] px-1.5 py-0.5 rounded">
+        <span className="text-slate-500 text-xs font-mono flex-shrink-0 bg-slate-100 dark:bg-[#232838] px-1.5 py-0.5 rounded">
           {task.storyPoint}pt
         </span>
       )}

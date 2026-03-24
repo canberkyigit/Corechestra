@@ -7,18 +7,29 @@ import {
   FaCheckCircle, FaExclamationTriangle, FaComment, FaArrowRight,
   FaShieldAlt, FaLayerGroup, FaBook, FaTag, FaFlask,
   FaCheckSquare, FaBug, FaPlusSquare, FaExclamationCircle,
-  FaUser, FaFlag, FaPlay, FaRegDotCircle, FaTimes,
+  FaUser, FaFlag, FaPlay, FaRegDotCircle, FaTimes, FaArchive, FaUndo, FaBolt,
 } from "react-icons/fa";
 import { useApp } from "../context/AppContext";
 import { useToast } from "../context/ToastContext";
 
 const NOTIF_META = {
-  assignment:    { icon: FaArrowRight,          color: "text-blue-500   bg-blue-50   dark:bg-blue-900/20"   },
-  status_done:   { icon: FaCheckCircle,         color: "text-green-500  bg-green-50  dark:bg-green-900/20"  },
-  status_blocked:{ icon: FaExclamationTriangle, color: "text-red-500    bg-red-50    dark:bg-red-900/20"    },
-  status_change: { icon: FaArrowRight,          color: "text-blue-500   bg-blue-50   dark:bg-blue-900/20"   },
-  comment:       { icon: FaComment,             color: "text-purple-500 bg-purple-50 dark:bg-purple-900/20" },
-  mention:       { icon: FaComment,             color: "text-purple-500 bg-purple-50 dark:bg-purple-900/20" },
+  assignment:      { icon: FaArrowRight,          color: "text-blue-500   bg-blue-50   dark:bg-blue-900/20"   },
+  status_done:     { icon: FaCheckCircle,         color: "text-green-500  bg-green-50  dark:bg-green-900/20"  },
+  status_blocked:  { icon: FaExclamationTriangle, color: "text-red-500    bg-red-50    dark:bg-red-900/20"    },
+  status_change:   { icon: FaArrowRight,          color: "text-blue-500   bg-blue-50   dark:bg-blue-900/20"   },
+  comment:         { icon: FaComment,             color: "text-purple-500 bg-purple-50 dark:bg-purple-900/20" },
+  mention:         { icon: FaComment,             color: "text-purple-500 bg-purple-50 dark:bg-purple-900/20" },
+  task_created:    { icon: FaCheckCircle,         color: "text-green-500  bg-green-50  dark:bg-green-900/20"  },
+  task_archived:   { icon: FaArchive,             color: "text-amber-500  bg-amber-50  dark:bg-amber-900/20"  },
+  task_restored:   { icon: FaUndo,                color: "text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20" },
+  task_deleted:    { icon: FaExclamationTriangle, color: "text-red-500    bg-red-50    dark:bg-red-900/20"    },
+  sprint_started:  { icon: FaPlay,                color: "text-blue-500   bg-blue-50   dark:bg-blue-900/20"   },
+  sprint_completed:{ icon: FaCheckCircle,         color: "text-green-500  bg-green-50  dark:bg-green-900/20"  },
+  project_created: { icon: FaLayerGroup,          color: "text-purple-500 bg-purple-50 dark:bg-purple-900/20" },
+  project_deleted: { icon: FaExclamationTriangle, color: "text-red-500    bg-red-50    dark:bg-red-900/20"    },
+  epic_created:    { icon: FaBolt,                color: "text-violet-500 bg-violet-50 dark:bg-violet-900/20" },
+  epic_deleted:    { icon: FaExclamationTriangle, color: "text-red-500    bg-red-50    dark:bg-red-900/20"    },
+  archive_emptied: { icon: FaArchive,             color: "text-red-500    bg-red-50    dark:bg-red-900/20"    },
 };
 
 const SEARCH_TYPE_ICONS = {
@@ -57,6 +68,7 @@ const SEARCH_PAGES = [
   { id: "calendar",  label: "Calendar",   icon: FaCalendarAlt   },
   { id: "projects",  label: "Projects",   icon: FaLayerGroup    },
   { id: "admin",     label: "Admin",      icon: FaShieldAlt     },
+  { id: "archive",   label: "Archive",    icon: FaArchive       },
 ];
 
 function relativeTime(isoStr) {
@@ -81,6 +93,7 @@ const NAV_ITEMS = [
   { id: "docs",          label: "Documentation", icon: FaBook          },
   { id: "releases",      label: "Releases",      icon: FaTag           },
   { id: "tests",         label: "Tests",         icon: FaFlask         },
+  { id: "archive",       label: "Archive",       icon: FaArchive       },
 ];
 
 const ADMIN_NAV_ITEMS = [
