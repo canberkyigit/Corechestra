@@ -5,7 +5,7 @@ import {
   FaTimes, FaTrash, FaCheck, FaPlus, FaChevronDown, FaSearch,
   FaEye, FaEyeSlash, FaClock, FaTag, FaLink,
   FaComment, FaCompress,
-  FaPaperclip, FaCloudUploadAlt, FaFileAlt, FaImage,
+  FaCloudUploadAlt, FaFileAlt,
 } from "react-icons/fa";
 import { useApp } from "../context/AppContext";
 import { useToast } from "../context/ToastContext";
