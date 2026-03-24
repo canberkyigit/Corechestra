@@ -4,8 +4,8 @@ import {
   FaShieldAlt, FaUsers, FaPlus, FaEdit, FaTrash, FaCheck, FaTimes,
   FaProjectDiagram, FaUserPlus, FaFolder, FaPalette,
   FaUserCircle, FaEnvelope, FaCalendarAlt, FaBolt, FaListUl,
-  FaTextHeight, FaHashtag, FaLink, FaCheckSquare, FaChevronDown,
-  FaSlidersH, FaClock, FaColumns, FaArrowUp, FaArrowDown, FaLock,
+  FaChevronDown,
+  FaClock, FaColumns, FaArrowUp, FaArrowDown, FaLock,
   FaSearch, FaUserFriends,
 } from "react-icons/fa";
 
@@ -29,14 +29,6 @@ const ROLES = [
   { value: "viewer", label: "Viewer", desc: "Read-only access",                color: "#94a3b8" },
 ];
 
-const FIELD_TYPES = [
-  { value: "text",     label: "Text",     icon: FaTextHeight  },
-  { value: "number",   label: "Number",   icon: FaHashtag     },
-  { value: "date",     label: "Date",     icon: FaCalendarAlt },
-  { value: "url",      label: "URL",      icon: FaLink        },
-  { value: "checkbox", label: "Checkbox", icon: FaCheckSquare },
-  { value: "dropdown", label: "Dropdown", icon: FaChevronDown },
-];
 
 const WEEK_DAYS = [
   { id: "mon", label: "Mon" }, { id: "tue", label: "Tue" },
@@ -479,102 +471,6 @@ function UserCard({ user, onEdit, onDelete, onToggleStatus }) {
   );
 }
 
-// ─── Custom Fields ────────────────────────────────────────────────────────────
-
-function FieldForm({ initial, onSave, onCancel }) {
-  const [name,     setName]     = useState(initial?.name        || "");
-  const [type,     setType]     = useState(initial?.type        || "text");
-  const [desc,     setDesc]     = useState(initial?.description || "");
-  const [required, setRequired] = useState(initial?.required    || false);
-  const [options,  setOptions]  = useState((initial?.options || []).join("\n"));
-
-  const TypeIcon = FIELD_TYPES.find((f) => f.value === type)?.icon || FaTextHeight;
-
-  return (
-    <FormCard title={initial?.id ? "Edit Field" : "Add Custom Field"}>
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Field Name *</label>
-          <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Customer Name"
-            className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-[#2a3044] bg-slate-50 dark:bg-[#232838] text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-400" />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Field Type</label>
-          <div className="grid grid-cols-3 gap-1.5">
-            {FIELD_TYPES.map(({ value, label, icon: Icon }) => (
-              <button key={value} onClick={() => setType(value)}
-                className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg border text-xs font-medium transition-all ${type===value ? "border-blue-400 bg-blue-50 dark:bg-blue-900/20 text-blue-600" : "border-slate-200 dark:border-[#2a3044] text-slate-500 dark:text-slate-400 hover:border-slate-300"}`}>
-                <Icon className="w-3 h-3 flex-shrink-0" />{label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-      <div>
-        <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Description</label>
-        <input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Help text shown on task form..."
-          className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-[#2a3044] bg-slate-50 dark:bg-[#232838] text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-400" />
-      </div>
-      {type === "dropdown" && (
-        <div>
-          <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Options <span className="text-slate-400">(one per line)</span></label>
-          <textarea value={options} onChange={(e) => setOptions(e.target.value)} rows={4}
-            placeholder={"Production\nStaging\nDevelopment"}
-            className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-[#2a3044] bg-slate-50 dark:bg-[#232838] text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none" />
-        </div>
-      )}
-      <div className="flex items-center gap-2">
-        <button onClick={() => setRequired((v) => !v)}
-          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${required ? "bg-blue-500" : "bg-slate-300 dark:bg-slate-600"}`}>
-          <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${required ? "translate-x-4" : "translate-x-0.5"}`} />
-        </button>
-        <span className="text-xs text-slate-600 dark:text-slate-400">Required field</span>
-      </div>
-      <div className="flex gap-2 pt-1">
-        <button onClick={() => { if(!name.trim()) return; onSave({ name:name.trim(), type, description:desc, required, options: type==="dropdown" ? options.split("\n").map((s)=>s.trim()).filter(Boolean) : [] }); }}
-          disabled={!name.trim()}
-          className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors">
-          <FaCheck className="w-3 h-3" /> {initial?.id ? "Save" : "Add Field"}
-        </button>
-        <button onClick={onCancel} className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">Cancel</button>
-      </div>
-    </FormCard>
-  );
-}
-
-function FieldCard({ field, onEdit, onDelete }) {
-  const [del, setDel] = useState(false);
-  const ft = FIELD_TYPES.find((f) => f.value === field.type);
-  const Icon = ft?.icon || FaTextHeight;
-  return (
-    <SectionCard className="p-4">
-      <div className="flex items-center gap-4">
-        <div className="w-9 h-9 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center flex-shrink-0">
-          <Icon className="w-4 h-4 text-blue-500" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-0.5">
-            <span className="font-semibold text-slate-800 dark:text-slate-200 text-sm">{field.name}</span>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-[#232838] text-slate-500 dark:text-slate-400 font-medium">{ft?.label || field.type}</span>
-            {field.required && <span className="text-xs px-2 py-0.5 rounded-full bg-red-50 dark:bg-red-900/20 text-red-500 font-medium">Required</span>}
-          </div>
-          {field.description && <p className="text-xs text-slate-400 dark:text-slate-500">{field.description}</p>}
-          {field.type === "dropdown" && field.options?.length > 0 && (
-            <div className="flex gap-1 mt-1 flex-wrap">
-              {field.options.map((o) => <span key={o} className="text-xs px-1.5 py-0.5 rounded bg-slate-100 dark:bg-[#232838] text-slate-500 dark:text-slate-400">{o}</span>)}
-            </div>
-          )}
-        </div>
-        <div className="flex items-center gap-1">
-          <button onClick={onEdit} className="p-1.5 rounded-lg text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"><FaEdit className="w-3.5 h-3.5" /></button>
-          {!del ? <button onClick={() => setDel(true)} className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"><FaTrash className="w-3.5 h-3.5" /></button>
-                : <DeleteConfirm label="Delete?" onConfirm={onDelete} onCancel={() => setDel(false)} />}
-        </div>
-      </div>
-    </SectionCard>
-  );
-}
-
 // ─── Sprint Defaults ──────────────────────────────────────────────────────────
 
 function SprintDefaultsTab({ sprintDefaults, updateSprintDefaults, sprint }) {
@@ -697,7 +593,6 @@ export default function AdminPage() {
     teams, createTeam, updateTeam, deleteTeam,
     projects, createProject, updateProject, deleteProject, currentProjectId,
     users, createUser, updateUser, deleteUser,
-    customFields, createCustomField, updateCustomField, deleteCustomField,
     sprintDefaults, updateSprintDefaults,
     columns, createColumn, deleteColumn, reorderColumns, renameColumn,
     sprint,
@@ -714,10 +609,6 @@ export default function AdminPage() {
   // Users
   const [showUserForm, setShowUserForm] = useState(false);
   const [editingUser,  setEditingUser]  = useState(null);
-  // Fields
-  const [showFieldForm, setShowFieldForm] = useState(false);
-  const [editingField,  setEditingField]  = useState(null);
-
   const totalMembers = new Set(teams.flatMap((t) => t.memberNames || [])).size;
   const activeUsers  = users.filter((u) => u.status === "active").length;
 
@@ -726,7 +617,6 @@ export default function AdminPage() {
     { id: "projects", label: "Projects",         icon: FaProjectDiagram },
     { id: "teams",    label: "Teams",            icon: FaUsers },
     { id: "users",    label: "Users",            icon: FaUserPlus },
-    { id: "fields",   label: "Custom Fields",    icon: FaSlidersH },
     { id: "sprint",   label: "Sprint Defaults",  icon: FaClock },
     { id: "columns",  label: "Board Columns",    icon: FaColumns },
   ];
@@ -742,12 +632,11 @@ export default function AdminPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-5 gap-3 mb-6">
+      <div className="grid grid-cols-4 gap-3 mb-6">
         {[
           { label: "Projects",      value: projects.length,    icon: FaFolder,        color: "#a855f7" },
           { label: "Teams",         value: teams.length,       icon: FaUsers,         color: "#3b82f6" },
           { label: "Active Users",  value: activeUsers,        icon: FaUserPlus,      color: "#10b981" },
-          { label: "Custom Fields", value: customFields.length, icon: FaSlidersH,     color: "#f59e0b" },
           { label: "Sprint Days",   value: sprintDefaults.duration, icon: FaClock,    color: "#06b6d4" },
         ].map(({ label, value, icon: Icon, color }) => (
           <div key={label} className="bg-white dark:bg-[#1c2030] rounded-xl border border-slate-200 dark:border-[#2a3044] p-4 shadow-sm">
@@ -846,29 +735,6 @@ export default function AdminPage() {
             <button onClick={() => setShowUserForm(true)}
               className="flex items-center gap-2 px-4 py-3 border-2 border-dashed border-slate-200 dark:border-[#2a3044] text-slate-500 dark:text-slate-400 rounded-xl hover:border-blue-300 hover:text-blue-500 text-sm font-medium w-full justify-center transition-colors">
               <FaPlus className="w-3.5 h-3.5" /> Invite New User
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Custom Fields */}
-      {activeTab === "fields" && (
-        <div className="space-y-4">
-          <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-xl p-3">
-            <p className="text-xs text-blue-700 dark:text-blue-400">Custom fields will appear on the task creation and edit forms. Use them to track project-specific data.</p>
-          </div>
-          {showFieldForm && !editingField && <FieldForm onSave={(d) => { createCustomField(d); setShowFieldForm(false); }} onCancel={() => setShowFieldForm(false)} />}
-          {editingField && <FieldForm initial={editingField} onSave={(d) => { updateCustomField({...editingField,...d}); setEditingField(null); }} onCancel={() => setEditingField(null)} />}
-          {customFields.map((f) => (
-            <FieldCard key={f.id} field={f}
-              onEdit={() => { setEditingField(f); setShowFieldForm(false); }}
-              onDelete={() => deleteCustomField(f.id)} />
-          ))}
-          {customFields.length===0 && !showFieldForm && <div className="text-center py-12 text-slate-400"><FaSlidersH className="w-10 h-10 mx-auto mb-3 opacity-30" /><p className="text-sm">No custom fields yet.</p></div>}
-          {!showFieldForm && !editingField && (
-            <button onClick={() => setShowFieldForm(true)}
-              className="flex items-center gap-2 px-4 py-3 border-2 border-dashed border-slate-200 dark:border-[#2a3044] text-slate-500 dark:text-slate-400 rounded-xl hover:border-blue-300 hover:text-blue-500 text-sm font-medium w-full justify-center transition-colors">
-              <FaPlus className="w-3.5 h-3.5" /> Add Custom Field
             </button>
           )}
         </div>

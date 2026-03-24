@@ -54,9 +54,7 @@ function AppInner() {
 
   const activePage = PATH_TO_PAGE[location.pathname] || "board";
 
-  const [darkMode, setDarkMode] = useState(
-    () => localStorage.getItem("corechestra_dark") === "true"
-  );
+  const { createTask, updateActiveTask, backlogSections, darkMode, setDarkMode } = useApp();
 
   // Global create modal (topbar Create button works from any page)
   const [createModalOpen,   setCreateModalOpen]   = useState(false);
@@ -66,8 +64,6 @@ function AppInner() {
 
   // Settings shortcut → board page at settings tab
   const [forcedBoardTab, setForcedBoardTab] = useState(null);
-
-  const { createTask, updateActiveTask, backlogSections } = useApp();
 
   // Cmd+K / Ctrl+K global shortcut
   useEffect(() => {
@@ -89,11 +85,8 @@ function AppInner() {
 
   const toggleDark = () => {
     const next = !darkMode;
-    setDarkMode(next);
-    localStorage.setItem("corechestra_dark", String(next));
     document.documentElement.classList.add("dark-transitioning");
-    if (next) document.documentElement.classList.add("dark");
-    else document.documentElement.classList.remove("dark");
+    setDarkMode(next);
     setTimeout(() => document.documentElement.classList.remove("dark-transitioning"), 300);
   };
 

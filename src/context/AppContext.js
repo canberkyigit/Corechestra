@@ -1,120 +1,54 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from "react";
-import { loadState, saveState } from "../services/storage";
+import { loadAllDomains, saveDomain, clearAllDomains } from "../services/storage";
 import { generateId } from "../utils/helpers";
-import {
-  SEED_PROJECTS, SEED_EPICS, SEED_LABELS, SEED_SPRINT, SEED_PROJ2_SPRINT,
-  SEED_ACTIVE_TASKS, SEED_BACKLOG_SECTIONS, SEED_PROJ2_BACKLOG_SECTIONS,
-  SEED_TEAMS, SEED_RETRO, SEED_PROJ2_RETRO, SEED_USERS, SEED_CUSTOM_FIELDS,
-  DEFAULT_SPRINT_DEFAULTS, DEFAULT_BOARD_SETTINGS, DEFAULT_COLUMNS,
-  SEED_SPACES, SEED_DOC_PAGES,
-  SEED_RELEASES, SEED_TEST_SUITES, SEED_TEST_CASES, SEED_TEST_RUNS,
-} from "./AppSeeds";
+import { DEFAULT_SPRINT_DEFAULTS, DEFAULT_BOARD_SETTINGS, DEFAULT_COLUMNS } from "./AppSeeds";
 
 // ─── Context ──────────────────────────────────────────────────────────────────
 const AppContext = createContext(null);
 
 export function AppProvider({ children }) {
-  const persisted = loadState();
+  // ── Loading state ──────────────────────────────────────────────────────────
+  const [dbReady, setDbReady] = useState(false);
 
-  const [projects, setProjects] = useState(persisted?.projects ?? SEED_PROJECTS);
-  const [currentProjectId, setCurrentProjectId] = useState(persisted?.currentProjectId ?? "proj-1");
-  const [epics, setEpics] = useState(persisted?.epics ?? SEED_EPICS);
-  const [labels, setLabels] = useState(persisted?.labels ?? SEED_LABELS);
-  const [perProjectSprint, setPerProjectSprint] = useState(() => {
-    if (persisted?.perProjectSprint) {
-      if (!persisted.perProjectSprint["proj-2"])
-        return { ...persisted.perProjectSprint, "proj-2": SEED_PROJ2_SPRINT };
-      return persisted.perProjectSprint;
-    }
-    return {
-      "proj-1": persisted?.sprint ?? SEED_SPRINT,
-      "proj-2": SEED_PROJ2_SPRINT,
-    };
-  });
-  const [projectColumns, setProjectColumns] = useState(
-    persisted?.projectColumns ?? { "proj-1": DEFAULT_COLUMNS, "proj-2": DEFAULT_COLUMNS }
-  );
+  // ── State (empty defaults, hydrated from Firestore on mount) ───────────────
+  const [projects, setProjects] = useState([]);
+  const [currentProjectId, setCurrentProjectId] = useState("");
+  const [epics, setEpics] = useState([]);
+  const [labels, setLabels] = useState([]);
+  const [perProjectSprint, setPerProjectSprint] = useState({});
+  const [projectColumns, setProjectColumns] = useState({});
+  const [activeTasks, setActiveTasks] = useState([]);
+  const [perProjectBacklog, setPerProjectBacklog] = useState({});
+  const [perProjectRetrospective, setPerProjectRetrospective] = useState({});
+  const [perProjectPokerHistory, setPerProjectPokerHistory] = useState({});
+  const [perProjectNotes, setPerProjectNotes] = useState({});
+  const [perProjectBoardSettings, setPerProjectBoardSettings] = useState({});
+  const [currentUser, setCurrentUser] = useState("");
+  const [globalActivityLog, setGlobalActivityLog] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const [perProjectBurndownSnapshots, setPerProjectBurndownSnapshots] = useState({});
+  const [teams, setTeams] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [sprintDefaults, setSprintDefaults] = useState(DEFAULT_SPRINT_DEFAULTS);
+  const [spaces, setSpaces] = useState([]);
+  const [docPages, setDocPages] = useState([]);
+  const [releases, setReleases] = useState([]);
+  const [testSuites, setTestSuites] = useState([]);
+  const [testCases, setTestCases] = useState([]);
+  const [testRuns, setTestRuns] = useState([]);
+  const [perProjectCompletedSprints, setPerProjectCompletedSprints] = useState({});
 
-  // Migration: inject proj-2 active tasks if missing from persisted data
-  const [activeTasks, setActiveTasks] = useState(() => {
-    const base = persisted?.activeTasks ?? SEED_ACTIVE_TASKS;
-    const hasProj2 = base.some((t) => t.projectId === "proj-2");
-    if (!hasProj2) {
-      const proj2Seeds = SEED_ACTIVE_TASKS.filter((t) => t.projectId === "proj-2");
-      return [...base, ...proj2Seeds];
-    }
-    return base;
-  });
+  // ── User preferences (previously in localStorage) ────────────────────────
+  const [darkMode, setDarkMode] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [projectsViewMode, setProjectsViewMode] = useState("grid");
+  const [perProjectBoardFilters, setPerProjectBoardFilters] = useState({});
 
-  // Per-project backlog (migration from old flat backlogSections)
-  const [perProjectBacklog, setPerProjectBacklog] = useState(() => {
-    if (persisted?.perProjectBacklog) {
-      // Inject proj-2 sections if missing
-      if (!persisted.perProjectBacklog["proj-2"]) {
-        return { ...persisted.perProjectBacklog, "proj-2": SEED_PROJ2_BACKLOG_SECTIONS };
-      }
-      return persisted.perProjectBacklog;
-    }
-    return {
-      "proj-1": persisted?.backlogSections ?? SEED_BACKLOG_SECTIONS,
-      "proj-2": SEED_PROJ2_BACKLOG_SECTIONS,
-    };
-  });
-  const [perProjectRetrospective, setPerProjectRetrospective] = useState(() => {
-    if (persisted?.perProjectRetrospective) {
-      if (!persisted.perProjectRetrospective["proj-2"])
-        return { ...persisted.perProjectRetrospective, "proj-2": SEED_PROJ2_RETRO };
-      return persisted.perProjectRetrospective;
-    }
-    return { "proj-1": persisted?.retrospectiveItems ?? SEED_RETRO, "proj-2": SEED_PROJ2_RETRO };
-  });
-
-  const [perProjectPokerHistory, setPerProjectPokerHistory] = useState(() => {
-    if (persisted?.perProjectPokerHistory) {
-      if (!persisted.perProjectPokerHistory["proj-2"])
-        return { ...persisted.perProjectPokerHistory, "proj-2": [] };
-      return persisted.perProjectPokerHistory;
-    }
-    return { "proj-1": persisted?.pokerHistory ?? [], "proj-2": [] };
-  });
-
-  const [perProjectNotes, setPerProjectNotes] = useState(() => {
-    if (persisted?.perProjectNotes) {
-      if (!persisted.perProjectNotes["proj-2"])
-        return { ...persisted.perProjectNotes, "proj-2": [] };
-      return persisted.perProjectNotes;
-    }
-    return { "proj-1": persisted?.notesList ?? [], "proj-2": [] };
-  });
-
-  const [perProjectBoardSettings, setPerProjectBoardSettings] = useState(() => {
-    if (persisted?.perProjectBoardSettings) {
-      if (!persisted.perProjectBoardSettings["proj-2"])
-        return { ...persisted.perProjectBoardSettings, "proj-2": { ...DEFAULT_BOARD_SETTINGS, boardName: "Mobile App", projectKey: "MB" } };
-      return persisted.perProjectBoardSettings;
-    }
-    return {
-      "proj-1": { ...DEFAULT_BOARD_SETTINGS, ...(persisted?.boardSettings ?? {}), taskViewMode: "panel" },
-      "proj-2": { ...DEFAULT_BOARD_SETTINGS, boardName: "Mobile App", projectKey: "MB", taskViewMode: "panel" },
-    };
-  });
-  const [currentUser, setCurrentUser] = useState(persisted?.currentUser ?? "alice");
-  const [globalActivityLog, setGlobalActivityLog] = useState(persisted?.globalActivityLog ?? []);
-  const [notifications, setNotifications] = useState(persisted?.notifications ?? []);
-  const [perProjectBurndownSnapshots, setPerProjectBurndownSnapshots] = useState(persisted?.perProjectBurndownSnapshots ?? { "proj-1": [], "proj-2": [] });
-  const [teams, setTeams] = useState(persisted?.teams ?? SEED_TEAMS);
-  const [users, setUsers] = useState(persisted?.users ?? SEED_USERS);
-  const [customFields, setCustomFields] = useState(persisted?.customFields ?? SEED_CUSTOM_FIELDS);
-  const [sprintDefaults, setSprintDefaults] = useState(persisted?.sprintDefaults ?? DEFAULT_SPRINT_DEFAULTS);
-  const [spaces, setSpaces] = useState(persisted?.spaces ?? SEED_SPACES);
-  const [docPages, setDocPages] = useState(persisted?.docPages ?? SEED_DOC_PAGES);
-  const [releases, setReleases] = useState(persisted?.releases ?? SEED_RELEASES);
-  const [testSuites, setTestSuites] = useState(persisted?.testSuites ?? SEED_TEST_SUITES);
-  const [testCases, setTestCases] = useState(persisted?.testCases ?? SEED_TEST_CASES);
-  const [testRuns, setTestRuns] = useState(persisted?.testRuns ?? SEED_TEST_RUNS);
-  const [perProjectCompletedSprints, setPerProjectCompletedSprints] = useState(
-    persisted?.perProjectCompletedSprints ?? { "proj-1": [], "proj-2": [] }
-  );
+  // Sync dark mode class to DOM
+  useEffect(() => {
+    if (darkMode) document.documentElement.classList.add("dark");
+    else document.documentElement.classList.remove("dark");
+  }, [darkMode]);
 
   // Computed: per-project columns
   const columns = useMemo(
@@ -147,12 +81,12 @@ export function AppProvider({ children }) {
   }, [currentProjectId]);
 
   // Computed: per-project retrospective
-  const retrospectiveItems = perProjectRetrospective[currentProjectId] ?? SEED_RETRO;
+  const retrospectiveItems = perProjectRetrospective[currentProjectId] ?? { wentWell: [], wentWrong: [], canImprove: [], actionItems: [] };
   const setRetrospectiveItems = useCallback((updaterOrValue) => {
     setPerProjectRetrospective((prev) => ({
       ...prev,
       [currentProjectId]: typeof updaterOrValue === "function"
-        ? updaterOrValue(prev[currentProjectId] ?? SEED_RETRO)
+        ? updaterOrValue(prev[currentProjectId] ?? { wentWell: [], wentWrong: [], canImprove: [], actionItems: [] })
         : updaterOrValue,
     }));
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -214,22 +148,102 @@ export function AppProvider({ children }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTasks, currentProjectId]);
 
-  // Persist
+  // ── Load from Firestore on mount ───────────────────────────────────────────
   useEffect(() => {
-    saveState({
-      projects, currentProjectId, currentUser, epics, labels, perProjectSprint, projectColumns,
-      activeTasks, perProjectBacklog, perProjectRetrospective, perProjectPokerHistory,
-      perProjectNotes, perProjectBoardSettings, globalActivityLog, notifications, teams,
-      users, customFields, sprintDefaults, perProjectBurndownSnapshots,
-      spaces, docPages, releases, testSuites, testCases, testRuns,
-      perProjectCompletedSprints,
+    const hydrate = (data) => {
+      if (!data) return;
+      if (data.projects) setProjects(data.projects);
+      if (data.currentProjectId) setCurrentProjectId(data.currentProjectId);
+      if (data.currentUser) setCurrentUser(data.currentUser);
+      if (data.epics) setEpics(data.epics);
+      if (data.labels) setLabels(data.labels);
+      if (data.perProjectSprint) setPerProjectSprint(data.perProjectSprint);
+      if (data.projectColumns) setProjectColumns(data.projectColumns);
+      if (data.activeTasks) setActiveTasks(data.activeTasks);
+      if (data.perProjectBacklog) setPerProjectBacklog(data.perProjectBacklog);
+      if (data.perProjectRetrospective) setPerProjectRetrospective(data.perProjectRetrospective);
+      if (data.perProjectPokerHistory) setPerProjectPokerHistory(data.perProjectPokerHistory);
+      if (data.perProjectNotes) setPerProjectNotes(data.perProjectNotes);
+      if (data.perProjectBoardSettings) setPerProjectBoardSettings(data.perProjectBoardSettings);
+      if (data.globalActivityLog) setGlobalActivityLog(data.globalActivityLog);
+      if (data.notifications) setNotifications(data.notifications);
+      if (data.teams) setTeams(data.teams);
+      if (data.users) setUsers(data.users);
+      if (data.sprintDefaults) setSprintDefaults(data.sprintDefaults);
+      if (data.perProjectBurndownSnapshots) setPerProjectBurndownSnapshots(data.perProjectBurndownSnapshots);
+      if (data.spaces) setSpaces(data.spaces);
+      if (data.docPages) setDocPages(data.docPages);
+      if (data.releases) setReleases(data.releases);
+      if (data.testSuites) setTestSuites(data.testSuites);
+      if (data.testCases) setTestCases(data.testCases);
+      if (data.testRuns) setTestRuns(data.testRuns);
+      if (data.perProjectCompletedSprints) setPerProjectCompletedSprints(data.perProjectCompletedSprints);
+      if (data.darkMode !== undefined) setDarkMode(data.darkMode);
+      if (data.sidebarCollapsed !== undefined) setSidebarCollapsed(data.sidebarCollapsed);
+      if (data.projectsViewMode) setProjectsViewMode(data.projectsViewMode);
+      if (data.perProjectBoardFilters) setPerProjectBoardFilters(data.perProjectBoardFilters);
+    };
+
+    Promise.resolve()
+      .then(() => loadAllDomains())
+      .then(hydrate)
+      .catch((e) => console.warn("[Firestore] initial load failed:", e))
+      .finally(() => setDbReady(true));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Domain-based Firestore persistence ────────────────────────────────────
+  useEffect(() => {
+    if (!dbReady) return;
+    saveDomain("config", {
+      currentUser, currentProjectId, sprintDefaults,
+      darkMode, sidebarCollapsed, projectsViewMode, perProjectBoardFilters,
     });
-  }, [projects, currentProjectId, currentUser, epics, labels, perProjectSprint, projectColumns,
-      activeTasks, perProjectBacklog, perProjectRetrospective, perProjectPokerHistory,
-      perProjectNotes, perProjectBoardSettings, globalActivityLog, notifications, teams,
-      users, customFields, sprintDefaults, perProjectBurndownSnapshots,
-      spaces, docPages, releases, testSuites, testCases, testRuns,
-      perProjectCompletedSprints]);
+  }, [currentUser, currentProjectId, sprintDefaults,
+      darkMode, sidebarCollapsed, projectsViewMode, perProjectBoardFilters, dbReady]);
+
+  useEffect(() => {
+    if (!dbReady) return;
+    saveDomain("entities", { projects, teams, users, epics, labels });
+  }, [projects, teams, users, epics, labels, dbReady]);
+
+  useEffect(() => {
+    if (!dbReady) return;
+    saveDomain("tasks", { activeTasks, perProjectBacklog });
+  }, [activeTasks, perProjectBacklog, dbReady]);
+
+  useEffect(() => {
+    if (!dbReady) return;
+    saveDomain("sprints", {
+      perProjectSprint, projectColumns, perProjectBoardSettings,
+      perProjectBurndownSnapshots, perProjectCompletedSprints,
+    });
+  }, [perProjectSprint, projectColumns, perProjectBoardSettings,
+      perProjectBurndownSnapshots, perProjectCompletedSprints, dbReady]);
+
+  useEffect(() => {
+    if (!dbReady) return;
+    saveDomain("activity", { globalActivityLog, notifications });
+  }, [globalActivityLog, notifications, dbReady]);
+
+  useEffect(() => {
+    if (!dbReady) return;
+    saveDomain("workspace", { perProjectRetrospective, perProjectPokerHistory, perProjectNotes });
+  }, [perProjectRetrospective, perProjectPokerHistory, perProjectNotes, dbReady]);
+
+  useEffect(() => {
+    if (!dbReady) return;
+    saveDomain("docs", { spaces, docPages });
+  }, [spaces, docPages, dbReady]);
+
+  useEffect(() => {
+    if (!dbReady) return;
+    saveDomain("releases", { releases });
+  }, [releases, dbReady]);
+
+  useEffect(() => {
+    if (!dbReady) return;
+    saveDomain("testing", { testSuites, testCases, testRuns });
+  }, [testSuites, testCases, testRuns, dbReady]);
 
   // Derived
   const allTasks = useMemo(() => {
@@ -422,7 +436,7 @@ export function AppProvider({ children }) {
 
   const updateSprint = useCallback((patch) => {
     setSprint((prev) => ({ ...prev, ...patch }));
-  }, []);
+  }, [setSprint]);
 
   // ── Project Actions ────────────────────────────────────────────────────────
   const createProject = useCallback((data) => {
@@ -745,19 +759,6 @@ export function AppProvider({ children }) {
     setUsers((prev) => prev.filter((u) => u.id !== userId));
   }, []);
 
-  // ── Custom Field Actions ────────────────────────────────────────────────────
-  const createCustomField = useCallback((data) => {
-    setCustomFields((prev) => [...prev, { ...data, id: `cf-${Date.now()}` }]);
-  }, []);
-
-  const updateCustomField = useCallback((updated) => {
-    setCustomFields((prev) => prev.map((f) => f.id === updated.id ? updated : f));
-  }, []);
-
-  const deleteCustomField = useCallback((fieldId) => {
-    setCustomFields((prev) => prev.filter((f) => f.id !== fieldId));
-  }, []);
-
   // ── Sprint Defaults ─────────────────────────────────────────────────────────
   const updateSprintDefaults = useCallback((patch) => {
     setSprintDefaults((prev) => ({ ...prev, ...patch }));
@@ -927,35 +928,37 @@ export function AppProvider({ children }) {
   }, []);
 
   const resetAllData = useCallback(() => {
-    setProjects(SEED_PROJECTS);
-    setCurrentProjectId("proj-1");
-    setEpics(SEED_EPICS);
-    setLabels(SEED_LABELS);
-    setSprint(SEED_SPRINT);
-    setProjectColumns({ "proj-1": DEFAULT_COLUMNS, "proj-2": DEFAULT_COLUMNS });
-    setPerProjectSprint({ "proj-1": SEED_SPRINT, "proj-2": SEED_PROJ2_SPRINT });
-    setActiveTasks(SEED_ACTIVE_TASKS);
-    setPerProjectBacklog({ "proj-1": SEED_BACKLOG_SECTIONS, "proj-2": SEED_PROJ2_BACKLOG_SECTIONS });
-    setPerProjectRetrospective({ "proj-1": SEED_RETRO, "proj-2": SEED_PROJ2_RETRO });
-    setPerProjectPokerHistory({ "proj-1": [], "proj-2": [] });
-    setPerProjectNotes({ "proj-1": [], "proj-2": [] });
-    setPerProjectBoardSettings({
-      "proj-1": DEFAULT_BOARD_SETTINGS,
-      "proj-2": { ...DEFAULT_BOARD_SETTINGS, boardName: "Mobile App", projectKey: "MB" },
-    });
+    clearAllDomains();
+    setProjects([]);
+    setCurrentProjectId("");
+    setEpics([]);
+    setLabels([]);
+    setSprint(null);
+    setProjectColumns({});
+    setPerProjectSprint({});
+    setActiveTasks([]);
+    setPerProjectBacklog({});
+    setPerProjectRetrospective({});
+    setPerProjectPokerHistory({});
+    setPerProjectNotes({});
+    setPerProjectBoardSettings({});
     setGlobalActivityLog([]);
     setNotifications([]);
-    setPerProjectBurndownSnapshots({ "proj-1": [], "proj-2": [] });
-    setTeams(SEED_TEAMS);
-    setUsers(SEED_USERS);
-    setCustomFields(SEED_CUSTOM_FIELDS);
+    setPerProjectBurndownSnapshots({});
+    setTeams([]);
+    setUsers([]);
     setSprintDefaults(DEFAULT_SPRINT_DEFAULTS);
-    setSpaces(SEED_SPACES);
-    setDocPages(SEED_DOC_PAGES);
-    setReleases(SEED_RELEASES);
-    setTestSuites(SEED_TEST_SUITES);
-    setTestCases(SEED_TEST_CASES);
-    setTestRuns(SEED_TEST_RUNS);
+    setSpaces([]);
+    setDocPages([]);
+    setReleases([]);
+    setTestSuites([]);
+    setTestCases([]);
+    setTestRuns([]);
+    setPerProjectCompletedSprints({});
+    setDarkMode(false);
+    setSidebarCollapsed(false);
+    setProjectsViewMode("grid");
+    setPerProjectBoardFilters({});
   }, []);
 
   const value = {
@@ -968,8 +971,6 @@ export function AppProvider({ children }) {
     teams, createTeam, updateTeam, deleteTeam,
     // Users
     users, createUser, updateUser, deleteUser,
-    // Custom Fields
-    customFields, createCustomField, updateCustomField, deleteCustomField,
     // Sprint Defaults
     sprintDefaults, updateSprintDefaults,
     // Epics
@@ -1000,7 +1001,11 @@ export function AppProvider({ children }) {
     // Completed sprints history
     completedSprints,
     // Settings
-    boardSettings, updateBoardSettings, resetAllData,
+    boardSettings, updateBoardSettings, resetAllData, dbReady,
+    // User preferences
+    darkMode, setDarkMode, sidebarCollapsed, setSidebarCollapsed,
+    projectsViewMode, setProjectsViewMode,
+    perProjectBoardFilters, setPerProjectBoardFilters,
     // Activity
     globalActivityLog, logActivity,
     // Notifications
@@ -1011,12 +1016,24 @@ export function AppProvider({ children }) {
     // Releases
     releases, createRelease, updateRelease, deleteRelease, addChangelogEntry, deleteChangelogEntry,
     // Test Management
-    testSuites, createTestSuite, updateTestSuite, deleteTestSuite,
-    testCases, createTestCase, updateTestCase, deleteTestCase,
-    testRuns, createTestRun, updateTestRun, updateTestRunResult,
+    testSuites, setTestSuites, createTestSuite, updateTestSuite, deleteTestSuite,
+    testCases, setTestCases, createTestCase, updateTestCase, deleteTestCase,
+    testRuns, setTestRuns, createTestRun, updateTestRun, updateTestRunResult,
   };
 
-  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+  return (
+    <AppContext.Provider value={value}>
+      {!dbReady && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-white dark:bg-[#181c2a]">
+          <div className="text-center">
+            <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-sm text-slate-400 font-medium">Loading from cloud...</p>
+          </div>
+        </div>
+      )}
+      {children}
+    </AppContext.Provider>
+  );
 }
 
 export function useApp() {

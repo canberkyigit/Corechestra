@@ -92,7 +92,10 @@ export default function Layout({
   darkMode, onToggleDark,
   onCreateClick, onSettingsClick, onProfileClick, onSearchClick, onOpenTask,
 }) {
-  const [collapsed,  setCollapsed]  = useState(() => localStorage.getItem("sidebar_collapsed") === "true");
+  const {
+    sidebarCollapsed: collapsed, setSidebarCollapsed: setCollapsed,
+    notifications, markNotifRead, markAllNotifsRead, activeTasks, backlogSections, epics, projects, currentProjectId,
+  } = useApp();
   const [notifOpen,  setNotifOpen]  = useState(false);
 
   // Inline search state
@@ -103,7 +106,6 @@ export default function Layout({
   const searchListRef      = useRef(null);
 
   const { addToast } = useToast();
-  const { notifications, markNotifRead, markAllNotifsRead, activeTasks, backlogSections, epics, projects, currentProjectId } = useApp();
   const notifRef    = useRef(null);
   const unreadCount = notifications.filter((n) => !n.read).length;
 
@@ -113,11 +115,7 @@ export default function Layout({
     return () => window.removeEventListener("corechestra:storage-error", handler);
   }, [addToast]);
 
-  const toggleCollapsed = () => {
-    const next = !collapsed;
-    setCollapsed(next);
-    localStorage.setItem("sidebar_collapsed", String(next));
-  };
+  const toggleCollapsed = () => setCollapsed(!collapsed);
 
   useEffect(() => {
     const handler = (e) => {
@@ -252,7 +250,7 @@ export default function Layout({
               <div
                 className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center cursor-pointer"
                 title="Corechestra"
-                onClick={() => { setCollapsed(false); localStorage.setItem("sidebar_collapsed","false"); }}
+                onClick={() => setCollapsed(false)}
               >
                 <span className="text-white text-xs font-bold">CO</span>
               </div>

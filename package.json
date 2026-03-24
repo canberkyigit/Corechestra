@@ -17,6 +17,7 @@
     "@tiptap/suggestion": "^3.20.4",
     "@uiw/react-md-editor": "^4.0.7",
     "date-fns": "^4.1.0",
+    "firebase": "^12.11.0",
     "framer-motion": "^12.38.0",
     "react": "^19.1.0",
     "react-datepicker": "^7.6.0",

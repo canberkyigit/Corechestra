@@ -7,22 +7,6 @@ import {
 import { useApp } from "../context/AppContext";
 import { useToast } from "../context/ToastContext";
 
-// ─── Local storage key ────────────────────────────────────────────────────────
-const LS_KEY = "corechestra_tests_v1";
-
-function loadTestState() {
-  try {
-    const raw = localStorage.getItem(LS_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch (_) {}
-  return null;
-}
-
-function saveTestState(data) {
-  try {
-    localStorage.setItem(LS_KEY, JSON.stringify(data));
-  } catch (_) {}
-}
 
 function generateTestId(prefix = "t") {
   return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
@@ -1381,29 +1365,15 @@ function TestRunsTab({ suite, cases, runs, onCreateRun, onUpdateRun, onUpdateRes
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function TestsPage() {
-  const { projects, currentProjectId, allTasks } = useApp();
+  const {
+    projects, currentProjectId, allTasks,
+    testSuites, setTestSuites,
+    testCases, setTestCases,
+    testRuns, setTestRuns,
+  } = useApp();
   const { addToast } = useToast();
 
   const currentProject = projects.find((p) => p.id === currentProjectId);
-
-  // ── Local test state ──────────────────────────────────────────────────────
-  const [testSuites, setTestSuites] = useState(() => {
-    const saved = loadTestState();
-    return saved?.testSuites ?? [];
-  });
-  const [testCases, setTestCases] = useState(() => {
-    const saved = loadTestState();
-    return saved?.testCases ?? [];
-  });
-  const [testRuns, setTestRuns] = useState(() => {
-    const saved = loadTestState();
-    return saved?.testRuns ?? [];
-  });
-
-  // Persist on every change
-  useEffect(() => {
-    saveTestState({ testSuites, testCases, testRuns });
-  }, [testSuites, testCases, testRuns]);
 
   // ── UI state ──────────────────────────────────────────────────────────────
   const [selectedSuiteId, setSelectedSuiteId] = useState(null);
