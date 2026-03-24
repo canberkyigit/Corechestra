@@ -26,10 +26,6 @@ export const TYPE_OPTIONS = [
 export const TEAM_MEMBERS = [
   { value: "", label: "All Members" },
   { value: "unassigned", label: "Unassigned" },
-  { value: "alice", label: "Alice" },
-  { value: "bob", label: "Bob" },
-  { value: "carol", label: "Carol" },
-  { value: "dave", label: "Dave" },
 ];
 
 export const COLUMNS_DATA = [

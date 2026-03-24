@@ -10,14 +10,8 @@ import {
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const TEAM_MEMBERS = ["alice", "bob", "carol", "dave"];
-
 const AVATAR_COLORS = {
-  You:   "bg-indigo-600",
-  alice: "bg-blue-600",
-  bob:   "bg-violet-600",
-  carol: "bg-emerald-600",
-  dave:  "bg-amber-600",
+  You: "bg-indigo-600",
 };
 
 const QUICK_EMOJIS = ["👍", "✅", "🎉", "💡", "🔥"];
@@ -159,6 +153,7 @@ function ToolbarBtn({ icon: Icon, label, onClick, title, active }) {
 // ─── CommentEditor ────────────────────────────────────────────────────────────
 
 function CommentEditor({ value, onChange, onSubmit, onCancel, placeholder, autoFocus, allTasks, replyTo, onCancelReply }) {
+  const { teamMembers, allTasks: ctxAllTasks } = useApp();
   const taRef = useRef(null);
   const [showEmoji, setShowEmoji] = useState(false);
   const [emojiCat, setEmojiCat] = useState(0);
@@ -259,7 +254,7 @@ function CommentEditor({ value, onChange, onSubmit, onCancel, placeholder, autoF
     }
   };
 
-  const mentionResults = mentionQ !== null ? TEAM_MEMBERS.filter(m => m.startsWith(mentionQ.toLowerCase())) : [];
+  const mentionResults = mentionQ !== null ? teamMembers.filter(m => m.value && m.value !== "unassigned" && m.label.toLowerCase().startsWith(mentionQ.toLowerCase())).map(m => m.value) : [];
   const taskResults = taskQ !== null
     ? (allTasks || []).filter(t => t.id?.toString().includes(taskQ) || t.title?.toLowerCase().includes(taskQ.toLowerCase())).slice(0, 6)
     : [];
@@ -391,14 +386,16 @@ function CommentEditor({ value, onChange, onSubmit, onCancel, placeholder, autoF
 // ─── CommentBubble ────────────────────────────────────────────────────────────
 
 function CommentBubble({ comment: c, allTasks, isOwn, isEditing, editingText, onEditTextChange, onStartEdit, onSaveEdit, onCancelEdit, onDelete, onReact, onPin, onReply, onTaskClick, isReply }) {
-  const avatarBg = AVATAR_COLORS[c.user] || "bg-slate-500";
+  const { users } = useApp();
   const initial  = c.user === "You" ? "Y" : c.user.charAt(0).toUpperCase();
   const reactions = c.reactions || {};
+  const userObj  = c.user !== "You" ? users?.find((u) => u.username === c.user) : null;
+  const avatarColor = c.user === "You" ? "#4f46e5" : (userObj?.color || "#64748b");
 
   return (
     <div className="flex gap-2 group/bubble">
       {/* Avatar */}
-      <div className={`w-6 h-6 rounded-full ${avatarBg} flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0 mt-0.5`}>{initial}</div>
+      <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0 mt-0.5" style={{ backgroundColor: avatarColor }}>{initial}</div>
 
       <div className="flex-1 min-w-0">
         {/* Meta row */}
@@ -498,7 +495,7 @@ function CommentBubble({ comment: c, allTasks, isOwn, isEditing, editingText, on
 // ─── CommentSection ───────────────────────────────────────────────────────────
 
 export default function CommentSection({ savedComments = [], allTasks = [], onUpdate, onTaskRefClick, taskTitle, taskId }) {
-  const { addNotification } = useApp();
+  const { addNotification, users, teamMembers } = useApp();
   const [localNew,       setLocalNew]       = useState([]);
   const [compose,        setCompose]        = useState("");
   const [editingId,      setEditingId]      = useState(null);

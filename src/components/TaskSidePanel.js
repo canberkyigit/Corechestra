@@ -11,7 +11,7 @@ import { useToast } from "../context/ToastContext";
 import CommentSection from "./CommentSection";
 import SubtaskDetailPanel from "./SubtaskDetailPanel";
 import {
-  TYPE_OPTIONS, STATUS_OPTIONS, PRIORITY_OPTIONS, ASSIGNEE_LIST,
+  TYPE_OPTIONS, STATUS_OPTIONS, PRIORITY_OPTIONS,
 } from "../constants/taskOptions";
 
 const STATUS_COLORS = {
@@ -52,7 +52,7 @@ function MiniSelect({ value, options, onChange, renderValue, renderOption }) {
 }
 
 export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpenModal }) {
-  const { epics, labels, deleteTask, logActivity, allTasks } = useApp();
+  const { epics, labels, deleteTask, logActivity, allTasks, teamMembers } = useApp();
   const { addToast } = useToast();
 
   const [title,        setTitle]        = useState("");
@@ -471,7 +471,7 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
                 <div className="text-xs text-slate-400 dark:text-slate-500 mb-1">Assignee</div>
                 <MiniSelect
                   value={assignedTo}
-                  options={ASSIGNEE_LIST.map((a) => ({ value: a, label: a.charAt(0).toUpperCase() + a.slice(1) }))}
+                  options={teamMembers.filter(m => m.value !== "").map(m => ({ value: m.value, label: m.label }))}
                   onChange={(v) => { setAssignedTo(v); autoSave({ assignedTo: v }); }}
                   renderValue={(v) => <span className="capitalize">{v}</span>}
                   renderOption={(opt) => <span className="capitalize">{opt.label}</span>}
@@ -561,14 +561,14 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
             <div>
               <div className="text-xs text-slate-400 dark:text-slate-500 mb-1.5">Watchers</div>
               <div className="flex flex-wrap gap-1.5">
-                {ASSIGNEE_LIST.filter((a) => a !== "unassigned").map((name) => {
-                  const watching = watchers.includes(name);
+                {teamMembers.filter(m => m.value && m.value !== "unassigned").map((member) => {
+                  const watching = watchers.includes(member.value);
                   return (
-                    <button key={name} onClick={() => { setWatchers((p) => watching ? p.filter((w) => w !== name) : [...p, name]); changed(); }}
+                    <button key={member.value} onClick={() => { setWatchers((p) => watching ? p.filter((w) => w !== member.value) : [...p, member.value]); changed(); }}
                       className={`flex items-center gap-1 px-2 py-1 rounded text-xs border transition-all ${watching ? "bg-blue-50 dark:bg-blue-900/20 border-blue-300 text-blue-600" : "border-slate-200 dark:border-[#2a3044] text-slate-500 dark:text-slate-400"}`}
                     >
                       {watching ? <FaEye className="w-2.5 h-2.5" /> : <FaEyeSlash className="w-2.5 h-2.5" />}
-                      <span className="capitalize">{name}</span>
+                      <span>{member.label}</span>
                     </button>
                   );
                 })}

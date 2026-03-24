@@ -14,7 +14,7 @@ import CommentSection from "./CommentSection";
 import SubtaskDetailPanel from "./SubtaskDetailPanel";
 import { format, parseISO } from "date-fns";
 import {
-  TYPE_OPTIONS, STATUS_OPTIONS, PRIORITY_OPTIONS, ASSIGNEE_LIST,
+  TYPE_OPTIONS, STATUS_OPTIONS, PRIORITY_OPTIONS,
 } from "../constants/taskOptions";
 
 const LINK_RELATIONSHIPS = [
@@ -92,7 +92,7 @@ export default function TaskDetailModal({
   setSelectedSprint,
   onOpenPanel,
 }) {
-  const { epics, labels, deleteTask, logActivity, sprint } = useApp();
+  const { epics, labels, deleteTask, logActivity, sprint, teamMembers } = useApp();
   const { addToast } = useToast();
 
   const [title, setTitle] = useState("");
@@ -539,18 +539,18 @@ export default function TaskDetailModal({
                 <div>
                   <FieldLabel>Watchers</FieldLabel>
                   <div className="flex flex-wrap gap-2">
-                    {ASSIGNEE_LIST.filter((a) => a !== "unassigned").map((name) => (
+                    {teamMembers.filter(m => m.value && m.value !== "unassigned").map((member) => (
                       <button
-                        key={name}
-                        onClick={() => toggleWatcher(name)}
+                        key={member.value}
+                        onClick={() => toggleWatcher(member.value)}
                         className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs border transition-all ${
-                          watchers.includes(name)
+                          watchers.includes(member.value)
                             ? "bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400"
                             : "border-slate-200 dark:border-[#2a3044] text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-500"
                         }`}
                       >
-                        {watchers.includes(name) ? <FaEye className="w-3 h-3" /> : <FaEyeSlash className="w-3 h-3" />}
-                        <span className="capitalize">{name}</span>
+                        {watchers.includes(member.value) ? <FaEye className="w-3 h-3" /> : <FaEyeSlash className="w-3 h-3" />}
+                        <span>{member.label}</span>
                       </button>
                     ))}
                   </div>
@@ -812,7 +812,7 @@ export default function TaskDetailModal({
                 <SelectField
                   label="Assignee"
                   value={assignedTo}
-                  options={ASSIGNEE_LIST.map((a) => ({ value: a, label: a.charAt(0).toUpperCase() + a.slice(1) }))}
+                  options={teamMembers.filter(m => m.value !== "").map(m => ({ value: m.value, label: m.label }))}
                   onChange={(v) => { setAssignedTo(v); changed(); }}
                   renderValue={(v) => <span className="capitalize">{v}</span>}
                   renderOption={(opt) => <span className="capitalize">{opt.label}</span>}

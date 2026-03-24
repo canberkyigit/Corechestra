@@ -887,6 +887,13 @@ export function AppProvider({ children }) {
     setUsers((prev) => prev.filter((u) => u.id !== userId));
   }, []);
 
+  // ── Derived: team member list for assignee dropdowns ───────────────────────
+  const teamMembers = useMemo(() => [
+    { value: "", label: "All Members" },
+    { value: "unassigned", label: "Unassigned" },
+    ...users.filter((u) => u.status === "active").map((u) => ({ value: u.username, label: u.name, color: u.color })),
+  ], [users]);
+
   // ── Sprint Defaults ─────────────────────────────────────────────────────────
   const updateSprintDefaults = useCallback((patch) => {
     setSprintDefaults((prev) => ({ ...prev, ...patch }));
@@ -1101,7 +1108,7 @@ export function AppProvider({ children }) {
     // Teams
     teams, createTeam, updateTeam, deleteTeam,
     // Users
-    users, createUser, updateUser, deleteUser,
+    users, createUser, updateUser, deleteUser, teamMembers,
     // Sprint Defaults
     sprintDefaults, updateSprintDefaults,
     // Epics
