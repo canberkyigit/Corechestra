@@ -1,70 +1,89 @@
-# Getting Started with Create React App
+# Corechestra
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Project and work tracking app: boards, sprints, docs, releases, and test management. Single-page React client with **Firebase Firestore** for persistence and real-time sync.
 
-## Available Scripts
+**Repository:** [github.com/canberkyigit/Corechestra](https://github.com/canberkyigit/Corechestra)
 
-In the project directory, you can run:
+## Features
 
-### `npm start`
+- **Board** — Kanban-style columns, drag-and-drop, backlog, filters
+- **Dashboard** — Overview and metrics
+- **Roadmap / Calendar** — Timeline and calendar views
+- **Reports** — Burndown and reporting
+- **Projects** — Multi-project workspace
+- **Documentation** — Markdown spaces and pages (TipTap / MD editor)
+- **Releases** — Versions, changelog, linked tasks
+- **Tests** — Suites, cases, runs, analytics
+- **Archive** — Archived work
+- **Profile & Admin** — User and admin settings
+- **Dark mode** — UI-wide theme toggle
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+## Tech stack
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+| Area | Choice |
+|------|--------|
+| UI | React 19, Create React App |
+| Routing | React Router 7 |
+| State | React Context (`AppContext`), Redux Toolkit where used |
+| Styling | Tailwind CSS |
+| Motion | Framer Motion |
+| Rich text / docs | TipTap, `@uiw/react-md-editor`, tiptap-markdown |
+| Data & sync | **Firebase** (Firestore + Auth client initialized) |
+| DnD | `@hello-pangea/dnd` |
+| Components | Headless UI |
 
-### `npm test`
+Firestore stores domain-shaped documents under the `appData` collection (config, tasks, testing, releases, docs, etc.). See `src/services/storage.js` for the field layout.
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+## Prerequisites
 
-### `npm run build`
+- Node.js 18+ (LTS recommended)
+- npm
+- A [Firebase](https://console.firebase.google.com/) project with **Firestore** enabled
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## Setup
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+```bash
+git clone https://github.com/canberkyigit/Corechestra.git
+cd Corechestra
+npm install
+```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+1. Copy environment template and fill in your Firebase web app keys:
 
-### `npm run eject`
+   ```bash
+   cp .env.example .env
+   ```
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+2. Set `REACT_APP_*` variables in `.env` (from Firebase project settings → Your apps → Web).
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+3. Configure Firestore security rules for your use case (the app expects read/write access to the collections your rules allow—typically locked down per user or environment for production).
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+4. Start the dev server:
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+   ```bash
+   npm start
+   ```
 
-## Learn More
+   Open [http://localhost:3000](http://localhost:3000).
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+## Scripts
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+| Command | Description |
+|---------|-------------|
+| `npm start` | Dev server (port 3000) |
+| `npm run build` | Production build → `build/` |
+| `npm test` | Jest / Testing Library (watch mode) |
+| `npm run eject` | Eject CRA (irreversible) |
 
-### Code Splitting
+## Project layout (high level)
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+- `src/App.js` — Routes and shell
+- `src/components/` — Shared UI (layout, modals, board, etc.)
+- `src/context/AppContext.js` — App state, Firestore load/save hooks
+- `src/pages/` — Top-level pages (Board, Tests, Releases, Docs, …)
+- `src/services/firebase.js` — Firebase app + Firestore + Auth
+- `src/services/storage.js` — Load/save domains, subscriptions
 
-### Analyzing the Bundle Size
+## License
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+Private project.
