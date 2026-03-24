@@ -235,7 +235,7 @@ function VelocityChart({ completedPoints, completedSprints = [] }) {
 }
 
 export default function ReportsPage() {
-  const { activeTasks, backlogSections, epics, sprint, currentProjectId, burndownSnapshots, completedSprints } = useApp();
+  const { activeTasks, backlogSections, epics, sprint, currentProjectId, burndownSnapshots, completedSprints, users } = useApp();
   const [activeTab, setActiveTab] = useState("overview");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo]     = useState("");
@@ -351,6 +351,7 @@ export default function ReportsPage() {
     { id: "burndown", label: "Burndown" },
     { id: "team", label: "Team" },
     { id: "epics", label: "Epics" },
+    { id: "history", label: "Sprint History" },
   ];
 
   return (
@@ -576,47 +577,54 @@ export default function ReportsPage() {
       {activeTab === "team" && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 gap-4">
-            {assigneeStats.map(({ name, total, done, points, blocked, pct }, i) => (
-              <div key={name} className="bg-white dark:bg-[#1c2030] rounded-xl border border-slate-200 dark:border-[#2a3044] p-5 shadow-sm">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
-                    style={{ backgroundColor: TEAM_COLORS[i % TEAM_COLORS.length] }}>
-                    {name[0]?.toUpperCase()}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 capitalize">{name}</span>
-                      {blocked > 0 && (
-                        <span className="text-xs px-1.5 py-0.5 rounded bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 font-medium">
-                          {blocked} blocked
-                        </span>
-                      )}
+            {assigneeStats.map(({ name, total, done, points, blocked, pct }, i) => {
+              const userObj = users?.find((u) => u.username === name);
+              const displayName = userObj?.name || (name === "unassigned" ? "Unassigned" : name.charAt(0).toUpperCase() + name.slice(1));
+              const avatarColor = userObj?.color || TEAM_COLORS[i % TEAM_COLORS.length];
+              return (
+                <div key={name} className="bg-white dark:bg-[#1c2030] rounded-xl border border-slate-200 dark:border-[#2a3044] p-5 shadow-sm">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
+                      style={{ backgroundColor: avatarColor }}>
+                      {displayName[0]?.toUpperCase()}
                     </div>
-                    <div className="w-full bg-slate-100 dark:bg-[#232838] rounded-full h-1.5 overflow-hidden">
-                      <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: TEAM_COLORS[i % TEAM_COLORS.length] }} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">{displayName}</span>
+                        {userObj && <span className="text-xs text-slate-400 font-mono">@{userObj.username}</span>}
+                        {userObj?.role && <span className="text-xs px-1.5 py-0.5 rounded-full font-medium" style={{ backgroundColor: avatarColor + "20", color: avatarColor }}>{userObj.role}</span>}
+                        {blocked > 0 && (
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 font-medium">
+                            {blocked} blocked
+                          </span>
+                        )}
+                      </div>
+                      <div className="w-full bg-slate-100 dark:bg-[#232838] rounded-full h-1.5 overflow-hidden">
+                        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: avatarColor }} />
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex gap-6 text-center flex-shrink-0">
-                    <div>
-                      <p className="text-lg font-bold text-slate-700 dark:text-slate-200">{total}</p>
-                      <p className="text-xs text-slate-400 dark:text-slate-500">Tasks</p>
-                    </div>
-                    <div>
-                      <p className="text-lg font-bold text-green-500">{done}</p>
-                      <p className="text-xs text-slate-400 dark:text-slate-500">Done</p>
-                    </div>
-                    <div>
-                      <p className="text-lg font-bold text-blue-500">{points}</p>
-                      <p className="text-xs text-slate-400 dark:text-slate-500">Points</p>
-                    </div>
-                    <div>
-                      <p className="text-lg font-bold text-slate-700 dark:text-slate-200">{pct}%</p>
-                      <p className="text-xs text-slate-400 dark:text-slate-500">Done%</p>
+                    <div className="flex gap-6 text-center flex-shrink-0">
+                      <div>
+                        <p className="text-lg font-bold text-slate-700 dark:text-slate-200">{total}</p>
+                        <p className="text-xs text-slate-400 dark:text-slate-500">Tasks</p>
+                      </div>
+                      <div>
+                        <p className="text-lg font-bold text-green-500">{done}</p>
+                        <p className="text-xs text-slate-400 dark:text-slate-500">Done</p>
+                      </div>
+                      <div>
+                        <p className="text-lg font-bold text-blue-500">{points}</p>
+                        <p className="text-xs text-slate-400 dark:text-slate-500">Points</p>
+                      </div>
+                      <div>
+                        <p className="text-lg font-bold text-slate-700 dark:text-slate-200">{pct}%</p>
+                        <p className="text-xs text-slate-400 dark:text-slate-500">Done%</p>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
             {assigneeStats.length === 0 && (
               <div className="text-center py-12 text-slate-400 dark:text-slate-500">No task assignments yet.</div>
             )}
@@ -657,6 +665,63 @@ export default function ReportsPage() {
                 ))}
               </div>
             </div>
+          )}
+        </div>
+      )}
+
+      {/* Sprint History Tab */}
+      {activeTab === "history" && (
+        <div className="space-y-4">
+          {completedSprints.length === 0 ? (
+            <div className="text-center py-16 text-slate-400 dark:text-slate-500">
+              <FaTrophy className="w-10 h-10 mx-auto mb-3 opacity-30" />
+              <p className="text-sm">No completed sprints yet. Complete your first sprint to see history.</p>
+            </div>
+          ) : (
+            <>
+              <div className="bg-white dark:bg-[#1c2030] rounded-xl border border-slate-200 dark:border-[#2a3044] p-5 shadow-sm">
+                <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-4">Completion Rate Trend</h3>
+                <div className="flex items-end gap-2 h-28">
+                  {[...completedSprints].reverse().slice(-10).map((s) => {
+                    const h = Math.max(Math.round((s.completionRate / 100) * 112), s.completionRate > 0 ? 4 : 0);
+                    const color = s.completionRate >= 80 ? "#22c55e" : s.completionRate >= 50 ? "#3b82f6" : "#ef4444";
+                    return (
+                      <div key={s.id} className="flex-1 flex flex-col items-center gap-1">
+                        <span className="text-[10px] font-semibold" style={{ color }}>{s.completionRate}%</span>
+                        <div className="w-full rounded-t-md" style={{ height: h, backgroundColor: color + "99" }} />
+                        <span className="text-[9px] text-slate-400 truncate w-full text-center">{s.name}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="bg-white dark:bg-[#1c2030] rounded-xl border border-slate-200 dark:border-[#2a3044] shadow-sm overflow-hidden">
+                <div className="flex items-center gap-3 px-5 py-3 border-b border-slate-100 dark:border-[#232838] text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                  <span className="flex-1">Sprint</span>
+                  <span className="w-20 text-right">Tasks</span>
+                  <span className="w-20 text-right">Points</span>
+                  <span className="w-20 text-right">Done%</span>
+                  <span className="w-24 text-right">Completed</span>
+                </div>
+                {[...completedSprints].map((s) => {
+                  const color = s.completionRate >= 80 ? "#22c55e" : s.completionRate >= 50 ? "#3b82f6" : "#ef4444";
+                  return (
+                    <div key={s.id} className="flex items-center gap-3 px-5 py-3 border-b border-slate-50 dark:border-[#232838] last:border-0 hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">{s.name}</p>
+                        {s.goal && <p className="text-xs text-slate-400 dark:text-slate-500 truncate">{s.goal}</p>}
+                      </div>
+                      <span className="w-20 text-right text-sm text-slate-600 dark:text-slate-300">{s.doneTasks}/{s.totalTasks}</span>
+                      <span className="w-20 text-right text-sm text-slate-600 dark:text-slate-300">{s.completedPoints}/{s.totalPoints}</span>
+                      <span className="w-20 text-right text-sm font-semibold" style={{ color }}>{s.completionRate}%</span>
+                      <span className="w-24 text-right text-xs text-slate-400 dark:text-slate-500">
+                        {s.completedAt ? format(parseISO(s.completedAt), "MMM d, yyyy") : "—"}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
           )}
         </div>
       )}

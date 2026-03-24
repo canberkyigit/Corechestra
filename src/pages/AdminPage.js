@@ -11,12 +11,6 @@ import {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const ALL_MEMBERS = [
-  { name: "alice", label: "Alice", color: "#3b82f6" },
-  { name: "bob",   label: "Bob",   color: "#7c3aed" },
-  { name: "carol", label: "Carol", color: "#10b981" },
-  { name: "dave",  label: "Dave",  color: "#f59e0b" },
-];
 
 const PALETTE = [
   "#2563eb","#7c3aed","#059669","#d97706","#dc2626",
@@ -131,6 +125,7 @@ function ProjectForm({ initial, onSave, onCancel }) {
 }
 
 function ProjectCard({ project, teams, onEdit, onDelete, isOnly }) {
+  const { users } = useApp();
   const [del, setDel] = useState(false);
   const assigned = teams.filter((t) => (t.projectIds||[]).includes(project.id));
   const members = new Set(assigned.flatMap((t) => t.memberNames||[]));
@@ -163,7 +158,7 @@ function ProjectCard({ project, teams, onEdit, onDelete, isOnly }) {
         <div>
           <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">Members ({members.size})</p>
           <div className="flex gap-1.5 flex-wrap">
-            {[...members].map((m) => { const mem = ALL_MEMBERS.find((x) => x.name===m); return mem ? <div key={m} className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold" style={{ backgroundColor: mem.color }} title={mem.label}>{mem.label[0]}</div> : null; })}
+            {[...members].map((m) => { const u = users?.find((x) => x.username === m); const color = u?.color || "#94a3b8"; const label = u?.name || m; return <div key={m} className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold" style={{ backgroundColor: color }} title={label}>{label[0].toUpperCase()}</div>; })}
             {members.size === 0 && <p className="text-xs text-slate-400">No members</p>}
           </div>
         </div>
@@ -175,6 +170,7 @@ function ProjectCard({ project, teams, onEdit, onDelete, isOnly }) {
 // ─── Team Form & Card ─────────────────────────────────────────────────────────
 
 function TeamForm({ initial, projects, onSave, onCancel }) {
+  const { users } = useApp();
   const [name, setName] = useState(initial?.name || "");
   const [desc, setDesc] = useState(initial?.description || "");
   const [color, setColor] = useState(initial?.color || PALETTE[0]);
@@ -199,11 +195,11 @@ function TeamForm({ initial, projects, onSave, onCancel }) {
       <div>
         <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">Members</label>
         <div className="flex gap-2 flex-wrap">
-          {ALL_MEMBERS.map((m) => (
-            <button key={m.name} onClick={() => toggle(members, setMembers, m.name)}
-              className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-all ${members.includes(m.name) ? "border-blue-400 bg-blue-50 dark:bg-blue-900/20 text-blue-600" : "border-slate-200 dark:border-[#2a3044] text-slate-600 dark:text-slate-400"}`}>
-              <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold" style={{ backgroundColor: m.color }}>{m.label[0]}</div>
-              {m.label} {members.includes(m.name) && <FaCheck className="w-2.5 h-2.5" />}
+          {(users || []).filter((u) => u.status === "active").map((u) => (
+            <button key={u.username} onClick={() => toggle(members, setMembers, u.username)}
+              className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-all ${members.includes(u.username) ? "border-blue-400 bg-blue-50 dark:bg-blue-900/20 text-blue-600" : "border-slate-200 dark:border-[#2a3044] text-slate-600 dark:text-slate-400"}`}>
+              <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold" style={{ backgroundColor: u.color }}>{u.name[0]}</div>
+              {u.name} {members.includes(u.username) && <FaCheck className="w-2.5 h-2.5" />}
             </button>
           ))}
         </div>
@@ -242,7 +238,7 @@ function TeamCard({ team, projects, users, onEdit, onDelete, onUpdateTeam }) {
 
   const resolveUser = (username) =>
     users?.find((u) => u.username === username) ||
-    ALL_MEMBERS.find((x) => x.name === username);
+    { name: username, color: "#94a3b8" };
 
   const nonMembers = useMemo(() => {
     if (!addingUser) return [];
@@ -606,9 +602,6 @@ export default function AdminPage() {
   // Projects
   const [showProjForm, setShowProjForm] = useState(false);
   const [editingProj,  setEditingProj]  = useState(null);
-  // Users
-  const [showUserForm, setShowUserForm] = useState(false);
-  const [editingUser,  setEditingUser]  = useState(null);
   const totalMembers = new Set(teams.flatMap((t) => t.memberNames || [])).size;
   const activeUsers  = users.filter((u) => u.status === "active").length;
 
@@ -616,7 +609,6 @@ export default function AdminPage() {
     { id: "people",   label: "People",          icon: FaUserFriends },
     { id: "projects", label: "Projects",         icon: FaProjectDiagram },
     { id: "teams",    label: "Teams",            icon: FaUsers },
-    { id: "users",    label: "Users",            icon: FaUserPlus },
     { id: "sprint",   label: "Sprint Defaults",  icon: FaClock },
     { id: "columns",  label: "Board Columns",    icon: FaColumns },
   ];
@@ -665,7 +657,7 @@ export default function AdminPage() {
 
       {/* People */}
       {activeTab === "people" && (
-        <PeopleTab users={users} teams={teams} updateTeam={updateTeam} updateUser={updateUser} />
+        <PeopleTab users={users} teams={teams} updateTeam={updateTeam} updateUser={updateUser} createUser={createUser} deleteUser={deleteUser} />
       )}
 
       {/* Projects */}
@@ -703,38 +695,6 @@ export default function AdminPage() {
             <button onClick={() => setShowTeamForm(true)}
               className="flex items-center gap-2 px-4 py-3 border-2 border-dashed border-slate-200 dark:border-[#2a3044] text-slate-500 dark:text-slate-400 rounded-xl hover:border-blue-300 hover:text-blue-500 text-sm font-medium w-full justify-center transition-colors">
               <FaPlus className="w-3.5 h-3.5" /> Create New Team
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Users */}
-      {activeTab === "users" && (
-        <div className="space-y-4">
-          {/* Role legend */}
-          <div className="flex gap-3 flex-wrap">
-            {ROLES.map((r) => (
-              <div key={r.value} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white dark:bg-[#1c2030] border border-slate-200 dark:border-[#2a3044] shadow-sm">
-                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: r.color }} />
-                <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">{r.label}</span>
-                <span className="text-xs text-slate-400">—</span>
-                <span className="text-xs text-slate-400">{r.desc}</span>
-              </div>
-            ))}
-          </div>
-          {showUserForm && !editingUser && <UserForm onSave={(d) => { createUser(d); setShowUserForm(false); }} onCancel={() => setShowUserForm(false)} />}
-          {editingUser && <UserForm initial={editingUser} onSave={(d) => { updateUser({...editingUser,...d}); setEditingUser(null); }} onCancel={() => setEditingUser(null)} />}
-          {users.map((u) => (
-            <UserCard key={u.id} user={u}
-              onEdit={() => { setEditingUser(u); setShowUserForm(false); }}
-              onDelete={() => deleteUser(u.id)}
-              onToggleStatus={() => updateUser({...u, status: u.status==="active" ? "inactive" : "active"})} />
-          ))}
-          {users.length===0 && !showUserForm && <div className="text-center py-12 text-slate-400"><FaUserCircle className="w-10 h-10 mx-auto mb-3 opacity-30" /><p className="text-sm">No users yet.</p></div>}
-          {!showUserForm && !editingUser && (
-            <button onClick={() => setShowUserForm(true)}
-              className="flex items-center gap-2 px-4 py-3 border-2 border-dashed border-slate-200 dark:border-[#2a3044] text-slate-500 dark:text-slate-400 rounded-xl hover:border-blue-300 hover:text-blue-500 text-sm font-medium w-full justify-center transition-colors">
-              <FaPlus className="w-3.5 h-3.5" /> Invite New User
             </button>
           )}
         </div>
@@ -931,7 +891,7 @@ const TASK_STATUS_LABELS = {
 };
 const PRI_DOT = { critical: "#ef4444", high: "#f97316", medium: "#3b82f6", low: "#94a3b8" };
 
-function PeopleTab({ users, teams, updateTeam, updateUser }) {
+function PeopleTab({ users, teams, updateTeam, updateUser, createUser, deleteUser }) {
   const { allTasks, setActiveTasks, setBacklogSections } = useApp();
   const [search,         setSearch]         = useState("");
   const [filterRole,     setFilterRole]     = useState("all");
@@ -939,6 +899,8 @@ function PeopleTab({ users, teams, updateTeam, updateUser }) {
   const [addTeamFor,     setAddTeamFor]     = useState(null);
   const [expandedUserId, setExpandedUserId] = useState(null);
   const [taskSearch,     setTaskSearch]     = useState("");
+  const [showUserForm,   setShowUserForm]   = useState(false);
+  const [editingUser,    setEditingUser]    = useState(null);
 
   const filtered = users.filter((u) => {
     const q = search.toLowerCase();
@@ -1043,6 +1005,20 @@ function PeopleTab({ users, teams, updateTeam, updateUser }) {
           {filtered.length} / {users.length} people
         </span>
       </div>
+
+      {/* User form */}
+      {showUserForm && !editingUser && <UserForm onSave={(d) => { createUser(d); setShowUserForm(false); }} onCancel={() => setShowUserForm(false)} />}
+      {editingUser && <UserForm initial={editingUser} onSave={(d) => { updateUser({ ...editingUser, ...d }); setEditingUser(null); }} onCancel={() => setEditingUser(null)} />}
+
+      {/* Invite button */}
+      {!showUserForm && !editingUser && (
+        <button
+          onClick={() => setShowUserForm(true)}
+          className="flex items-center gap-2 px-4 py-2.5 border-2 border-dashed border-slate-200 dark:border-[#2a3044] text-slate-500 dark:text-slate-400 rounded-xl hover:border-blue-300 hover:text-blue-500 text-sm font-medium w-full justify-center transition-colors"
+        >
+          <FaPlus className="w-3.5 h-3.5" /> Invite New User
+        </button>
+      )}
 
       {/* User cards */}
       <div className="grid gap-3">
@@ -1159,6 +1135,20 @@ function PeopleTab({ users, teams, updateTeam, updateUser }) {
                     </div>
                   )}
                   <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => { setEditingUser(user); setShowUserForm(false); }}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                      title="Edit user"
+                    >
+                      <FaEdit className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => deleteUser(user.id)}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                      title="Delete user"
+                    >
+                      <FaTrash className="w-3.5 h-3.5" />
+                    </button>
                     <button
                       onClick={() => toggleExpand(user.id)}
                       className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border font-medium transition-all ${

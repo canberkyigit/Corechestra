@@ -41,4 +41,4 @@ export const PRIORITY_OPTIONS = [
   { value: "low",      label: "Low",      color: "text-green-500"  },
 ];
 
-export const ASSIGNEE_LIST = ["alice", "bob", "carol", "dave", "unassigned"];
+export const ASSIGNEE_LIST = ["unassigned"];

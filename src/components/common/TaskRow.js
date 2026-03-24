@@ -4,8 +4,9 @@ import ReactDatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { parse, format } from "date-fns";
 import { FaArrowRight } from "react-icons/fa";
-import { COLUMNS_DATA, STATUS_STYLES, TEAM_MEMBERS, TYPE_MAP } from "../../constants";
+import { COLUMNS_DATA, STATUS_STYLES, TYPE_MAP } from "../../constants";
 import { getPriorityColor } from "../../utils/helpers";
+import { useApp } from "../../context/AppContext";
 
 export default function TaskRow({
   task,
@@ -16,6 +17,7 @@ export default function TaskRow({
   onToggleSubtasks,
   isExpanded = false,
 }) {
+  const { teamMembers } = useApp();
   const { id, title, description, status, storyPoint, dueDate, assignedTo, type, priority } = task;
   const typeInfo = TYPE_MAP[type] || TYPE_MAP["task"];
 
@@ -159,7 +161,7 @@ export default function TaskRow({
                   : (assignedTo || "").charAt(0).toUpperCase() + (assignedTo || "").slice(1)}
               </Listbox.Button>
               <Listbox.Options className="absolute mt-1 max-h-60 w-full overflow-auto rounded-lg bg-white py-1 text-xs shadow-lg ring-1 ring-black/10 focus:outline-none z-50">
-                {TEAM_MEMBERS.filter((m) => m.value).map((member) => (
+                {teamMembers.filter((m) => m.value).map((member) => (
                   <Listbox.Option
                     key={member.value}
                     value={member.value}

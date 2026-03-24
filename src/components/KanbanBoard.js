@@ -18,7 +18,7 @@ export default function KanbanBoard({
   onTaskClick,
   columns,
 }) {
-  const { deleteTask } = useApp();
+  const { deleteTask, teamMembers } = useApp();
   const [swimlaneMode, setSwimlaneMode] = useState(false);
   const [collapsedLanes, setCollapsedLanes] = useState(new Set());
 
@@ -30,10 +30,6 @@ export default function KanbanBoard({
     });
   };
 
-  const ASSIGNEE_COLORS = {
-    alice: "#3b82f6", bob: "#7c3aed", carol: "#10b981",
-    dave: "#f59e0b", unassigned: "#94a3b8",
-  };
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [bulkStatus, setBulkStatus] = useState("");
 
@@ -168,7 +164,7 @@ export default function KanbanBoard({
           <div className="flex-1 overflow-auto px-4">
             {swimlaneGroups.map(({ assignee, tasks: groupTasks }) => {
               const isCollapsed = collapsedLanes.has(assignee);
-              const color = ASSIGNEE_COLORS[assignee] || "#94a3b8";
+              const color = teamMembers.find(m => m.value === assignee)?.color || "#94a3b8";
               const doneCount = groupTasks.filter((t) => t.status === "done").length;
               return (
                 <div key={assignee} className="mb-3">

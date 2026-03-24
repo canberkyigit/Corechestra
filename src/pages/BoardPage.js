@@ -21,7 +21,7 @@ import {
   FaCheck, FaTrash, FaCalendarAlt,
 } from "react-icons/fa";
 import { useApp } from "../context/AppContext";
-import { TYPE_OPTIONS, TEAM_MEMBERS } from "../constants";
+import { TYPE_OPTIONS } from "../constants";
 import { parseISO, differenceInDays, format } from "date-fns";
 
 const TABS = [
@@ -302,6 +302,7 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
     updateBoardSettings,
     currentProjectId,
     perProjectBoardFilters, setPerProjectBoardFilters,
+    teamMembers,
   } = useApp();
 
   const projectActiveTasks = activeTasks.filter(
@@ -324,7 +325,7 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
     TYPE_OPTIONS.find((o) => o.value === savedFilters.filterValue) || TYPE_OPTIONS[0]
   );
   const [member, setMember] = useState(() =>
-    TEAM_MEMBERS.find((o) => o.value === savedFilters.memberValue) || TEAM_MEMBERS[0]
+    teamMembers.find((o) => o.value === savedFilters.memberValue) || teamMembers[0]
   );
   const [search, setSearch] = useState(savedFilters.search || "");
   const [viewMode, setViewMode] = useState(savedFilters.viewMode || "kanban");
@@ -474,7 +475,7 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
   }, [projectActiveTasks, filter, member, search]);
 
   return (
-    <div className="w-full min-h-screen bg-slate-50 dark:bg-[#141720] flex flex-col transition-colors">
+    <div className="h-full bg-slate-50 dark:bg-[#141720] flex flex-col transition-colors">
       {/* Sprint header banner */}
       {sprint && (
         <div className="bg-white dark:bg-[#1c2030] border-b border-slate-200 dark:border-[#2a3044] px-6 py-2.5 flex items-center gap-4 transition-colors">
@@ -601,7 +602,7 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
                   </span>
                 </Listbox.Button>
                 <Listbox.Options className="absolute mt-1 max-h-60 w-full overflow-auto rounded-lg bg-white dark:bg-[#1c2030] py-1 text-sm shadow-lg ring-1 ring-black/5 z-50 border border-slate-100 dark:border-[#2a3044]">
-                  {TEAM_MEMBERS.map((opt) => (
+                  {teamMembers.map((opt) => (
                     <Listbox.Option key={opt.value} value={opt}
                       className={({ active, selected }) =>
                         `cursor-pointer select-none py-1.5 pl-4 pr-4 ${active ? "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400" : "text-slate-700 dark:text-slate-300"} ${selected ? "font-semibold" : ""}`
@@ -829,7 +830,7 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
         onClose={() => { setPokerOpen(false); setPokerTask(null); }}
         currentTask={pokerTask}
         onEstimationComplete={handleEstimationComplete}
-        teamMembers={TEAM_MEMBERS.filter((m) => m.value && m.value !== "unassigned").map((m) => m.label)}
+        teamMembers={teamMembers.filter((m) => m.value && m.value !== "unassigned").map((m) => m.label)}
       />
 
       {/* Sprint Modal */}

@@ -2,8 +2,9 @@ import React, { useState, useEffect } from "react";
 import { Listbox } from "@headlessui/react";
 import { FaTimes, FaChevronDown, FaArrowLeft } from "react-icons/fa";
 import {
-  TYPE_OPTIONS, SUBTASK_STATUS_OPTIONS as STATUS_OPTIONS, PRIORITY_OPTIONS, ASSIGNEE_LIST,
+  TYPE_OPTIONS, SUBTASK_STATUS_OPTIONS as STATUS_OPTIONS, PRIORITY_OPTIONS,
 } from "../constants/taskOptions";
+import { useApp } from "../context/AppContext";
 
 function MiniSelect({ value, options, onChange, renderValue, renderOption }) {
   return (
@@ -36,6 +37,7 @@ function FieldLabel({ children }) {
 }
 
 export default function SubtaskDetailPanel({ subtask, parentTask, open, onClose, onSave, panelWidth = 480 }) {
+  const { teamMembers } = useApp();
   const [title,       setTitle]       = useState("");
   const [description, setDescription] = useState("");
   const [status,      setStatus]      = useState("todo");
@@ -156,7 +158,7 @@ export default function SubtaskDetailPanel({ subtask, parentTask, open, onClose,
             <FieldLabel>Assignee</FieldLabel>
             <MiniSelect
               value={assignedTo}
-              options={ASSIGNEE_LIST.map((a) => ({ value: a, label: a.charAt(0).toUpperCase() + a.slice(1) }))}
+              options={teamMembers.filter(m => m.value !== "").map(m => ({ value: m.value, label: m.label }))}
               onChange={(v) => { setAssignedTo(v); changed(); }}
               renderValue={(v) => <span className="capitalize">{v}</span>}
               renderOption={(opt) => <span className="capitalize">{opt.label}</span>}
