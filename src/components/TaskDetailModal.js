@@ -92,7 +92,13 @@ export default function TaskDetailModal({
   setSelectedSprint,
   onOpenPanel,
 }) {
-  const { epics, labels, deleteTask, logActivity, sprint, teamMembers } = useApp();
+  const { epics, labels, deleteTask, logActivity, sprint, teamMembers, currentProjectId, projects } = useApp();
+
+  const currentProject = projects.find((p) => p.id === currentProjectId);
+  const projectMemberSet = new Set(currentProject?.memberUsernames || []);
+  const projectAssignees = projectMemberSet.size > 0
+    ? teamMembers.filter((m) => m.value === "unassigned" || projectMemberSet.has(m.value))
+    : teamMembers.filter((m) => m.value !== "");
   const { addToast } = useToast();
 
   const [title, setTitle] = useState("");
@@ -539,7 +545,7 @@ export default function TaskDetailModal({
                 <div>
                   <FieldLabel>Watchers</FieldLabel>
                   <div className="flex flex-wrap gap-2">
-                    {teamMembers.filter(m => m.value && m.value !== "unassigned").map((member) => (
+                    {projectAssignees.filter(m => m.value && m.value !== "unassigned").map((member) => (
                       <button
                         key={member.value}
                         onClick={() => toggleWatcher(member.value)}
@@ -812,7 +818,7 @@ export default function TaskDetailModal({
                 <SelectField
                   label="Assignee"
                   value={assignedTo}
-                  options={teamMembers.filter(m => m.value !== "").map(m => ({ value: m.value, label: m.label }))}
+                  options={projectAssignees.map(m => ({ value: m.value, label: m.label }))}
                   onChange={(v) => { setAssignedTo(v); changed(); }}
                   renderValue={(v) => <span className="capitalize">{v}</span>}
                   renderOption={(opt) => <span className="capitalize">{opt.label}</span>}

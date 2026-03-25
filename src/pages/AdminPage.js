@@ -1,12 +1,14 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useApp } from "../context/AppContext";
+import { useAuth } from "../context/AuthContext";
+import { db } from "../services/firebase";
+import { collection, getDocs, doc, getDoc, updateDoc, deleteDoc } from "firebase/firestore";
 import {
   FaShieldAlt, FaUsers, FaPlus, FaEdit, FaTrash, FaCheck, FaTimes,
   FaProjectDiagram, FaUserPlus, FaFolder, FaPalette,
-  FaUserCircle, FaEnvelope, FaCalendarAlt, FaBolt, FaListUl,
-  FaChevronDown,
-  FaClock, FaColumns, FaArrowUp, FaArrowDown, FaLock,
-  FaSearch, FaUserFriends,
+  FaUserCircle, FaEnvelope, FaCalendarAlt, FaChevronDown, FaLock,
+  FaSearch, FaUserFriends, FaKey, FaSpinner, FaExternalLinkAlt,
+  FaBriefcase, FaGlobe,
 } from "react-icons/fa";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -128,7 +130,10 @@ function ProjectCard({ project, teams, onEdit, onDelete, isOnly }) {
   const { users } = useApp();
   const [del, setDel] = useState(false);
   const assigned = teams.filter((t) => (t.projectIds||[]).includes(project.id));
-  const members = new Set(assigned.flatMap((t) => t.memberNames||[]));
+  const members = new Set([
+    ...assigned.flatMap((t) => t.memberNames||[]),
+    ...(project.memberUsernames||[]),
+  ]);
   return (
     <SectionCard className="p-5">
       <div className="flex items-start justify-between mb-4">
@@ -467,134 +472,144 @@ function UserCard({ user, onEdit, onDelete, onToggleStatus }) {
   );
 }
 
-// ─── Sprint Defaults ──────────────────────────────────────────────────────────
+// ─── Main ─────────────────────────────────────────────────────────────────────
 
-function SprintDefaultsTab({ sprintDefaults, updateSprintDefaults, sprint }) {
-  const sd = sprintDefaults;
-  const sprintNumber = parseInt((sprint?.name || "Sprint 1").match(/\d+/)?.[0] || "1", 10);
-  const preview = sd.namingFormat.replace("{n}", sprintNumber + 1);
+// ─── Access / Role Management Tab ─────────────────────────────────────────────
 
-  const toggleDay = (d) => {
-    const days = sd.workingDays.includes(d)
-      ? sd.workingDays.filter((x) => x !== d)
-      : [...sd.workingDays, d];
-    updateSprintDefaults({ workingDays: days });
+const ROLE_META = {
+  admin:  { label: "Admin",  color: "text-red-500   bg-red-50   dark:bg-red-900/20   border-red-200   dark:border-red-800"   },
+  member: { label: "Member", color: "text-blue-500  bg-blue-50  dark:bg-blue-900/20  border-blue-200  dark:border-blue-800"  },
+};
+
+function AccessTab({ currentUid }) {
+  const [firebaseUsers, setFirebaseUsers] = useState([]);
+  const [loading,       setLoading]       = useState(true);
+  const [updating,      setUpdating]      = useState(null); // uid being updated
+
+  const loadUsers = async () => {
+    setLoading(true);
+    const snap = await getDocs(collection(db, "users"));
+    setFirebaseUsers(snap.docs.map((d) => ({ uid: d.id, ...d.data() })));
+    setLoading(false);
   };
 
+  useEffect(() => { loadUsers(); }, []);
+
+  const handleRoleChange = async (uid, newRole) => {
+    setUpdating(uid);
+    await updateDoc(doc(db, "users", uid), { role: newRole });
+    setFirebaseUsers((prev) =>
+      prev.map((u) => u.uid === uid ? { ...u, role: newRole } : u)
+    );
+    setUpdating(null);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <FaSpinner className="w-5 h-5 text-blue-500 animate-spin" />
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-5">
-      {/* Duration */}
-      <SectionCard className="p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <FaClock className="w-4 h-4 text-blue-500" />
-          <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Sprint Duration</h3>
-        </div>
-        <div className="grid grid-cols-4 gap-3 mb-4">
-          {[7, 10, 14, 21].map((d) => (
-            <button key={d} onClick={() => updateSprintDefaults({ duration: d })}
-              className={`py-3 rounded-xl border-2 text-center transition-all ${sd.duration === d ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20" : "border-slate-200 dark:border-[#2a3044] hover:border-slate-300"}`}>
-              <p className={`text-lg font-bold ${sd.duration === d ? "text-blue-600" : "text-slate-700 dark:text-slate-200"}`}>{d}</p>
-              <p className={`text-xs ${sd.duration === d ? "text-blue-500" : "text-slate-400"}`}>days</p>
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-3">
-          <label className="text-xs text-slate-500 dark:text-slate-400 flex-shrink-0">Custom (days):</label>
-          <input type="number" min={1} max={90} value={sd.duration}
-            onChange={(e) => updateSprintDefaults({ duration: Math.max(1, Math.min(90, parseInt(e.target.value)||14)) })}
-            className="w-20 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#232838] text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-400" />
-          <span className="text-xs text-slate-400">= ~{Math.ceil(sd.duration / 7)} week{Math.ceil(sd.duration/7) !== 1 ? "s" : ""}</span>
-        </div>
-      </SectionCard>
-
-      {/* Naming */}
-      <SectionCard className="p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <FaListUl className="w-4 h-4 text-blue-500" />
-          <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Sprint Naming</h3>
-        </div>
-        <div className="grid grid-cols-3 gap-2 mb-4">
-          {["Sprint {n}", "Week {n}", "Iteration {n}"].map((fmt) => (
-            <button key={fmt} onClick={() => updateSprintDefaults({ namingFormat: fmt })}
-              className={`py-2 px-3 rounded-lg border text-xs font-medium transition-all ${sd.namingFormat === fmt ? "border-blue-400 bg-blue-50 dark:bg-blue-900/20 text-blue-600" : "border-slate-200 dark:border-[#2a3044] text-slate-500 dark:text-slate-400"}`}>
-              {fmt.replace("{n}", "42")}
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-3">
-          <label className="text-xs text-slate-500 dark:text-slate-400 flex-shrink-0">Custom format:</label>
-          <input value={sd.namingFormat} onChange={(e) => updateSprintDefaults({ namingFormat: e.target.value })}
-            placeholder="Sprint {n}"
-            className="flex-1 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#232838] text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-400" />
-        </div>
-        <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">
-          Preview: <span className="font-semibold text-slate-600 dark:text-slate-300">{preview}</span>
-          <span className="ml-2 opacity-60">(use {"{n}"} for sprint number)</span>
-        </p>
-      </SectionCard>
-
-      {/* Working days */}
-      <SectionCard className="p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <FaCalendarAlt className="w-4 h-4 text-blue-500" />
-          <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Working Days</h3>
-          <span className="ml-auto text-xs text-slate-400">{sd.workingDays.length} days/week</span>
-        </div>
-        <div className="flex gap-2">
-          {WEEK_DAYS.map(({ id, label }) => (
-            <button key={id} onClick={() => toggleDay(id)}
-              className={`flex-1 py-2 rounded-lg border-2 text-xs font-semibold transition-all ${sd.workingDays.includes(id) ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600" : "border-slate-200 dark:border-[#2a3044] text-slate-400 dark:text-slate-500"}`}>
-              {label}
-            </button>
-          ))}
-        </div>
-      </SectionCard>
-
-      {/* Auto start + velocity */}
-      <SectionCard className="p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <FaBolt className="w-4 h-4 text-blue-500" />
-          <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Automation & Velocity</h3>
-        </div>
-        <div className="space-y-4">
-          <div className="flex items-center justify-between py-3 border-b border-slate-100 dark:border-[#232838]">
-            <div>
-              <p className="text-sm font-medium text-slate-700 dark:text-slate-200">Auto-start next sprint</p>
-              <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Automatically start a new sprint when current one ends</p>
+    <div className="space-y-3">
+      <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+        Manage Firebase Auth user roles. Changes take effect on next login.
+      </p>
+      {firebaseUsers.map((u) => {
+        const isSelf    = u.uid === currentUid;
+        const isUpdating = updating === u.uid;
+        const meta      = ROLE_META[u.role] || ROLE_META.member;
+        const otherRole = u.role === "admin" ? "member" : "admin";
+        return (
+          <div
+            key={u.uid}
+            className="flex items-center gap-4 px-5 py-4 bg-white dark:bg-[#1c2030] border border-slate-200 dark:border-[#2a3044] rounded-xl"
+          >
+            {/* Avatar */}
+            <div className="w-9 h-9 rounded-full bg-indigo-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0 uppercase">
+              {u.email?.[0] || "?"}
             </div>
-            <button onClick={() => updateSprintDefaults({ autoStart: !sd.autoStart })}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${sd.autoStart ? "bg-blue-500" : "bg-slate-300 dark:bg-slate-600"}`}>
-              <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${sd.autoStart ? "translate-x-6" : "translate-x-1"}`} />
-            </button>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="flex-1">
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Target Velocity (story points)</label>
-              <p className="text-xs text-slate-400 dark:text-slate-500 mb-2">Story points your team aims to complete per sprint</p>
-              <input type="number" min={0} value={sd.velocity || 0}
-                onChange={(e) => updateSprintDefaults({ velocity: Math.max(0, parseInt(e.target.value)||0) })}
-                className="w-32 px-3 py-2 rounded-lg border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#232838] text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-400" />
+
+            {/* Email + UID */}
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate">
+                {u.email}
+                {isSelf && <span className="ml-2 text-[10px] text-slate-400">(you)</span>}
+              </p>
+              <p className="text-[11px] text-slate-400 dark:text-slate-500 font-mono truncate mt-0.5">{u.uid}</p>
             </div>
+
+            {/* Role badge */}
+            <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border ${meta.color}`}>
+              {meta.label}
+            </span>
+
+            {/* Toggle role button — disabled for self */}
+            {isSelf ? (
+              <div className="flex items-center gap-1.5 text-xs text-slate-400 px-3 py-1.5" title="Cannot change your own role">
+                <FaLock className="w-3 h-3" />
+              </div>
+            ) : (
+              <button
+                onClick={() => handleRoleChange(u.uid, otherRole)}
+                disabled={!!updating}
+                className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-200 dark:border-[#2a3044] text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors disabled:opacity-50"
+              >
+                {isUpdating
+                  ? <FaSpinner className="w-3 h-3 animate-spin" />
+                  : <FaKey className="w-3 h-3" />
+                }
+                Make {ROLE_META[otherRole].label}
+              </button>
+            )}
           </div>
-        </div>
-      </SectionCard>
+        );
+      })}
     </div>
   );
 }
-
-// ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function AdminPage() {
   const {
     teams, createTeam, updateTeam, deleteTeam,
     projects, createProject, updateProject, deleteProject, currentProjectId,
-    users, createUser, updateUser, deleteUser,
-    sprintDefaults, updateSprintDefaults,
-    columns, createColumn, deleteColumn, reorderColumns, renameColumn,
-    sprint,
+    users, deletedUserIds, createUser, updateUser, deleteUser,
+    sprint, setActiveTasks, setBacklogSections,
   } = useApp();
 
+  const { user: authUser } = useAuth();
   const [activeTab, setActiveTab] = useState("people");
+
+  // On mount: clean up all seed data remnants
+  useEffect(() => {
+    const SEED_NAMES = new Set(["alice", "bob", "carol", "dave"]);
+
+    // Unassign tasks still assigned to seed usernames
+    const clearSeed = (tasks) => tasks.map((t) =>
+      SEED_NAMES.has(t.assignedTo) ? { ...t, assignedTo: "unassigned" } : t
+    );
+    setActiveTasks((prev) => clearSeed(prev));
+    setBacklogSections((prev) => prev.map((s) => ({ ...s, tasks: clearSeed(s.tasks) })));
+
+    // Remove seed users + duplicates from AppContext (one-time cleanup persisted to Firestore)
+    const clean = dedupUsers(users, deletedUserIds);
+    users.forEach((u) => {
+      if (u.email?.endsWith("@corechestra.io") || clean.findIndex((c) => c.id === u.id) === -1) {
+        deleteUser(u.id);
+      }
+    });
+
+    // Remove seed usernames from all teams
+    teams.forEach((team) => {
+      const cleaned = (team.memberNames || []).filter((n) => !SEED_NAMES.has(n));
+      if (cleaned.length !== (team.memberNames || []).length) {
+        updateTeam({ ...team, memberNames: cleaned });
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Teams
   const [showTeamForm, setShowTeamForm] = useState(false);
@@ -603,18 +618,17 @@ export default function AdminPage() {
   const [showProjForm, setShowProjForm] = useState(false);
   const [editingProj,  setEditingProj]  = useState(null);
   const totalMembers = new Set(teams.flatMap((t) => t.memberNames || [])).size;
-  const activeUsers  = users.filter((u) => u.status === "active").length;
+  const activeUsers  = dedupUsers(users, deletedUserIds).filter((u) => u.status === "active").length;
 
   const TABS = [
     { id: "people",   label: "People",          icon: FaUserFriends },
     { id: "projects", label: "Projects",         icon: FaProjectDiagram },
     { id: "teams",    label: "Teams",            icon: FaUsers },
-    { id: "sprint",   label: "Sprint Defaults",  icon: FaClock },
-    { id: "columns",  label: "Board Columns",    icon: FaColumns },
+{ id: "access",   label: "Access",           icon: FaKey },
   ];
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="h-full overflow-y-auto p-6 max-w-5xl mx-auto">
       <div className="flex items-center gap-3 mb-6">
         <FaShieldAlt className="w-5 h-5 text-blue-500" />
         <div>
@@ -624,12 +638,11 @@ export default function AdminPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-3 gap-3 mb-6">
         {[
           { label: "Projects",      value: projects.length,    icon: FaFolder,        color: "#a855f7" },
           { label: "Teams",         value: teams.length,       icon: FaUsers,         color: "#3b82f6" },
           { label: "Active Users",  value: activeUsers,        icon: FaUserPlus,      color: "#10b981" },
-          { label: "Sprint Days",   value: sprintDefaults.duration, icon: FaClock,    color: "#06b6d4" },
         ].map(({ label, value, icon: Icon, color }) => (
           <div key={label} className="bg-white dark:bg-[#1c2030] rounded-xl border border-slate-200 dark:border-[#2a3044] p-4 shadow-sm">
             <div className="flex items-center gap-2 mb-2">
@@ -657,7 +670,12 @@ export default function AdminPage() {
 
       {/* People */}
       {activeTab === "people" && (
-        <PeopleTab users={users} teams={teams} updateTeam={updateTeam} updateUser={updateUser} createUser={createUser} deleteUser={deleteUser} />
+        <PeopleTab users={users} teams={teams} updateTeam={updateTeam} updateUser={updateUser} createUser={createUser} deleteUser={deleteUser} projects={projects} updateProject={updateProject} />
+      )}
+
+      {/* Access */}
+      {activeTab === "access" && (
+        <AccessTab currentUid={authUser?.uid} />
       )}
 
       {/* Projects */}
@@ -700,180 +718,10 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* Sprint Defaults */}
-      {activeTab === "sprint" && (
-        <SprintDefaultsTab sprintDefaults={sprintDefaults} updateSprintDefaults={updateSprintDefaults} sprint={sprint} />
-      )}
-
-      {/* Board Columns */}
-      {activeTab === "columns" && (
-        <BoardColumnsTab
-          columns={columns}
-          currentProjectId={currentProjectId}
-          projects={projects}
-          createColumn={createColumn}
-          deleteColumn={deleteColumn}
-          reorderColumns={reorderColumns}
-          renameColumn={renameColumn}
-        />
-      )}
     </div>
   );
 }
 
-// ─── Board Columns Tab ─────────────────────────────────────────────────────────
-
-const DEFAULT_COL_IDS = ["todo","inprogress","review","awaiting","blocked","done"];
-
-function BoardColumnsTab({ columns, currentProjectId, projects, createColumn, deleteColumn, reorderColumns, renameColumn }) {
-  const [newColName, setNewColName] = useState("");
-  const [editingId, setEditingId] = useState(null);
-  const [editTitle, setEditTitle] = useState("");
-  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
-  const currentProject = projects.find((p) => p.id === currentProjectId) || projects[0];
-
-  const handleAdd = () => {
-    if (!newColName.trim()) return;
-    createColumn(newColName.trim());
-    setNewColName("");
-  };
-
-  const handleRename = (id) => {
-    if (!editTitle.trim()) { setEditingId(null); return; }
-    renameColumn(id, editTitle.trim());
-    setEditingId(null);
-  };
-
-  const move = (idx, dir) => {
-    const newCols = [...columns];
-    const target = idx + dir;
-    if (target < 0 || target >= newCols.length) return;
-    [newCols[idx], newCols[target]] = [newCols[target], newCols[idx]];
-    reorderColumns(newCols);
-  };
-
-  return (
-    <div className="space-y-4 max-w-2xl">
-      <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-xl p-3">
-        <p className="text-xs text-blue-700 dark:text-blue-400">
-          Columns are per-project. Currently editing: <strong>{currentProject?.name}</strong>.
-          Default columns are fixed; custom columns can be renamed, reordered, or deleted.
-        </p>
-      </div>
-
-      <SectionCard>
-        {/* Column list */}
-        <div className="divide-y divide-slate-100 dark:divide-[#2a3044]">
-          {columns.map((col, idx) => {
-            const isDefault = DEFAULT_COL_IDS.includes(col.id);
-            const isEditing = editingId === col.id;
-            const confirmingDelete = confirmDeleteId === col.id;
-            return (
-              <div key={col.id} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-[#232838] group transition-colors">
-                {/* Reorder */}
-                <div className="flex flex-col gap-0.5">
-                  <button onClick={() => move(idx, -1)} disabled={idx === 0}
-                    className="p-0.5 text-slate-300 hover:text-slate-500 disabled:opacity-0">
-                    <FaArrowUp className="w-2.5 h-2.5" />
-                  </button>
-                  <button onClick={() => move(idx, 1)} disabled={idx === columns.length - 1}
-                    className="p-0.5 text-slate-300 hover:text-slate-500 disabled:opacity-0">
-                    <FaArrowDown className="w-2.5 h-2.5" />
-                  </button>
-                </div>
-
-                {/* Index badge */}
-                <span className="w-6 h-6 rounded-full bg-slate-100 dark:bg-[#2a3044] flex items-center justify-center text-xs text-slate-400 font-medium flex-shrink-0">
-                  {idx + 1}
-                </span>
-
-                {/* Title */}
-                <div className="flex-1 min-w-0">
-                  {isEditing ? (
-                    <input
-                      autoFocus
-                      className="w-full text-sm border border-blue-300 rounded px-2 py-1 bg-white dark:bg-[#232838] text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-400"
-                      value={editTitle}
-                      onChange={(e) => setEditTitle(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") handleRename(col.id);
-                        if (e.key === "Escape") setEditingId(null);
-                      }}
-                      onBlur={() => handleRename(col.id)}
-                    />
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{col.title}</span>
-                      {isDefault && (
-                        <span className="flex items-center gap-1 text-[10px] text-slate-400 bg-slate-100 dark:bg-[#2a3044] px-1.5 py-0.5 rounded">
-                          <FaLock className="w-2 h-2" /> default
-                        </span>
-                      )}
-                      {col.custom && (
-                        <span className="text-[10px] text-blue-500 bg-blue-50 dark:bg-blue-900/20 px-1.5 py-0.5 rounded">custom</span>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Actions */}
-                {!isEditing && !confirmingDelete && (
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={() => { setEditingId(col.id); setEditTitle(col.title); }}
-                      className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
-                      title="Rename"
-                    >
-                      <FaEdit className="w-3 h-3" />
-                    </button>
-                    {!isDefault && (
-                      <button
-                        onClick={() => setConfirmDeleteId(col.id)}
-                        className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-                        title="Delete column"
-                      >
-                        <FaTrash className="w-3 h-3" />
-                      </button>
-                    )}
-                  </div>
-                )}
-
-                {confirmingDelete && (
-                  <DeleteConfirm
-                    label="Delete column? Tasks will move to To Do."
-                    onConfirm={() => { deleteColumn(col.id); setConfirmDeleteId(null); }}
-                    onCancel={() => setConfirmDeleteId(null)}
-                  />
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </SectionCard>
-
-      {/* Add custom column */}
-      <FormCard title="Add Custom Column">
-        <div className="flex gap-2 items-center">
-          <input
-            className="flex-1 px-3 py-2 rounded-lg border border-slate-200 dark:border-[#2a3044] bg-slate-50 dark:bg-[#232838] text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
-            placeholder="Column name (e.g. QA Review, Staging)"
-            value={newColName}
-            onChange={(e) => setNewColName(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") handleAdd(); }}
-          />
-          <button
-            onClick={handleAdd}
-            disabled={!newColName.trim()}
-            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-40 transition-colors flex items-center gap-1.5"
-          >
-            <FaPlus className="w-3 h-3" /> Add
-          </button>
-        </div>
-        <p className="text-xs text-slate-400 mt-1">Custom columns appear on the board after the last default column.</p>
-      </FormCard>
-    </div>
-  );
-}
 
 // ─── People Tab ───────────────────────────────────────────────────────────────
 
@@ -891,18 +739,208 @@ const TASK_STATUS_LABELS = {
 };
 const PRI_DOT = { critical: "#ef4444", high: "#f97316", medium: "#3b82f6", low: "#94a3b8" };
 
-function PeopleTab({ users, teams, updateTeam, updateUser, createUser, deleteUser }) {
-  const { allTasks, setActiveTasks, setBacklogSections } = useApp();
+const PEOPLE_COLORS = ["#6366f1","#3b82f6","#10b981","#f59e0b","#ef4444","#8b5cf6","#ec4899"];
+
+function dedupUsers(list, deletedUserIds) {
+  const deletedSet = new Set(deletedUserIds || []);
+  const seen = new Set();
+  return list.filter((u) => {
+    if (u.email?.endsWith("@corechestra.io")) return false;
+    if (deletedSet.has(u.id)) return false;
+    const key = u.id || u.email;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function UserProfileModal({ user, onClose }) {
+  const { allTasks } = useApp();
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) return;
+    setLoading(true);
+    // Try fetching Firestore profile by uid (id field)
+    getDoc(doc(db, "users", user.id)).then((snap) => {
+      setProfile(snap.exists() ? snap.data() : {});
+      setLoading(false);
+    }).catch(() => { setProfile({}); setLoading(false); });
+  }, [user]);
+
+  if (!user) return null;
+
+  const myTasks     = allTasks.filter((t) => t.assignedTo === user.username);
+  const done        = myTasks.filter((t) => t.status === "done").length;
+  const inProgress  = myTasks.filter((t) => t.status === "inprogress").length;
+  const points      = myTasks.reduce((s, t) => s + (t.storyPoint || 0), 0);
+  const roleInfo    = ROLES.find((r) => r.value === user.role);
+  const displayName = profile?.fullName || profile?.name || user.name;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+      <div
+        className="relative bg-white dark:bg-[#1c2030] rounded-2xl shadow-2xl border border-slate-200 dark:border-[#2a3044] w-full max-w-md overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header banner */}
+        <div className="h-20 w-full" style={{ background: `linear-gradient(135deg, ${user.color || "#6366f1"}33, ${user.color || "#6366f1"}11)` }} />
+
+        {/* Avatar + close */}
+        <div className="absolute top-3 right-3">
+          <button onClick={onClose} className="p-1.5 rounded-lg bg-white/80 dark:bg-[#1c2030]/80 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+            <FaTimes className="w-3.5 h-3.5" />
+          </button>
+        </div>
+        <div className="absolute top-9 left-6">
+          <div
+            className="w-20 h-20 rounded-full border-4 border-white dark:border-[#1c2030] flex items-center justify-center text-white text-2xl font-bold shadow-lg uppercase"
+            style={{ backgroundColor: user.color || "#6366f1" }}
+          >
+            {displayName?.[0] || "?"}
+          </div>
+        </div>
+
+        <div className="pt-14 px-6 pb-6">
+          {loading ? (
+            <div className="flex justify-center py-8"><FaSpinner className="w-5 h-5 text-blue-500 animate-spin" /></div>
+          ) : (
+            <>
+              {/* Name + role */}
+              <div className="mb-4">
+                <h2 className="text-xl font-bold text-slate-800 dark:text-slate-200">{displayName}</h2>
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  <span className="text-sm text-slate-500 dark:text-slate-400 font-mono">@{user.username}</span>
+                  {roleInfo && (
+                    <span className="text-xs px-2 py-0.5 rounded-full font-medium"
+                      style={{ backgroundColor: roleInfo.color + "20", color: roleInfo.color }}>
+                      {roleInfo.label}
+                    </span>
+                  )}
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                    user.status === "active"
+                      ? "bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400"
+                      : "bg-slate-100 text-slate-400 dark:bg-[#2a3044] dark:text-slate-500"
+                  }`}>{user.status}</span>
+                </div>
+              </div>
+
+              {/* Info fields */}
+              <div className="space-y-2 mb-4">
+                <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+                  <FaEnvelope className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                  {user.email}
+                </div>
+                {(profile?.title || profile?.fullName) && (
+                  <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+                    <FaBriefcase className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                    {profile.title || "—"}
+                  </div>
+                )}
+                {profile?.timezone && (
+                  <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+                    <FaGlobe className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                    {profile.timezone}
+                  </div>
+                )}
+                {profile?.bio && (
+                  <p className="text-sm text-slate-500 dark:text-slate-400 italic mt-2 border-t border-slate-100 dark:border-[#2a3044] pt-2">
+                    "{profile.bio}"
+                  </p>
+                )}
+              </div>
+
+              {/* Sprint stats */}
+              <div className="grid grid-cols-4 gap-2 p-3 rounded-xl bg-slate-50 dark:bg-[#161b27] border border-slate-100 dark:border-[#2a3044]">
+                {[
+                  { label: "Assigned", value: myTasks.length, color: "text-blue-600"   },
+                  { label: "Progress", value: inProgress,     color: "text-yellow-600" },
+                  { label: "Done",     value: done,           color: "text-green-600"  },
+                  { label: "Points",   value: points,         color: "text-purple-600" },
+                ].map(({ label, value, color }) => (
+                  <div key={label} className="text-center">
+                    <div className={`text-lg font-bold ${color}`}>{value}</div>
+                    <div className="text-[10px] text-slate-400">{label}</div>
+                  </div>
+                ))}
+              </div>
+
+              {user.joinedAt && (
+                <p className="text-xs text-slate-400 mt-3 text-right">Joined {user.joinedAt}</p>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PeopleTab({ users, teams, updateTeam, updateUser, createUser, deleteUser, projects, updateProject }) {
+  const { allTasks, setActiveTasks, setBacklogSections, deletedUserIds } = useApp();
   const [search,         setSearch]         = useState("");
   const [filterRole,     setFilterRole]     = useState("all");
   const [filterStatus,   setFilterStatus]   = useState("all");
   const [addTeamFor,     setAddTeamFor]     = useState(null);
+  const [addProjectFor,  setAddProjectFor]  = useState(null);
   const [expandedUserId, setExpandedUserId] = useState(null);
   const [taskSearch,     setTaskSearch]     = useState("");
-  const [showUserForm,   setShowUserForm]   = useState(false);
-  const [editingUser,    setEditingUser]    = useState(null);
+  const [showUserForm,        setShowUserForm]        = useState(false);
+  const [editingUser,         setEditingUser]         = useState(null);
+  const [selectedProfileUser, setSelectedProfileUser] = useState(null);
 
-  const filtered = users.filter((u) => {
+  // Merge display: AppContext users + any Firestore users not yet in AppContext (display-only, no AppContext mutation)
+  const [mergedUsers, setMergedUsers] = useState(() => dedupUsers(users, deletedUserIds));
+
+  useEffect(() => {
+    let cancelled = false;
+    getDocs(collection(db, "users")).then((snap) => {
+      if (cancelled) return;
+      const deletedSet = new Set(deletedUserIds || []);
+      const fbUsers = snap.docs
+        .map((d) => ({ uid: d.id, ...d.data() }))
+        .filter((fb) => !fb.deleted && !deletedSet.has(fb.uid) && !fb.email?.endsWith("@corechestra.io"));
+
+      // Start from current AppContext users (deduplicated)
+      const base = dedupUsers(users, deletedUserIds);
+      const result = [...base];
+
+      fbUsers.forEach((fb) => {
+        const exists = result.some((u) => u.id === fb.uid || u.email === fb.email);
+        if (!exists) {
+          const prefix = fb.email?.split("@")[0] || "user";
+          const fbName = fb.fullName || fb.name;
+          const name   = fbName || (prefix.charAt(0).toUpperCase() + prefix.slice(1));
+          const color  = PEOPLE_COLORS[fb.uid.charCodeAt(0) % PEOPLE_COLORS.length];
+          result.push({ id: fb.uid, name, username: prefix, email: fb.email || "", color, status: "active", role: fb.role || "member", joinedAt: "" });
+        } else {
+          // Apply Firestore name override to existing entry
+          const fbName = fb.fullName || fb.name;
+          if (fbName) {
+            const idx = result.findIndex((u) => u.id === fb.uid || u.email === fb.email);
+            if (idx !== -1 && result[idx].name !== fbName) result[idx] = { ...result[idx], name: fbName };
+          }
+        }
+      });
+      setMergedUsers(result);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Keep in sync when AppContext users changes (e.g. after delete/update), preserve Firestore extras
+  useEffect(() => {
+    setMergedUsers((prev) => {
+      const base = dedupUsers(users, deletedUserIds);
+      // Re-apply any Firestore-only entries that were in prev but aren't in AppContext
+      const extras = prev.filter((u) => !base.some((b) => b.id === u.id || b.email === u.email));
+      return [...base, ...extras];
+    });
+  }, [users, deletedUserIds]); // eslint-disable-line
+
+  const filtered = mergedUsers.filter((u) => {
     const q = search.toLowerCase();
     const matchSearch = !q ||
       u.name.toLowerCase().includes(q) ||
@@ -915,6 +953,21 @@ function PeopleTab({ users, teams, updateTeam, updateUser, createUser, deleteUse
 
   const getUserTeams      = (username) => teams.filter((t) =>  (t.memberNames || []).includes(username));
   const getAvailableTeams = (username) => teams.filter((t) => !(t.memberNames || []).includes(username));
+
+  const getUserProjects      = (username) => (projects || []).filter((p) =>  (p.memberUsernames || []).includes(username));
+  const getAvailableProjects = (username) => (projects || []).filter((p) => !(p.memberUsernames || []).includes(username));
+
+  const addToProject      = (projectId, username) => {
+    const p = projects.find((x) => x.id === projectId);
+    if (!p) return;
+    updateProject({ ...p, memberUsernames: [...(p.memberUsernames || []), username] });
+    setAddProjectFor(null);
+  };
+  const removeFromProject = (projectId, username) => {
+    const p = projects.find((x) => x.id === projectId);
+    if (!p) return;
+    updateProject({ ...p, memberUsernames: (p.memberUsernames || []).filter((n) => n !== username) });
+  };
 
   // Build assignee→tasks map in one pass (avoids O(users × tasks) per render)
   const tasksByUser = useMemo(() => {
@@ -971,6 +1024,9 @@ function PeopleTab({ users, teams, updateTeam, updateUser, createUser, deleteUse
 
   return (
     <div className="space-y-4">
+      {selectedProfileUser && (
+        <UserProfileModal user={selectedProfileUser} onClose={() => setSelectedProfileUser(null)} />
+      )}
       {/* Search + filters bar */}
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 min-w-52">
@@ -1023,17 +1079,20 @@ function PeopleTab({ users, teams, updateTeam, updateUser, createUser, deleteUse
       {/* User cards */}
       <div className="grid gap-3">
         {filtered.map((user) => {
-          const userTeams      = getUserTeams(user.username);
-          const availableTeams = getAvailableTeams(user.username);
-          const roleInfo       = ROLES.find((r) => r.value === user.role);
-          const isDropOpen     = addTeamFor === user.id;
+          const userTeams        = getUserTeams(user.username);
+          const availableTeams   = getAvailableTeams(user.username);
+          const userProjects     = getUserProjects(user.username);
+          const availableProjects= getAvailableProjects(user.username);
+          const roleInfo         = ROLES.find((r) => r.value === user.role);
+          const isDropOpen       = addTeamFor    === user.id;
+          const isProjDropOpen   = addProjectFor === user.id;
 
           const isExpanded     = expandedUserId === user.id;
           const userTasks      = getUserTasks(user.username);
           const assignable     = isExpanded ? assignableTasks : [];
 
           return (
-            <SectionCard key={user.id} className="hover:border-slate-300 dark:hover:border-[#3a4055] transition-colors overflow-hidden">
+            <SectionCard key={user.id} className="hover:border-slate-300 dark:hover:border-[#3a4055] transition-colors">
               <div className="flex items-start gap-4 p-4">
                 {/* Avatar */}
                 <div
@@ -1103,7 +1162,7 @@ function PeopleTab({ users, teams, updateTeam, updateUser, createUser, deleteUse
                         {isDropOpen && (
                           <>
                             <div className="fixed inset-0 z-10" onClick={() => setAddTeamFor(null)} />
-                            <div className="absolute top-full left-0 mt-1.5 z-20 bg-white dark:bg-[#1c2030] border border-slate-200 dark:border-[#2a3044] rounded-xl shadow-xl overflow-hidden min-w-48">
+                            <div className="absolute bottom-full left-0 mb-1.5 z-20 bg-white dark:bg-[#1c2030] border border-slate-200 dark:border-[#2a3044] rounded-xl shadow-xl overflow-hidden min-w-48">
                               <div className="px-3 py-2 text-[10px] text-slate-400 uppercase tracking-wider bg-slate-50 dark:bg-[#232838] border-b border-slate-100 dark:border-[#2a3044]">
                                 Add to team
                               </div>
@@ -1124,6 +1183,61 @@ function PeopleTab({ users, teams, updateTeam, updateUser, createUser, deleteUse
                       </div>
                     )}
                   </div>
+
+                  {/* Projects chips + add dropdown */}
+                  <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+                    {userProjects.length === 0 && (
+                      <span className="text-xs text-slate-400 dark:text-slate-500 italic">No projects</span>
+                    )}
+                    {userProjects.map((proj) => (
+                      <span
+                        key={proj.id}
+                        className="group flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border font-medium transition-all"
+                        style={{ backgroundColor: proj.color + "15", borderColor: proj.color + "50", color: proj.color }}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: proj.color }} />
+                        {proj.name}
+                        <button
+                          className="opacity-0 group-hover:opacity-100 ml-0.5 hover:text-red-500 transition-all leading-none"
+                          onClick={() => removeFromProject(proj.id, user.username)}
+                          title={`Remove from ${proj.name}`}
+                        >
+                          <FaTimes className="w-2.5 h-2.5" />
+                        </button>
+                      </span>
+                    ))}
+                    {availableProjects.length > 0 && (
+                      <div className="relative">
+                        <button
+                          onClick={() => setAddProjectFor(isProjDropOpen ? null : user.id)}
+                          className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border border-dashed border-slate-300 dark:border-[#2a3044] text-slate-400 hover:border-indigo-400 hover:text-indigo-500 dark:hover:border-indigo-500 dark:hover:text-indigo-400 transition-colors"
+                        >
+                          <FaPlus className="w-2 h-2" /> Add to project
+                        </button>
+                        {isProjDropOpen && (
+                          <>
+                            <div className="fixed inset-0 z-10" onClick={() => setAddProjectFor(null)} />
+                            <div className="absolute bottom-full left-0 mb-1.5 z-20 bg-white dark:bg-[#1c2030] border border-slate-200 dark:border-[#2a3044] rounded-xl shadow-xl overflow-hidden min-w-48">
+                              <div className="px-3 py-2 text-[10px] text-slate-400 uppercase tracking-wider bg-slate-50 dark:bg-[#232838] border-b border-slate-100 dark:border-[#2a3044]">
+                                Add to project
+                              </div>
+                              {availableProjects.map((proj) => (
+                                <button
+                                  key={proj.id}
+                                  className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors border-b border-slate-50 dark:border-[#2a3044] last:border-0"
+                                  onClick={() => addToProject(proj.id, user.username)}
+                                >
+                                  <span className="w-3 h-3 rounded-lg flex-shrink-0" style={{ backgroundColor: proj.color }} />
+                                  <span className="flex-1 text-left truncate font-medium">{proj.name}</span>
+                                  <span className="text-[10px] font-mono text-slate-400">{proj.key}</span>
+                                </button>
+                              ))}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Right side */}
@@ -1136,6 +1250,13 @@ function PeopleTab({ users, teams, updateTeam, updateUser, createUser, deleteUse
                   )}
                   <div className="flex items-center gap-2">
                     <button
+                      onClick={() => setSelectedProfileUser(user)}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors"
+                      title="View profile"
+                    >
+                      <FaExternalLinkAlt className="w-3 h-3" />
+                    </button>
+                    <button
                       onClick={() => { setEditingUser(user); setShowUserForm(false); }}
                       className="p-1.5 rounded-lg text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
                       title="Edit user"
@@ -1143,7 +1264,13 @@ function PeopleTab({ users, teams, updateTeam, updateUser, createUser, deleteUse
                       <FaEdit className="w-3.5 h-3.5" />
                     </button>
                     <button
-                      onClick={() => deleteUser(user.id)}
+                      onClick={() => {
+                        deleteUser(user.id);
+                        // Mark as deleted in Firestore so merge effect won't re-add on refresh
+                        updateDoc(doc(db, "users", user.id), { deleted: true }).catch(() =>
+                          deleteDoc(doc(db, "users", user.id)).catch(() => {})
+                        );
+                      }}
                       className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                       title="Delete user"
                     >

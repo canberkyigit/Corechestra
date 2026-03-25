@@ -17,11 +17,15 @@ import DocsPage from "./pages/DocsPage";
 import ReleasesPage from "./pages/ReleasesPage";
 import TestsPage from "./pages/TestsPage";
 import ArchivePage from "./pages/ArchivePage";
+import ForYouPage from "./pages/ForYouPage";
+import LoginPage from "./pages/LoginPage";
 import TaskDetailModal from "./components/TaskDetailModal";
 import TaskSidePanel from "./components/TaskSidePanel";
 import CommandPalette from "./components/CommandPalette";
+import Logo from "./components/Logo";
 import { AppProvider, useApp } from "./context/AppContext";
 import { ToastProvider } from "./context/ToastContext";
+import { AuthProvider, useAuth } from "./context/AuthContext";
 import "./App.css";
 
 const queryClient = new QueryClient({
@@ -50,6 +54,7 @@ const PATH_TO_PAGE = {
   "/releases":  "releases",
   "/tests":     "tests",
   "/archive":   "archive",
+  "/for-you":   "for-you",
 };
 
 function PageTransition({ children }) {
@@ -66,22 +71,55 @@ function PageTransition({ children }) {
   );
 }
 
+// Shown while Firebase resolves the auth state on first load
+function AuthLoadingScreen() {
+  return (
+    <div className="min-h-screen bg-[#080b14] flex items-center justify-center">
+      <div className="flex flex-col items-center gap-5">
+        <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-900/50">
+          <Logo size={26} color="white" />
+        </div>
+        <div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    </div>
+  );
+}
+
 function AppInner() {
   const navigate = useNavigate();
   const location = useLocation();
 
   const activePage = PATH_TO_PAGE[location.pathname] || "board";
 
-  const { createTask, updateActiveTask, backlogSections, darkMode, setDarkMode } = useApp();
+  const { createTask, updateActiveTask, backlogSections, darkMode, setDarkMode, users, createUser, dbReady } = useApp();
+  const { user: authUser, role } = useAuth();
 
-  // Global create modal (topbar Create button works from any page)
+  // Sync Firebase Auth user → People list (runs once after Firestore is ready)
+  useEffect(() => {
+    if (!dbReady || !authUser || !role) return;
+    const alreadyExists = users.some((u) => u.email === authUser.email || u.id === authUser.uid);
+    if (alreadyExists) return;
+    const prefix = authUser.email.split("@")[0];
+    const name   = prefix.charAt(0).toUpperCase() + prefix.slice(1);
+    const COLORS  = ["#6366f1","#3b82f6","#10b981","#f59e0b","#ef4444","#8b5cf6","#ec4899"];
+    const color   = COLORS[authUser.uid.charCodeAt(0) % COLORS.length];
+    createUser({
+      id:       authUser.uid,
+      name,
+      username: prefix,
+      email:    authUser.email,
+      color,
+      status:   "active",
+      role,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dbReady, authUser?.uid, role]);
+
   const [createModalOpen,   setCreateModalOpen]   = useState(false);
   const [cmdPaletteOpen,    setCmdPaletteOpen]    = useState(false);
   const [selectedTask,      setSelectedTask]      = useState(null);
   const [sidePanelOpen,     setSidePanelOpen]     = useState(false);
-
-  // Settings shortcut → board page at settings tab
-  const [forcedBoardTab, setForcedBoardTab] = useState(null);
+  const [forcedBoardTab,    setForcedBoardTab]    = useState(null);
 
   // Cmd+K / Ctrl+K global shortcut
   useEffect(() => {
@@ -113,11 +151,8 @@ function AppInner() {
     setForcedBoardTab("settings");
   }, [navigate]);
 
-  const handleProfileClick = useCallback(() => {
-    navigate("/profile");
-  }, [navigate]);
-
-  const handleCreateClick = useCallback(() => {
+  const handleProfileClick  = useCallback(() => navigate("/profile"), [navigate]);
+  const handleCreateClick   = useCallback(() => {
     setSelectedSprint(sprintOptions[0]);
     setCreateModalOpen(true);
   }, [sprintOptions]);
@@ -157,12 +192,12 @@ function AppInner() {
           <Route path="/docs"      element={<PageTransition><DocsPage /></PageTransition>} />
           <Route path="/releases"  element={<PageTransition><ReleasesPage /></PageTransition>} />
           <Route path="/tests"     element={<PageTransition><TestsPage /></PageTransition>} />
-          <Route path="/archive"  element={<PageTransition><ArchivePage /></PageTransition>} />
+          <Route path="/archive"   element={<PageTransition><ArchivePage /></PageTransition>} />
+          <Route path="/for-you"   element={<PageTransition><ForYouPage /></PageTransition>} />
           <Route path="*"          element={boardPage} />
         </Routes>
       </Layout>
 
-      {/* Command Palette */}
       <CommandPalette
         open={cmdPaletteOpen}
         onClose={() => setCmdPaletteOpen(false)}
@@ -170,7 +205,6 @@ function AppInner() {
         onNavigate={(page) => navigate(`/${page}`)}
       />
 
-      {/* Global task side panel (opened from search) */}
       <TaskSidePanel
         task={selectedTask}
         open={sidePanelOpen}
@@ -179,7 +213,6 @@ function AppInner() {
         onOpenModal={(t) => { setSelectedTask(t); setSidePanelOpen(false); }}
       />
 
-      {/* Global Create Task Modal */}
       <TaskDetailModal
         open={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
@@ -198,16 +231,34 @@ function AppInner() {
   );
 }
 
+// Gates the entire app behind Firebase Auth
+function AuthGate() {
+  const { user } = useAuth();
+
+  // Still resolving auth state (Firebase cold start)
+  if (user === undefined) return <AuthLoadingScreen />;
+
+  // Not logged in → show login page
+  if (!user) return <LoginPage />;
+
+  // Logged in → mount the full app (AppProvider loads Firestore data)
+  return (
+    <AppProvider>
+      <ToastProvider>
+        <AppInner />
+      </ToastProvider>
+    </AppProvider>
+  );
+}
+
 export default function App() {
   return (
     <ErrorBoundary FallbackComponent={AppErrorFallback}>
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
-          <AppProvider>
-            <ToastProvider>
-              <AppInner />
-            </ToastProvider>
-          </AppProvider>
+          <AuthProvider>
+            <AuthGate />
+          </AuthProvider>
         </BrowserRouter>
       </QueryClientProvider>
     </ErrorBoundary>

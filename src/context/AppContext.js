@@ -31,6 +31,7 @@ export function AppProvider({ children }) {
   const [perProjectBurndownSnapshots, setPerProjectBurndownSnapshots] = useState({});
   const [teams, setTeams] = useState([]);
   const [users, setUsers] = useState([]);
+  const [deletedUserIds, setDeletedUserIds] = useState([]);
   const [sprintDefaults, setSprintDefaults] = useState(DEFAULT_SPRINT_DEFAULTS);
   const [spaces, setSpaces] = useState([]);
   const [docPages, setDocPages] = useState([]);
@@ -181,6 +182,7 @@ export function AppProvider({ children }) {
     notifications: setNotifications,
     teams: setTeams,
     users: setUsers,
+    deletedUserIds: setDeletedUserIds,
     sprintDefaults: setSprintDefaults,
     perProjectBurndownSnapshots: setPerProjectBurndownSnapshots,
     spaces: setSpaces,
@@ -251,8 +253,8 @@ export function AppProvider({ children }) {
 
   useEffect(() => {
     if (!dbReady) return;
-    saveDomain("entities", { projects, teams, users, epics, labels });
-  }, [projects, teams, users, epics, labels, dbReady]);
+    saveDomain("entities", { projects, teams, users, epics, labels, deletedUserIds });
+  }, [projects, teams, users, epics, labels, deletedUserIds, dbReady]);
 
   useEffect(() => {
     if (!dbReady) return;
@@ -876,7 +878,11 @@ export function AppProvider({ children }) {
 
   // ── User Actions ───────────────────────────────────────────────────────────
   const createUser = useCallback((data) => {
-    setUsers((prev) => [...prev, { ...data, id: `user-${Date.now()}`, joinedAt: new Date().toISOString().slice(0, 10) }]);
+    setUsers((prev) => {
+      const id = data.id || `user-${Date.now()}`;
+      if (prev.some((u) => u.id === id || (data.email && u.email === data.email))) return prev;
+      return [...prev, { joinedAt: new Date().toISOString().slice(0, 10), ...data, id }];
+    });
   }, []);
 
   const updateUser = useCallback((updated) => {
@@ -885,14 +891,25 @@ export function AppProvider({ children }) {
 
   const deleteUser = useCallback((userId) => {
     setUsers((prev) => prev.filter((u) => u.id !== userId));
+    setDeletedUserIds((prev) => prev.includes(userId) ? prev : [...prev, userId]);
   }, []);
 
   // ── Derived: team member list for assignee dropdowns ───────────────────────
-  const teamMembers = useMemo(() => [
-    { value: "", label: "All Members" },
-    { value: "unassigned", label: "Unassigned" },
-    ...users.filter((u) => u.status === "active").map((u) => ({ value: u.username, label: u.name, color: u.color })),
-  ], [users]);
+  const teamMembers = useMemo(() => {
+    const seen = new Set();
+    const deduped = users.filter((u) => {
+      if (u.status !== "active") return false;
+      const key = u.username || u.id;
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    return [
+      { value: "", label: "All Members" },
+      { value: "unassigned", label: "Unassigned" },
+      ...deduped.map((u) => ({ value: u.username, label: u.name, color: u.color })),
+    ];
+  }, [users]);
 
   // ── Sprint Defaults ─────────────────────────────────────────────────────────
   const updateSprintDefaults = useCallback((patch) => {
@@ -1108,7 +1125,7 @@ export function AppProvider({ children }) {
     // Teams
     teams, createTeam, updateTeam, deleteTeam,
     // Users
-    users, createUser, updateUser, deleteUser, teamMembers,
+    users, deletedUserIds, createUser, updateUser, deleteUser, teamMembers,
     // Sprint Defaults
     sprintDefaults, updateSprintDefaults,
     // Epics
