@@ -7,7 +7,7 @@ const COLLECTION = "appData";
 export const DOMAIN_FIELDS = {
   config:    ["currentUser", "currentProjectId", "sprintDefaults",
               "darkMode", "sidebarCollapsed", "projectsViewMode", "perProjectBoardFilters"],
-  entities:  ["projects", "teams", "users", "epics", "labels"],
+  entities:  ["projects", "teams", "users", "epics", "labels", "deletedUserIds"],
   tasks:     ["activeTasks", "perProjectBacklog"],
   sprints:   ["perProjectSprint", "projectColumns", "perProjectBoardSettings",
               "perProjectBurndownSnapshots", "perProjectCompletedSprints", "perProjectPlannedSprints"],

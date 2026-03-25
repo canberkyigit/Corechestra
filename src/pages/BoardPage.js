@@ -21,6 +21,7 @@ import {
   FaCheck, FaTrash, FaCalendarAlt,
 } from "react-icons/fa";
 import { useApp } from "../context/AppContext";
+import { useAuth } from "../context/AuthContext";
 import { TYPE_OPTIONS } from "../constants";
 import { parseISO, differenceInDays, format } from "date-fns";
 
@@ -300,13 +301,23 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
     boardSettings, createTask, savePokerResult,
     sprint, columns,
     updateBoardSettings,
-    currentProjectId,
+    currentProjectId, projects,
     perProjectBoardFilters, setPerProjectBoardFilters,
     teamMembers,
   } = useApp();
 
   const projectActiveTasks = activeTasks.filter(
     (t) => (t.projectId || "proj-1") === currentProjectId
+  );
+
+  // Only show members who are in this project (via memberUsernames or task assignment)
+  const currentProject    = projects.find((p) => p.id === currentProjectId);
+  const explicitMembers   = new Set(currentProject?.memberUsernames || []);
+  const assignedUsernames = new Set(
+    projectActiveTasks.map((t) => t.assignedTo).filter((a) => a && a !== "unassigned")
+  );
+  const projectMembers = teamMembers.filter(
+    (m) => !m.value || m.value === "unassigned" || assignedUsernames.has(m.value) || explicitMembers.has(m.value)
   );
 
   const [activeTab, setActiveTab] = useState("active");
@@ -327,6 +338,11 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
   const [member, setMember] = useState(() =>
     teamMembers.find((o) => o.value === savedFilters.memberValue) || teamMembers[0]
   );
+  // Keep selected member in sync when project changes
+  useEffect(() => {
+    setMember((prev) => projectMembers.find((o) => o.value === prev?.value) || projectMembers[0]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentProjectId]);
   const [search, setSearch] = useState(savedFilters.search || "");
   const [viewMode, setViewMode] = useState(savedFilters.viewMode || "kanban");
 
@@ -394,6 +410,7 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
   const [backlogFocusSectionId, setBacklogFocusSectionId] = useState(null);
 
   const { backlogSections } = useApp();
+  const { isAdmin } = useAuth();
   const sprintOptions = useMemo(() => [
     { value: "active", label: "Active Sprint" },
     ...backlogSections.map((b) => ({ value: `backlog-${b.id}`, label: b.title })),
@@ -507,7 +524,7 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
           )}
 
           <div className="ml-auto flex items-center gap-2">
-            {sprint.status !== "active" && (
+            {isAdmin && sprint.status !== "active" && (
               <button
                 className="flex items-center gap-1.5 px-3 py-1 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700 transition-colors"
                 onClick={() => openSprintModal("start")}
@@ -517,24 +534,30 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
             )}
             {sprint.status === "active" && (
               <>
-                <button
-                  className="flex items-center gap-1.5 px-3 py-1 text-xs text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors"
-                  onClick={() => openSprintModal("edit")}
-                >
-                  <FaEdit className="w-2.5 h-2.5" /> Edit Sprint
-                </button>
-                <button
-                  className="flex items-center gap-1.5 px-3 py-1 bg-slate-700 dark:bg-slate-600 text-white text-xs font-medium rounded-lg hover:bg-slate-800 dark:hover:bg-slate-500 transition-colors"
-                  onClick={() => openSprintModal("complete")}
-                >
-                  <FaCheckCircle className="w-2.5 h-2.5" /> Complete Sprint
-                </button>
-                <button
-                  className="flex items-center gap-1.5 px-3 py-1 bg-indigo-600 text-white text-xs font-medium rounded-lg hover:bg-indigo-700 transition-colors"
-                  onClick={() => setFuturePlansOpen(true)}
-                >
-                  <FaCalendarAlt className="w-2.5 h-2.5" /> Plan a future sprint
-                </button>
+                {isAdmin && (
+                  <button
+                    className="flex items-center gap-1.5 px-3 py-1 text-xs text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors"
+                    onClick={() => openSprintModal("edit")}
+                  >
+                    <FaEdit className="w-2.5 h-2.5" /> Edit Sprint
+                  </button>
+                )}
+                {isAdmin && (
+                  <button
+                    className="flex items-center gap-1.5 px-3 py-1 bg-slate-700 dark:bg-slate-600 text-white text-xs font-medium rounded-lg hover:bg-slate-800 dark:hover:bg-slate-500 transition-colors"
+                    onClick={() => openSprintModal("complete")}
+                  >
+                    <FaCheckCircle className="w-2.5 h-2.5" /> Complete Sprint
+                  </button>
+                )}
+                {isAdmin && (
+                  <button
+                    className="flex items-center gap-1.5 px-3 py-1 bg-indigo-600 text-white text-xs font-medium rounded-lg hover:bg-indigo-700 transition-colors"
+                    onClick={() => setFuturePlansOpen(true)}
+                  >
+                    <FaCalendarAlt className="w-2.5 h-2.5" /> Plan a future sprint
+                  </button>
+                )}
               </>
             )}
           </div>
@@ -602,7 +625,7 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
                   </span>
                 </Listbox.Button>
                 <Listbox.Options className="absolute mt-1 max-h-60 w-full overflow-auto rounded-lg bg-white dark:bg-[#1c2030] py-1 text-sm shadow-lg ring-1 ring-black/5 z-50 border border-slate-100 dark:border-[#2a3044]">
-                  {teamMembers.map((opt) => (
+                  {projectMembers.map((opt) => (
                     <Listbox.Option key={opt.value} value={opt}
                       className={({ active, selected }) =>
                         `cursor-pointer select-none py-1.5 pl-4 pr-4 ${active ? "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400" : "text-slate-700 dark:text-slate-300"} ${selected ? "font-semibold" : ""}`

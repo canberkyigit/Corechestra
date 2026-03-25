@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { FaPlus, FaCheck, FaUsers, FaTasks, FaLayerGroup, FaTimes, FaTh, FaList, FaCog } from "react-icons/fa";
 import { useApp } from "../context/AppContext";
+import { useAuth } from "../context/AuthContext";
 import ProjectSettingsModal from "../components/ProjectSettingsModal";
 
 const PROJECT_COLORS = [
@@ -139,7 +140,8 @@ function CreateProjectModal({ onClose, onCreate }) {
 }
 
 export default function ProjectsPage({ onNavigate }) {
-  const { projects, currentProjectId, setCurrentProjectId, activeTasks, createProject, projectsViewMode, setProjectsViewMode } = useApp();
+  const { projects, currentProjectId, setCurrentProjectId, activeTasks, users, createProject, projectsViewMode, setProjectsViewMode } = useApp();
+  const { isAdmin } = useAuth();
   const [showCreate, setShowCreate] = useState(false);
   const [settingsProject, setSettingsProject] = useState(null);
   const viewMode = projectsViewMode;
@@ -180,12 +182,14 @@ export default function ProjectsPage({ onNavigate }) {
               <FaList className="w-3.5 h-3.5" />
             </button>
           </div>
-          <button
-            onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <FaPlus className="w-3 h-3" />New Project
-          </button>
+          {isAdmin && (
+            <button
+              onClick={() => setShowCreate(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <FaPlus className="w-3 h-3" />New Project
+            </button>
+          )}
         </div>
       </div>
 
@@ -193,11 +197,14 @@ export default function ProjectsPage({ onNavigate }) {
       {viewMode === "grid" && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {projects.map((p, i) => {
-            const isActive    = p.id === currentProjectId;
-            const taskCount   = activeTasks.filter((t) => (t.projectId || "proj-1") === p.id).length;
-            const doneCount   = activeTasks.filter((t) => (t.projectId || "proj-1") === p.id && t.status === "done").length;
-            const pct         = taskCount > 0 ? Math.round((doneCount / taskCount) * 100) : 0;
-            const description = p.description || PROJECT_DESCRIPTIONS[p.id] || "No description available.";
+            const isActive      = p.id === currentProjectId;
+            const projTasks     = activeTasks.filter((t) => (t.projectId || "proj-1") === p.id);
+            const taskCount     = projTasks.length;
+            const doneCount     = projTasks.filter((t) => t.status === "done").length;
+            const pct           = taskCount > 0 ? Math.round((doneCount / taskCount) * 100) : 0;
+            const description   = p.description || PROJECT_DESCRIPTIONS[p.id] || "No description available.";
+            const taskAssignees = new Set(projTasks.map((t) => t.assignedTo).filter((a) => a && a !== "unassigned"));
+            const memberCount   = new Set([...taskAssignees, ...(p.memberUsernames || [])]).size;
 
             return (
               <motion.button
@@ -233,13 +240,15 @@ export default function ProjectsPage({ onNavigate }) {
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setSettingsProject(p); }}
-                      className="w-7 h-7 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#232838]"
-                      title="Project settings"
-                    >
-                      <FaCog className="w-3.5 h-3.5" />
-                    </button>
+                    {isAdmin && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setSettingsProject(p); }}
+                        className="w-7 h-7 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#232838]"
+                        title="Project settings"
+                      >
+                        <FaCog className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                     <div
                       className="w-8 h-8 rounded-lg flex items-center justify-center opacity-60 group-hover:opacity-100 transition-opacity"
                       style={{ backgroundColor: p.color + "22" }}
@@ -270,7 +279,7 @@ export default function ProjectsPage({ onNavigate }) {
                   </div>
                   <div className="flex items-center gap-1.5 text-xs text-slate-400 dark:text-slate-500">
                     <FaUsers className="w-3 h-3" />
-                    <span>4 members</span>
+                    <span>{memberCount} member{memberCount !== 1 ? "s" : ""}</span>
                   </div>
                   <div className="ml-auto text-xs font-medium" style={{ color: isActive ? p.color : undefined }}>
                     {isActive ? "Viewing →" : "Switch →"}
@@ -297,10 +306,13 @@ export default function ProjectsPage({ onNavigate }) {
 
           {projects.map((p, i) => {
             const isActive    = p.id === currentProjectId;
-            const taskCount   = activeTasks.filter((t) => (t.projectId || "proj-1") === p.id).length;
-            const doneCount   = activeTasks.filter((t) => (t.projectId || "proj-1") === p.id && t.status === "done").length;
+            const projTasks   = activeTasks.filter((t) => (t.projectId || "proj-1") === p.id);
+            const taskCount   = projTasks.length;
+            const doneCount   = projTasks.filter((t) => t.status === "done").length;
             const pct         = taskCount > 0 ? Math.round((doneCount / taskCount) * 100) : 0;
             const description = PROJECT_DESCRIPTIONS[p.id] || p.description || "";
+            const taskAssignees2 = new Set(projTasks.map((t) => t.assignedTo).filter((a) => a && a !== "unassigned"));
+            const memberCount    = new Set([...taskAssignees2, ...(p.memberUsernames || [])]).size;
 
             return (
               <button
@@ -355,18 +367,20 @@ export default function ProjectsPage({ onNavigate }) {
                 {/* Members */}
                 <div className="flex items-center justify-center gap-1 text-xs text-slate-500 dark:text-slate-400">
                   <FaUsers className="w-3 h-3" />
-                  <span>4</span>
+                  <span>{memberCount}</span>
                 </div>
 
                 {/* Action */}
                 <div className="flex items-center justify-end gap-2">
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setSettingsProject(p); }}
-                    className="p-1.5 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#232838] rounded-lg transition-all"
-                    title="Project settings"
-                  >
-                    <FaCog className="w-3.5 h-3.5" />
-                  </button>
+                  {isAdmin && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setSettingsProject(p); }}
+                      className="p-1.5 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#232838] rounded-lg transition-all"
+                      title="Project settings"
+                    >
+                      <FaCog className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                   <span className="text-xs font-medium" style={{ color: isActive ? p.color : undefined }}>
                     <span className={isActive ? "" : "text-slate-400 dark:text-slate-500 group-hover:text-blue-500 transition-colors"}>
                       {isActive ? "Viewing →" : "Switch →"}

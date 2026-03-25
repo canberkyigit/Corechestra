@@ -64,17 +64,39 @@ export default function ProjectSettingsModal({ project, onClose }) {
   };
 
   // ── Members ────────────────────────────────────────────────────────────────
-  const [members, setMembers] = useState(
-    () => project.members || users.slice(0, 2).map((u) => ({ userId: u.id, role: "member" }))
-  );
+  // Deduplicate users for this modal
+  const uniqueUsers = (() => {
+    const seen = new Set();
+    return users.filter((u) => {
+      const key = u.id || u.email;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  })();
+
+  const [members, setMembers] = useState(() => {
+    if (project.members && project.members.length > 0) return project.members;
+    // Fall back to memberUsernames (set from People tab)
+    return (project.memberUsernames || [])
+      .map((username) => {
+        const u = uniqueUsers.find((u) => u.username === username);
+        return u ? { userId: u.id, role: "member" } : null;
+      })
+      .filter(Boolean);
+  });
 
   const addMember    = (uid)  => setMembers((p) => [...p, { userId: uid, role: "member" }]);
   const removeMember = (uid)  => setMembers((p) => p.filter((m) => m.userId !== uid));
   const changeRole   = (uid, role) => setMembers((p) => p.map((m) => m.userId === uid ? { ...m, role } : m));
-  const availableUsers = users.filter((u) => !members.some((m) => m.userId === u.id));
+  const availableUsers = uniqueUsers.filter((u) => !members.some((m) => m.userId === u.id));
 
   const saveMembers = () => {
-    updateProject({ ...project, members });
+    // Save both project.members (role info) and project.memberUsernames (for People tab sync)
+    const memberUsernames = members
+      .map((m) => uniqueUsers.find((u) => u.id === m.userId)?.username)
+      .filter(Boolean);
+    updateProject({ ...project, members, memberUsernames });
     addToast("Members saved", "success");
   };
 

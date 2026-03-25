@@ -52,7 +52,13 @@ function MiniSelect({ value, options, onChange, renderValue, renderOption }) {
 }
 
 export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpenModal }) {
-  const { epics, labels, deleteTask, logActivity, allTasks, teamMembers } = useApp();
+  const { epics, labels, deleteTask, logActivity, allTasks, teamMembers, currentProjectId, projects } = useApp();
+
+  const currentProject = projects.find((p) => p.id === currentProjectId);
+  const projectMemberSet = new Set(currentProject?.memberUsernames || []);
+  const projectAssignees = projectMemberSet.size > 0
+    ? teamMembers.filter((m) => m.value === "unassigned" || projectMemberSet.has(m.value))
+    : teamMembers.filter((m) => m.value !== "");
   const { addToast } = useToast();
 
   const [title,        setTitle]        = useState("");
@@ -471,7 +477,7 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
                 <div className="text-xs text-slate-400 dark:text-slate-500 mb-1">Assignee</div>
                 <MiniSelect
                   value={assignedTo}
-                  options={teamMembers.filter(m => m.value !== "").map(m => ({ value: m.value, label: m.label }))}
+                  options={projectAssignees.map(m => ({ value: m.value, label: m.label }))}
                   onChange={(v) => { setAssignedTo(v); autoSave({ assignedTo: v }); }}
                   renderValue={(v) => <span className="capitalize">{v}</span>}
                   renderOption={(opt) => <span className="capitalize">{opt.label}</span>}
@@ -561,7 +567,7 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
             <div>
               <div className="text-xs text-slate-400 dark:text-slate-500 mb-1.5">Watchers</div>
               <div className="flex flex-wrap gap-1.5">
-                {teamMembers.filter(m => m.value && m.value !== "unassigned").map((member) => {
+                {projectAssignees.filter(m => m.value && m.value !== "unassigned").map((member) => {
                   const watching = watchers.includes(member.value);
                   return (
                     <button key={member.value} onClick={() => { setWatchers((p) => watching ? p.filter((w) => w !== member.value) : [...p, member.value]); changed(); }}
@@ -677,8 +683,8 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
                         id={`sub-asgn-${sub.id}`}
                       >
                         <option value="unassigned">–</option>
-                        {["alice","bob","carol","dave"].map((a) => (
-                          <option key={a} value={a}>{a.charAt(0).toUpperCase()+a.slice(1)}</option>
+                        {projectAssignees.filter(m => m.value && m.value !== "unassigned").map((m) => (
+                          <option key={m.value} value={m.value}>{m.label}</option>
                         ))}
                       </select>
                       <label

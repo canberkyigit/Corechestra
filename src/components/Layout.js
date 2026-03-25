@@ -8,9 +8,12 @@ import {
   FaShieldAlt, FaLayerGroup, FaBook, FaTag, FaFlask,
   FaCheckSquare, FaBug, FaPlusSquare, FaExclamationCircle,
   FaUser, FaFlag, FaPlay, FaRegDotCircle, FaTimes, FaArchive, FaUndo, FaBolt,
+  FaSignOutAlt,
 } from "react-icons/fa";
 import { useApp } from "../context/AppContext";
 import { useToast } from "../context/ToastContext";
+import { useAuth } from "../context/AuthContext";
+import Logo from "./Logo";
 
 const NOTIF_META = {
   assignment:      { icon: FaArrowRight,          color: "text-blue-500   bg-blue-50   dark:bg-blue-900/20"   },
@@ -69,6 +72,7 @@ const SEARCH_PAGES = [
   { id: "projects",  label: "Projects",   icon: FaLayerGroup    },
   { id: "admin",     label: "Admin",      icon: FaShieldAlt     },
   { id: "archive",   label: "Archive",    icon: FaArchive       },
+  { id: "for-you",   label: "For You",    icon: FaBell          },
 ];
 
 function relativeTime(isoStr) {
@@ -94,6 +98,7 @@ const NAV_ITEMS = [
   { id: "releases",      label: "Releases",      icon: FaTag           },
   { id: "tests",         label: "Tests",         icon: FaFlask         },
   { id: "archive",       label: "Archive",       icon: FaArchive       },
+  { id: "for-you",      label: "For You",       icon: FaBell          },
 ];
 
 const ADMIN_NAV_ITEMS = [
@@ -108,8 +113,14 @@ export default function Layout({
   const {
     sidebarCollapsed: collapsed, setSidebarCollapsed: setCollapsed,
     notifications, markNotifRead, markAllNotifsRead, activeTasks, backlogSections, epics, projects, currentProjectId,
+    users,
   } = useApp();
-  const [notifOpen,  setNotifOpen]  = useState(false);
+  const { user, role, profile, logout, isAdmin } = useAuth();
+  const appUser     = users?.find((u) => u.id === user?.uid || u.email === user?.email);
+  const displayName = profile?.fullName || user?.email || "User";
+  const [notifOpen,       setNotifOpen]       = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const profileMenuRef = useRef(null);
 
   // Inline search state
   const [searchQuery,  setSearchQuery]  = useState("");
@@ -133,6 +144,14 @@ export default function Layout({
   useEffect(() => {
     const handler = (e) => {
       if (notifRef.current && !notifRef.current.contains(e.target)) setNotifOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(e.target)) setProfileMenuOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -261,17 +280,17 @@ export default function Layout({
           {collapsed ? (
             <div className="flex justify-center">
               <div
-                className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center cursor-pointer"
+                className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center cursor-pointer"
                 title="Corechestra"
                 onClick={() => setCollapsed(false)}
               >
-                <span className="text-white text-xs font-bold">CO</span>
+                <Logo size={20} color="white" />
               </div>
             </div>
           ) : (
             <div className="flex items-center gap-2.5 px-2 py-1.5">
-              <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center flex-shrink-0">
-                <span className="text-white text-[11px] font-bold">CO</span>
+              <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center flex-shrink-0">
+                <Logo size={18} color="white" />
               </div>
               <div>
                 <div className={`text-sm font-bold ${projNameText}`}>Corechestra</div>
@@ -283,12 +302,14 @@ export default function Layout({
 
         {/* Nav */}
         <nav className={`flex-1 overflow-y-auto py-2 ${collapsed ? "px-1 space-y-0.5" : "px-2 space-y-0.5"}`}>
-          {NAV_ITEMS.map(({ id, label, icon: Icon }) => (
-            <NavBtn key={id} id={id} label={label} Icon={Icon} />
-          ))}
+          {NAV_ITEMS
+            .filter(({ id }) => isAdmin || (id !== "archive"))
+            .map(({ id, label, icon: Icon }) => (
+              <NavBtn key={id} id={id} label={label} Icon={Icon} />
+            ))}
 
-          {/* Admin section */}
-          {collapsed ? (
+          {/* Admin section — admin only */}
+          {isAdmin && (collapsed ? (
             <div className={`mt-2 pt-2 border-t ${borderColor} space-y-0.5`}>
               {ADMIN_NAV_ITEMS.map(({ id, label, icon: Icon }) => (
                 <NavBtn key={id} id={id} label={label} Icon={Icon} />
@@ -301,7 +322,7 @@ export default function Layout({
                 <NavBtn key={id} id={id} label={label} Icon={Icon} />
               ))}
             </div>
-          )}
+          ))}
         </nav>
 
         {/* Bottom */}
@@ -318,17 +339,19 @@ export default function Layout({
             {!collapsed && <span>{darkMode ? "Light Mode" : "Dark Mode"}</span>}
           </button>
 
-          {/* Settings */}
-          <button
-            onClick={onSettingsClick}
-            title={collapsed ? "Settings" : undefined}
-            className={`w-full flex items-center rounded-lg text-sm transition-colors ${
-              collapsed ? "justify-center p-2.5" : "gap-3 px-3 py-2"
-            } ${bottomRowClass}`}
-          >
-            <FaCog className="w-4 h-4 flex-shrink-0" />
-            {!collapsed && <span>Settings</span>}
-          </button>
+          {/* Settings — admin only */}
+          {isAdmin && (
+            <button
+              onClick={onSettingsClick}
+              title={collapsed ? "Settings" : undefined}
+              className={`w-full flex items-center rounded-lg text-sm transition-colors ${
+                collapsed ? "justify-center p-2.5" : "gap-3 px-3 py-2"
+              } ${bottomRowClass}`}
+            >
+              <FaCog className="w-4 h-4 flex-shrink-0" />
+              {!collapsed && <span>Settings</span>}
+            </button>
+          )}
 
           {/* User + collapse toggle */}
           {collapsed ? (
@@ -343,16 +366,24 @@ export default function Layout({
             <div className="flex items-center gap-2 px-3 py-2">
               <button
                 onClick={onProfileClick}
-                className="w-7 h-7 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 hover:ring-2 hover:ring-blue-400 transition-all"
+                className="w-7 h-7 rounded-full bg-indigo-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 hover:ring-2 hover:ring-indigo-400 transition-all uppercase"
                 title="Profile"
               >
-                C
+                {(profile?.fullName || user?.email || "U")[0].toUpperCase()}
               </button>
               <div className="flex-1 min-w-0">
-                <div className={`text-xs font-medium truncate ${projNameText}`}>Canberk Y.</div>
-                <div className={`text-[11px] ${subText}`}>Admin</div>
+                <div className={`text-xs font-medium truncate ${projNameText}`}>{displayName}</div>
+                <div className={`text-[11px] capitalize ${subText}`}>{role || "Member"}</div>
               </div>
-              {/* Collapse button */}
+              {/* Sign out */}
+              <button
+                onClick={logout}
+                title="Sign out"
+                className={`p-1 rounded-md transition-colors flex-shrink-0 ${bottomRowClass}`}
+              >
+                <FaSignOutAlt className="w-3 h-3" />
+              </button>
+              {/* Collapse */}
               <button
                 onClick={toggleCollapsed}
                 title="Collapse sidebar"
@@ -595,7 +626,12 @@ export default function Layout({
                     })}
                   </div>
                   <div className={`px-4 py-2.5 border-t ${borderColor}`}>
-                    <button className="text-xs text-blue-500 hover:text-blue-400 font-medium w-full text-center">View all notifications</button>
+                    <button
+                      onClick={() => { setNotifOpen(false); onPageChange?.("for-you"); }}
+                      className="text-xs text-blue-500 hover:text-blue-400 font-medium w-full text-center"
+                    >
+                      View all notifications
+                    </button>
                   </div>
                 </motion.div>
               )}
@@ -604,14 +640,60 @@ export default function Layout({
 
 
 
-            {/* Profile avatar */}
-            <button
-              onClick={onProfileClick}
-              title="Profile"
-              className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold hover:ring-2 hover:ring-blue-400 transition-all"
-            >
-              C
-            </button>
+            {/* Profile dropdown */}
+            <div className="relative" ref={profileMenuRef}>
+              <button
+                onClick={() => setProfileMenuOpen((v) => !v)}
+                title={user?.email || "Profile"}
+                className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white text-xs font-bold hover:ring-2 hover:ring-indigo-400 transition-all uppercase"
+              >
+                {(profile?.fullName || user?.email || "U")[0].toUpperCase()}
+              </button>
+
+              <AnimatePresence>
+                {profileMenuOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -8, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0,  scale: 1    }}
+                    exit={{    opacity: 0, y: -8, scale: 0.95 }}
+                    transition={{ duration: 0.15 }}
+                    className={`absolute right-0 top-full mt-2 w-52 rounded-xl border shadow-xl z-50 overflow-hidden ${
+                      darkMode ? "bg-[#1c2030] border-[#252b3b]" : "bg-white border-slate-200"
+                    }`}
+                  >
+                    {/* Name / email header */}
+                    <div className={`px-4 py-3 border-b ${borderColor}`}>
+                      {profile?.fullName && (
+                        <p className={`text-xs font-semibold truncate ${projNameText}`}>{profile.fullName}</p>
+                      )}
+                      <p className={`text-[11px] truncate ${subText}`}>{user?.email}</p>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="py-1">
+                      <button
+                        onClick={() => { setProfileMenuOpen(false); onProfileClick?.(); }}
+                        className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors text-left ${
+                          darkMode ? "text-slate-300 hover:bg-white/5" : "text-slate-700 hover:bg-slate-50"
+                        }`}
+                      >
+                        <FaUserCircle className="w-3.5 h-3.5 opacity-60" />
+                        Go to profile
+                      </button>
+                      <button
+                        onClick={() => { setProfileMenuOpen(false); logout(); }}
+                        className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors text-left text-red-500 ${
+                          darkMode ? "hover:bg-red-500/10" : "hover:bg-red-50"
+                        }`}
+                      >
+                        <FaSignOutAlt className="w-3.5 h-3.5 opacity-70" />
+                        Log out
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </header>
 
