@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import { taskKey } from "../../utils/helpers";
 import { FaPlay, FaSearch } from "react-icons/fa";
 import { useApp } from "../../context/AppContext";
 import { TYPE_OPTIONS } from "../../constants";
@@ -100,7 +101,7 @@ function TaskEstimationRow({ task, onTaskClick, onPokerClick, onSpUpdate }) {
 
       {/* CY id */}
       <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500 flex-shrink-0 w-10">
-        CY-{task.id}
+        {taskKey(task.id)}
       </span>
 
       {/* Title + desc */}

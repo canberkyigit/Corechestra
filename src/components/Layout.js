@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
+import { taskKey } from "../utils/helpers";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   FaBell, FaCog, FaUserCircle, FaChevronLeft, FaChevronRight,
@@ -169,7 +170,7 @@ export default function Layout({
     if (!searchQuery.trim()) return [];
     const q = searchQuery.toLowerCase().trim();
     const taskHits = [...(activeTasks || []), ...allBacklogTasks]
-      .filter((t) => t.title?.toLowerCase().includes(q) || `cy-${t.id}`.includes(q) || t.description?.toLowerCase().includes(q))
+      .filter((t) => t.title?.toLowerCase().includes(q) || taskKey(t.id).toLowerCase().includes(q) || t.description?.toLowerCase().includes(q))
       .slice(0, 8)
       .map((t) => ({ kind: "task", id: t.id, title: t.title, status: t.status, type: t.type || "task", item: t }));
     const epicHits = (epics || [])
@@ -276,26 +277,21 @@ export default function Layout({
       `}>
 
         {/* App branding */}
-        <div className={`border-b ${borderColor} ${collapsed ? "px-2 py-3" : "px-3 py-3"}`}>
+        <div className={`h-14 flex-shrink-0 border-b ${borderColor} flex items-center ${collapsed ? "justify-center px-2" : "justify-center px-4"}`}>
           {collapsed ? (
-            <div className="flex justify-center">
-              <div
-                className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center cursor-pointer"
-                title="Corechestra"
-                onClick={() => setCollapsed(false)}
-              >
-                <Logo size={20} color="white" />
-              </div>
+            <div
+              className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center cursor-pointer"
+              title="Corechestra"
+              onClick={() => setCollapsed(false)}
+            >
+              <Logo size={20} color="white" />
             </div>
           ) : (
-            <div className="flex items-center gap-2.5 px-2 py-1.5">
-              <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center flex-shrink-0">
-                <Logo size={18} color="white" />
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center flex-shrink-0 shadow-sm shadow-indigo-900/30">
+                <Logo size={20} color="white" />
               </div>
-              <div>
-                <div className={`text-sm font-bold ${projNameText}`}>Corechestra</div>
-                <div className={`text-[11px] ${subText}`}>Workspace</div>
-              </div>
+              <div className={`text-[17px] font-bold ${projNameText}`}>Corechestra</div>
             </div>
           )}
         </div>
@@ -469,7 +465,7 @@ export default function Layout({
                               onMouseEnter={() => setSearchCursor(i)}
                             >
                               <TypeIcon className={`w-3.5 h-3.5 flex-shrink-0 ${typeInfo.color}`} />
-                              <span className="text-xs font-mono text-slate-400 flex-shrink-0">CY-{r.id}</span>
+                              <span className="text-xs font-mono text-slate-400 flex-shrink-0">{taskKey(r.id)}</span>
                               <span className={`text-sm flex-1 truncate ${darkMode ? "text-slate-200" : "text-slate-700"}`}>{highlightMatch(r.title)}</span>
                               {r.status && (
                                 <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 ${SEARCH_STATUS_COLORS[r.status] || SEARCH_STATUS_COLORS.todo}`}>

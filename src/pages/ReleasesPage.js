@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
+import { taskKey } from "../utils/helpers";
 import {
   FaRocket, FaPlus, FaTimes, FaEdit, FaTrash, FaCheck, FaTag,
   FaLink, FaChevronRight, FaChevronDown, FaSearch, FaStar, FaBug,
@@ -213,7 +214,7 @@ function ReleaseModal({ initial, onSave, onClose, allTasks = [] }) {
                       key={t.id}
                       className="flex items-center gap-1 px-2 py-0.5 bg-blue-500/15 border border-blue-500/30 rounded-full text-xs text-blue-300"
                     >
-                      <span className="font-mono text-blue-400/70">CY-{t.id}</span>
+                      <span className="font-mono text-blue-400/70">{taskKey(t.id)}</span>
                       <span className="max-w-[140px] truncate">{t.title}</span>
                       <button
                         type="button"
@@ -261,7 +262,7 @@ function ReleaseModal({ initial, onSave, onClose, allTasks = [] }) {
                           }`}>
                             {checked && <FaCheck className="w-2 h-2 text-white" />}
                           </span>
-                          <span className="font-mono text-slate-500 dark:text-slate-400 flex-shrink-0">CY-{t.id}</span>
+                          <span className="font-mono text-slate-500 dark:text-slate-400 flex-shrink-0">{taskKey(t.id)}</span>
                           <span className={`flex-1 truncate ${checked ? "text-blue-700 dark:text-blue-200" : "text-slate-700 dark:text-slate-300"}`}>{t.title}</span>
                           <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium flex-shrink-0 ${TASK_STATUS_CHIP[t.status] || "bg-slate-100 text-slate-600 dark:bg-slate-600/50 dark:text-slate-300"}`}>
                             {TASK_STATUS_LABEL[t.status] || t.status}

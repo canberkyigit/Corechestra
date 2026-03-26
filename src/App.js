@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect } from "react";
-import { BrowserRouter, Routes, Route, useNavigate, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ErrorBoundary } from "react-error-boundary";
@@ -91,18 +91,28 @@ function AppInner() {
 
   const activePage = PATH_TO_PAGE[location.pathname] || "board";
 
-  const { createTask, updateActiveTask, backlogSections, darkMode, setDarkMode, users, createUser, dbReady } = useApp();
-  const { user: authUser, role } = useAuth();
+  const { createTask, updateActiveTask, backlogSections, darkMode, setDarkMode, users, createUser, updateUser, setCurrentUser, dbReady } = useApp();
+  const { user: authUser, role, isAdmin } = useAuth();
 
-  // Sync Firebase Auth user → People list (runs once after Firestore is ready)
+  // Sync Firebase Auth user → People list + currentUser (runs once after Firestore is ready)
   useEffect(() => {
     if (!dbReady || !authUser || !role) return;
-    const alreadyExists = users.some((u) => u.email === authUser.email || u.id === authUser.uid);
-    if (alreadyExists) return;
     const prefix = authUser.email.split("@")[0];
+    // Always keep currentUser in sync so "My Tasks" filters work correctly
+    setCurrentUser(prefix);
+    const byUid   = users.find((u) => u.id === authUser.uid);
+    const byEmail = users.find((u) => u.email === authUser.email);
+    // Already linked by UID — nothing to do
+    if (byUid) return;
+    // Pre-created via "Invite User" form (matched by email, wrong id) — fix the id
+    if (byEmail) {
+      updateUser({ ...byEmail, id: authUser.uid, role });
+      return;
+    }
+    // Brand-new user — create the AppContext record
     const name   = prefix.charAt(0).toUpperCase() + prefix.slice(1);
-    const COLORS  = ["#6366f1","#3b82f6","#10b981","#f59e0b","#ef4444","#8b5cf6","#ec4899"];
-    const color   = COLORS[authUser.uid.charCodeAt(0) % COLORS.length];
+    const COLORS = ["#6366f1","#3b82f6","#10b981","#f59e0b","#ef4444","#8b5cf6","#ec4899"];
+    const color  = COLORS[authUser.uid.charCodeAt(0) % COLORS.length];
     createUser({
       id:       authUser.uid,
       name,
@@ -153,9 +163,10 @@ function AppInner() {
 
   const handleProfileClick  = useCallback(() => navigate("/profile"), [navigate]);
   const handleCreateClick   = useCallback(() => {
+    if (role === "viewer") return; // viewers cannot create tasks
     setSelectedSprint(sprintOptions[0]);
     setCreateModalOpen(true);
-  }, [sprintOptions]);
+  }, [sprintOptions, role]);
 
   const boardPage = (
     <PageTransition>
@@ -187,7 +198,7 @@ function AppInner() {
           <Route path="/calendar"  element={<PageTransition><CalendarPage /></PageTransition>} />
           <Route path="/reports"   element={<PageTransition><ReportsPage /></PageTransition>} />
           <Route path="/profile"   element={<PageTransition><ProfilePage /></PageTransition>} />
-          <Route path="/admin"     element={<PageTransition><AdminPage /></PageTransition>} />
+          <Route path="/admin"     element={<PageTransition>{isAdmin ? <AdminPage /> : <Navigate to="/board" replace />}</PageTransition>} />
           <Route path="/projects"  element={<PageTransition><ProjectsPage onNavigate={(p) => navigate(`/${p}`)} /></PageTransition>} />
           <Route path="/docs"      element={<PageTransition><DocsPage /></PageTransition>} />
           <Route path="/releases"  element={<PageTransition><ReleasesPage /></PageTransition>} />

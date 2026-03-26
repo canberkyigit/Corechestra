@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { taskKey } from "../utils/helpers";
 import {
   FaFlask, FaPlus, FaTimes, FaEdit, FaTrash, FaCheck, FaPlay, FaStop,
   FaCheckCircle, FaTimesCircle, FaMinusCircle, FaChevronRight, FaChevronDown,
@@ -347,7 +348,7 @@ function TestCaseModal({ initialData, allTasks, onClose, onSave }) {
             </label>
             {linkedTask ? (
               <div className="flex items-center gap-2 px-3 py-2 bg-blue-600/10 border border-blue-500/30 rounded-lg">
-                <span className="text-xs text-blue-400 font-mono">CY-{linkedTask.id}</span>
+                <span className="text-xs text-blue-400 font-mono">{taskKey(linkedTask.id)}</span>
                 <span className="text-sm text-slate-800 dark:text-white flex-1 truncate">{linkedTask.title}</span>
                 <button onClick={() => setLinkedTaskId("")} className="text-slate-500 hover:text-red-400 transition-colors">
                   <FaTimes className="w-3 h-3" />
@@ -377,7 +378,7 @@ function TestCaseModal({ initialData, allTasks, onClose, onSave }) {
                           setTaskDropOpen(false);
                         }}
                       >
-                        <span className="text-xs text-slate-500 dark:text-slate-400 font-mono flex-shrink-0">CY-{t.id}</span>
+                        <span className="text-xs text-slate-500 dark:text-slate-400 font-mono flex-shrink-0">{taskKey(t.id)}</span>
                         <span className="text-sm text-slate-800 dark:text-white truncate">{t.title}</span>
                       </button>
                     ))}
@@ -1131,7 +1132,7 @@ function TestCasesTab({ suite, cases, runs, allTasks, onCreateCase, onUpdateCase
                     {linkedTask && (
                       <div className="flex items-center gap-2 text-xs text-blue-400">
                         <FaLink className="w-3 h-3" />
-                        <span className="font-mono text-slate-500 dark:text-slate-400">CY-{linkedTask.id}</span>
+                        <span className="font-mono text-slate-500 dark:text-slate-400">{taskKey(linkedTask.id)}</span>
                         <span className="text-blue-400">{linkedTask.title}</span>
                       </div>
                     )}

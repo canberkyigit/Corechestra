@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { taskKey } from "../../utils/helpers";
 import { FaCheckCircle, FaRegCircle, FaStickyNote, FaHistory, FaChevronDown, FaChevronRight } from "react-icons/fa";
 import { useApp } from "../../context/AppContext";
 
@@ -149,7 +150,7 @@ export default function SprintReviewTab({ onTaskClick }) {
                     : <FaRegCircle className="w-4 h-4" />}
                 </button>
 
-                <span className="text-[10px] font-mono text-slate-400 flex-shrink-0">CY-{task.id}</span>
+                <span className="text-[10px] font-mono text-slate-400 flex-shrink-0">{taskKey(task.id)}</span>
 
                 <span
                   className="flex-1 text-sm font-medium text-slate-700 dark:text-slate-200 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 truncate"
@@ -195,7 +196,7 @@ export default function SprintReviewTab({ onTaskClick }) {
                 key={task.id}
                 className="flex items-center gap-3 px-3 py-2 rounded-xl border border-slate-100 dark:border-[#2a3044] opacity-60 hover:opacity-80 transition-opacity"
               >
-                <span className="text-[10px] font-mono text-slate-400">CY-{task.id}</span>
+                <span className="text-[10px] font-mono text-slate-400">{taskKey(task.id)}</span>
                 <span
                   className="flex-1 text-sm text-slate-600 dark:text-slate-300 cursor-pointer truncate"
                   onClick={() => onTaskClick?.(task)}

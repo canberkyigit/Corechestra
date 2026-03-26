@@ -1,4 +1,5 @@
 import React, { useState, useRef, useMemo } from "react";
+import { taskKey } from "../utils/helpers";
 import { useApp } from "../context/AppContext";
 import { format, parseISO } from "date-fns";
 import {
@@ -358,7 +359,7 @@ function CommentEditor({ value, onChange, onSubmit, onCancel, placeholder, autoF
             <button key={t.id} onMouseDown={(e) => { e.preventDefault(); insertTaskRef(t.id); }}
               className="w-full flex items-center gap-2 px-3 py-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-left transition-colors"
             >
-              <span className="text-[10px] font-mono text-slate-400 flex-shrink-0">CY-{t.id}</span>
+              <span className="text-[10px] font-mono text-slate-400 flex-shrink-0">{taskKey(t.id)}</span>
               <span className="text-xs text-slate-700 dark:text-slate-300 truncate">{t.title}</span>
             </button>
           ))}

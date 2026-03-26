@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
+import { taskKey } from "../utils/helpers";
 import { useApp } from "../context/AppContext";
 import { useAuth } from "../context/AuthContext";
 import { db } from "../services/firebase";
@@ -482,6 +483,7 @@ const ROLE_META = {
 };
 
 function AccessTab({ currentUid }) {
+  const { users, updateUser } = useApp();
   const [firebaseUsers, setFirebaseUsers] = useState([]);
   const [loading,       setLoading]       = useState(true);
   const [updating,      setUpdating]      = useState(null); // uid being updated
@@ -501,6 +503,9 @@ function AccessTab({ currentUid }) {
     setFirebaseUsers((prev) =>
       prev.map((u) => u.uid === uid ? { ...u, role: newRole } : u)
     );
+    // Sync to AppContext so People tab reflects the change immediately
+    const appUser = users.find((u) => u.id === uid);
+    if (appUser) updateUser({ ...appUser, role: newRole });
     setUpdating(null);
   };
 
@@ -890,6 +895,8 @@ function PeopleTab({ users, teams, updateTeam, updateUser, createUser, deleteUse
   const [showUserForm,        setShowUserForm]        = useState(false);
   const [editingUser,         setEditingUser]         = useState(null);
   const [selectedProfileUser, setSelectedProfileUser] = useState(null);
+  const [deletingUserId,      setDeletingUserId]      = useState(null);
+  const [refreshTick,         setRefreshTick]         = useState(0);
 
   // Merge display: AppContext users + any Firestore users not yet in AppContext (display-only, no AppContext mutation)
   const [mergedUsers, setMergedUsers] = useState(() => dedupUsers(users, deletedUserIds));
@@ -928,7 +935,7 @@ function PeopleTab({ users, teams, updateTeam, updateUser, createUser, deleteUse
     }).catch(() => {});
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [refreshTick]);
 
   // Keep in sync when AppContext users changes (e.g. after delete/update), preserve Firestore extras
   useEffect(() => {
@@ -1008,7 +1015,7 @@ function PeopleTab({ users, teams, updateTeam, updateUser, createUser, deleteUse
   };
 
   // Memoized per (expandedUser, taskSearch) — avoids re-filtering on every render
-  const expandedUser = users.find((u) => u.id === expandedUserId);
+  const expandedUser = mergedUsers.find((u) => u.id === expandedUserId);
   const assignableTasks = useMemo(() => {
     if (!expandedUser) return [];
     const q = taskSearch.toLowerCase();
@@ -1058,8 +1065,15 @@ function PeopleTab({ users, teams, updateTeam, updateUser, createUser, deleteUse
           <option value="inactive">Inactive</option>
         </select>
         <span className="text-xs text-slate-400 ml-auto flex-shrink-0">
-          {filtered.length} / {users.length} people
+          {filtered.length} / {mergedUsers.length} people
         </span>
+        <button
+          onClick={() => setRefreshTick((t) => t + 1)}
+          title="Refresh people list"
+          className="p-1.5 rounded-lg text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors flex-shrink-0"
+        >
+          <FaSpinner className="w-3.5 h-3.5" />
+        </button>
       </div>
 
       {/* User form */}
@@ -1263,19 +1277,27 @@ function PeopleTab({ users, teams, updateTeam, updateUser, createUser, deleteUse
                     >
                       <FaEdit className="w-3.5 h-3.5" />
                     </button>
-                    <button
-                      onClick={() => {
-                        deleteUser(user.id);
-                        // Mark as deleted in Firestore so merge effect won't re-add on refresh
-                        updateDoc(doc(db, "users", user.id), { deleted: true }).catch(() =>
-                          deleteDoc(doc(db, "users", user.id)).catch(() => {})
-                        );
-                      }}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                      title="Delete user"
-                    >
-                      <FaTrash className="w-3.5 h-3.5" />
-                    </button>
+                    {deletingUserId === user.id ? (
+                      <DeleteConfirm
+                        label="Remove?"
+                        onConfirm={() => {
+                          deleteUser(user.id);
+                          updateDoc(doc(db, "users", user.id), { deleted: true }).catch(() =>
+                            deleteDoc(doc(db, "users", user.id)).catch(() => {})
+                          );
+                          setDeletingUserId(null);
+                        }}
+                        onCancel={() => setDeletingUserId(null)}
+                      />
+                    ) : (
+                      <button
+                        onClick={() => setDeletingUserId(user.id)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                        title="Delete user"
+                      >
+                        <FaTrash className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                     <button
                       onClick={() => toggleExpand(user.id)}
                       className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border font-medium transition-all ${
@@ -1322,7 +1344,7 @@ function PeopleTab({ users, teams, updateTeam, updateUser, createUser, deleteUse
                             {PRI_DOT[t.priority] && (
                               <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: PRI_DOT[t.priority] }} />
                             )}
-                            <span className="text-[10px] font-mono text-slate-400 flex-shrink-0">CY-{t.id}</span>
+                            <span className="text-[10px] font-mono text-slate-400 flex-shrink-0">{taskKey(t.id)}</span>
                             <span className="flex-1 text-xs text-slate-700 dark:text-slate-200 truncate min-w-0">{t.title}</span>
                             {t.status && (
                               <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 ${TASK_STATUS_STYLES[t.status] || ""}`}>
@@ -1366,7 +1388,7 @@ function PeopleTab({ users, teams, updateTeam, updateUser, createUser, deleteUse
                             {PRI_DOT[t.priority] && (
                               <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: PRI_DOT[t.priority] }} />
                             )}
-                            <span className="text-[10px] font-mono text-slate-400 flex-shrink-0">CY-{t.id}</span>
+                            <span className="text-[10px] font-mono text-slate-400 flex-shrink-0">{taskKey(t.id)}</span>
                             <span className="flex-1 text-xs text-slate-700 dark:text-slate-200 truncate min-w-0">{t.title}</span>
                             {t.assignedTo && t.assignedTo !== "unassigned" && (
                               <span className="text-[10px] text-slate-400 flex-shrink-0 italic truncate max-w-16">@{t.assignedTo}</span>
