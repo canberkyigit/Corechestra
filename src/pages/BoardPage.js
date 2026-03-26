@@ -16,7 +16,7 @@ import EpicsTab from "../components/tabs/EpicsTab";
 import SprintReviewTab from "../components/tabs/SprintReviewTab";
 import { Listbox } from "@headlessui/react";
 import {
-  FaChevronDown, FaTags, FaFlag, FaHashtag, FaBars,
+  FaChevronDown, FaTags, FaFlag, FaHashtag, FaBars, FaLayerGroup,
   FaPlay, FaCheckCircle, FaEdit, FaColumns, FaList, FaTable,
   FaCheck, FaTrash, FaCalendarAlt,
 } from "react-icons/fa";
@@ -362,6 +362,7 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
 
   // Bulk selection
   const [bulkMode, setBulkMode] = useState(false);
+  const [swimlaneMode, setSwimlaneMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [bulkStatus, setBulkStatus] = useState("");
 
@@ -497,7 +498,7 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
     <div className="h-full bg-slate-50 dark:bg-[#141720] flex flex-col transition-colors">
       {/* Sprint header banner */}
       {sprint && (
-        <div className="bg-white dark:bg-[#1c2030] border-b border-slate-200 dark:border-[#2a3044] px-6 py-2.5 flex items-center gap-4 transition-colors">
+        <div className="bg-white dark:bg-[#1c2030] border-b border-slate-200 dark:border-[#2a3044] px-3 md:px-6 py-2.5 flex flex-wrap items-center gap-2 md:gap-4 transition-colors">
           <div className="flex items-center gap-2">
             <span className={`w-2 h-2 rounded-full ${sprint.status === "active" ? "bg-green-500" : sprint.status === "completed" ? "bg-slate-400" : "bg-yellow-400"}`} />
             <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">{sprint.name}</span>
@@ -567,13 +568,13 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
       )}
 
       {/* Tab bar + Create button */}
-      <div className="flex items-center gap-2 px-6 pt-4 pb-0 border-b border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#1c2030] transition-colors">
-        <div className="flex gap-0.5">
+      <div className="flex items-center gap-2 px-3 md:px-6 pt-3 md:pt-4 pb-0 border-b border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#1c2030] transition-colors min-w-0">
+        <div className="flex gap-0.5 overflow-x-auto scrollbar-none min-w-0 flex-1">
           {TABS.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2.5 font-medium text-sm transition-all border-b-2 -mb-px ${
+              className={`flex-shrink-0 px-2.5 md:px-4 py-2.5 font-medium text-xs md:text-sm transition-all border-b-2 -mb-px whitespace-nowrap ${
                 activeTab === tab.id
                   ? "border-blue-500 text-blue-600"
                   : "border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#232838]"
@@ -583,22 +584,22 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
             </button>
           ))}
         </div>
-        <div className="flex-1" />
         <button
-          className="mb-1 px-4 py-1.5 rounded-lg bg-blue-600 text-white font-medium shadow-sm hover:bg-blue-700 transition-all text-sm flex items-center gap-1.5"
+          className="flex-shrink-0 mb-1 px-2.5 md:px-4 py-1.5 rounded-lg bg-blue-600 text-white font-medium shadow-sm hover:bg-blue-700 transition-all text-xs md:text-sm flex items-center gap-1"
           onClick={() => { setSelectedSprint(sprintOptions[0]); setCreateModalOpen(true); }}
         >
-          + Create Task
+          <span className="md:hidden">+</span>
+          <span className="hidden md:inline">+ Create Task</span>
         </button>
       </div>
 
       {/* Active Sprint filters */}
       {activeTab === "active" && (
-        <div className="flex items-center justify-between px-6 py-3 gap-4 bg-white dark:bg-[#1c2030] border-b border-slate-100 dark:border-[#232838] transition-colors flex-wrap">
-          <div className="flex gap-2 items-center flex-wrap">
+        <div className="flex items-center justify-between px-3 md:px-6 py-2.5 gap-2 md:gap-4 bg-white dark:bg-[#1c2030] border-b border-slate-100 dark:border-[#232838] transition-colors flex-wrap">
+          <div className="flex gap-1.5 md:gap-2 items-center flex-wrap">
             {/* Type filter */}
             <Listbox value={filter} onChange={setFilter}>
-              <div className="relative w-36">
+              <div className="relative w-28 md:w-36">
                 <Listbox.Button className="relative w-full cursor-pointer rounded-lg border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#1c2030] py-1.5 pl-3 pr-8 text-left text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-slate-300 dark:hover:border-slate-500">
                   <span className="block truncate">{filter.label}</span>
                   <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
@@ -619,7 +620,7 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
 
             {/* Member filter */}
             <Listbox value={member} onChange={setMember}>
-              <div className="relative w-36">
+              <div className="relative w-28 md:w-36">
                 <Listbox.Button className="relative w-full cursor-pointer rounded-lg border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#1c2030] py-1.5 pl-3 pr-8 text-left text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-slate-300 dark:hover:border-slate-500">
                   <span className="block truncate">{member.label}</span>
                   <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
@@ -658,6 +659,21 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
               </button>
             ))}
 
+            {/* Swimlane toggle — only in kanban view */}
+            {viewMode === "kanban" && (
+              <button
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-all ${
+                  swimlaneMode
+                    ? "bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400"
+                    : "border-slate-200 dark:border-[#2a3044] text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-500"
+                }`}
+                onClick={() => setSwimlaneMode((v) => !v)}
+                title="Swimlane view"
+              >
+                <FaLayerGroup className="w-3.5 h-3.5" /> Swimlane
+              </button>
+            )}
+
             {/* Bulk mode toggle */}
             {viewMode !== "kanban" && <button
               onClick={() => { setBulkMode((v) => !v); setSelectedIds(new Set()); }}
@@ -670,13 +686,13 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
             </button>}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 md:gap-2">
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search tasks..."
-              className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#1c2030] text-slate-700 dark:text-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 w-48"
+              placeholder="Search..."
+              className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#1c2030] text-slate-700 dark:text-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 w-28 md:w-48"
             />
 
             {/* View mode toggle */}
@@ -768,6 +784,7 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
               priorityColorsOpen={showPriorityColors}
               taskIdsOpen={showTaskIds}
               subtaskButtonsOpen={showSubtaskButtons}
+              swimlaneMode={swimlaneMode}
               onTaskClick={handleTaskClick}
               columns={columns}
             />

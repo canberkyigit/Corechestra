@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import KanbanColumn from "./KanbanColumn";
 import { DragDropContext } from "@hello-pangea/dnd";
-import { FaLayerGroup, FaTrash, FaArrowRight, FaUserAlt, FaChevronDown, FaChevronRight } from "react-icons/fa";
+import { FaTrash, FaArrowRight, FaUserAlt, FaChevronDown, FaChevronRight } from "react-icons/fa";
 import { useApp } from "../context/AppContext";
 
 export default function KanbanBoard({
@@ -15,11 +15,11 @@ export default function KanbanBoard({
   priorityColorsOpen,
   taskIdsOpen,
   subtaskButtonsOpen,
+  swimlaneMode,
   onTaskClick,
   columns,
 }) {
   const { deleteTask, teamMembers } = useApp();
-  const [swimlaneMode, setSwimlaneMode] = useState(false);
   const [collapsedLanes, setCollapsedLanes] = useState(new Set());
 
   const toggleLane = (assignee) => {
@@ -121,21 +121,9 @@ export default function KanbanBoard({
 
   return (
     <div className="flex flex-col h-full">
-      {/* Toolbar row */}
-      <div className="flex items-center gap-3 px-4 py-2 mb-2">
-        <button
-          className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded border transition-colors ${
-            swimlaneMode
-              ? "bg-blue-50 border-blue-300 text-blue-600"
-              : "bg-white border-slate-200 text-slate-500 hover:border-slate-300"
-          }`}
-          onClick={() => setSwimlaneMode((v) => !v)}
-        >
-          <FaLayerGroup className="w-3.5 h-3.5" />
-          Swimlane
-        </button>
-
-        {selectedIds.size > 0 && (
+      {/* Bulk actions toolbar */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center gap-3 px-4 py-2 mb-2">
           <div className="flex items-center gap-2 ml-auto bg-blue-600 text-white text-xs rounded-lg px-3 py-1.5 shadow-md">
             <span className="font-medium">{selectedIds.size} selected</span>
             <span className="opacity-50">|</span>
@@ -155,13 +143,13 @@ export default function KanbanBoard({
             </button>
             <button className="opacity-75 hover:opacity-100" onClick={() => setSelectedIds(new Set())}>✕</button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       <DragDropContext onDragEnd={onDragEnd}>
         {swimlaneMode ? (
           /* Swimlane view */
-          <div className="flex-1 overflow-auto px-4">
+          <div className="flex-1 overflow-auto px-4 pt-4">
             {swimlaneGroups.map(({ assignee, tasks: groupTasks }) => {
               const isCollapsed = collapsedLanes.has(assignee);
               const member = teamMembers.find((m) => m.value === assignee);
@@ -197,8 +185,8 @@ export default function KanbanBoard({
 
                   {/* Lane columns */}
                   {!isCollapsed && (
-                    <div className="grid gap-4 items-start pl-4"
-                      style={{ gridTemplateColumns: `repeat(${boardColumns.length}, minmax(0,1fr))` }}>
+                    <div className="grid gap-3 items-start pl-2 md:pl-4 overflow-x-auto"
+                      style={{ gridTemplateColumns: `repeat(${boardColumns.length}, minmax(180px,1fr))` }}>
                       {boardColumns.map((col) => (
                         <KanbanColumn
                           key={`${assignee}-${col.id}`}
@@ -221,7 +209,7 @@ export default function KanbanBoard({
           </div>
         ) : (
           /* Normal board view */
-          <div className="flex-1 overflow-x-auto px-4 pb-6">
+          <div className="flex-1 overflow-auto px-4 pt-4 pb-6">
             <div
               className="grid gap-4 h-full"
               style={{ gridTemplateColumns: `repeat(${boardColumns.length}, minmax(210px, 1fr))` }}

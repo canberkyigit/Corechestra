@@ -384,7 +384,7 @@ export default function PlanningTab() {
       </div>
 
       {/* ── 2. Sprint Goal card ────────────────────────────────────────────── */}
-      <div className="rounded-xl bg-blue-50 dark:bg-gradient-to-r dark:from-blue-900/25 dark:to-indigo-900/15 border border-blue-200 dark:border-blue-700/30 p-4">
+      <div className="rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700/40 p-4">
         <div className="flex items-center gap-2 mb-2">
           <FaCheckCircle className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400 flex-shrink-0" />
           <span className="text-xs font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400">Sprint Goal</span>
