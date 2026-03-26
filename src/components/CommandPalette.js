@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
+import { taskKey } from "../utils/helpers";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   FaSearch, FaTimes, FaCheckSquare, FaBug, FaPlusSquare, FaExclamationCircle,
@@ -177,7 +178,7 @@ export default function CommandPalette({ open, onClose, onOpenTask, onNavigate }
                       onMouseEnter={() => setCursor(i)}
                     >
                       <TypeIcon className={`w-3.5 h-3.5 flex-shrink-0 ${typeInfo.color}`} />
-                      <span className="text-xs font-mono text-slate-400 flex-shrink-0">CY-{r.id}</span>
+                      <span className="text-xs font-mono text-slate-400 flex-shrink-0">{taskKey(r.id)}</span>
                       <span className="text-sm text-slate-700 dark:text-slate-200 flex-1 truncate">{highlight(r.title)}</span>
                       {r.status && (
                         <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 ${STATUS_COLORS[r.status] || STATUS_COLORS.todo}`}>

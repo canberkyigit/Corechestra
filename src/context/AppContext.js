@@ -319,7 +319,7 @@ export function AppProvider({ children }) {
       taskId,
       action,
       details,
-      user: "You",
+      user: currentUser || "Unknown",
       timestamp: new Date().toISOString(),
       projectId: currentProjectId,
     };
@@ -484,6 +484,7 @@ export function AppProvider({ children }) {
     const projectTasks = activeTasks.filter((t) => (t.projectId || "proj-1") === currentProjectId);
     const incomplete = projectTasks.filter((t) => t.status !== "done");
     const done = projectTasks.filter((t) => t.status === "done");
+    // Move incomplete tasks to the chosen backlog section
     if (moveToBacklogSectionId && incomplete.length > 0) {
       setBacklogSections((prev) =>
         prev.map((s) =>
@@ -492,8 +493,16 @@ export function AppProvider({ children }) {
             : s
         )
       );
-      setActiveTasks((prev) => prev.filter((t) => t.status === "done" || (t.projectId || "proj-1") !== currentProjectId));
     }
+    // Archive all done tasks from this sprint
+    if (done.length > 0) {
+      setArchivedTasks((prev) => [
+        ...done.map((t) => ({ ...t, archivedAt: new Date().toISOString() })),
+        ...prev,
+      ]);
+    }
+    // Remove all current-project tasks from the active board (done + incomplete that moved to backlog)
+    setActiveTasks((prev) => prev.filter((t) => (t.projectId || "proj-1") !== currentProjectId));
     // Save completed sprint snapshot
     const currentSprint = perProjectSprint[currentProjectId];
     if (currentSprint) {
@@ -521,7 +530,7 @@ export function AppProvider({ children }) {
     logActivity("sprint", "completed sprint");
     addNotification({ type: "sprint_completed", text: `Sprint completed — ${done.length}/${projectTasks.length} tasks done` });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTasks, currentProjectId, perProjectSprint, logActivity, setBacklogSections, setSprint]);
+  }, [activeTasks, currentProjectId, perProjectSprint, logActivity, setBacklogSections, setSprint, setArchivedTasks]);
 
   const updateSprint = useCallback((patch) => {
     setSprint((prev) => ({ ...prev, ...patch }));

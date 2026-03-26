@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
+import { taskKey } from "../utils/helpers";
 import { motion, AnimatePresence } from "framer-motion";
 import { Listbox } from "@headlessui/react";
 import {
@@ -379,7 +380,7 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
           <TypeIcon className={`w-3.5 h-3.5 ${typeInfo.color}`} />
         </div>
         <span className="text-xs font-mono font-semibold text-slate-400 dark:text-slate-500 flex-shrink-0 bg-slate-100 dark:bg-[#232838] px-1.5 py-0.5 rounded">
-          CY-{task.id}
+          {taskKey(task.id)}
         </span>
         <input
           className="flex-1 text-sm font-semibold text-slate-800 dark:text-slate-200 bg-transparent border-none outline-none placeholder-slate-300 dark:placeholder-slate-600 min-w-0"
@@ -802,7 +803,7 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
                             onClick={() => handleAddLink(t.id)}
                           >
                             <TIcon className={`w-3 h-3 flex-shrink-0 ${tInfo.color}`} />
-                            <span className="text-xs font-mono text-slate-400 flex-shrink-0">CY-{t.id}</span>
+                            <span className="text-xs font-mono text-slate-400 flex-shrink-0">{taskKey(t.id)}</span>
                             <span className="text-xs text-slate-700 dark:text-slate-300 flex-1 truncate">{t.title}</span>
                             <span className={`text-xs px-1.5 py-0.5 rounded-full flex-shrink-0 ${STATUS_COLORS[t.status] || STATUS_COLORS.todo}`}>
                               {STATUS_OPTIONS.find((o) => o.value === t.status)?.label || t.status}
@@ -838,7 +839,7 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
                             className="flex items-center gap-2 px-3 py-2 border-b border-slate-50 dark:border-[#2a3044] last:border-0 hover:bg-slate-50 dark:hover:bg-[#232838] group"
                           >
                             <LTIcon className={`w-3.5 h-3.5 flex-shrink-0 ${ltInfo.color}`} />
-                            <span className="text-xs font-mono text-slate-400 dark:text-slate-500 flex-shrink-0">CY-{linkedTask.id}</span>
+                            <span className="text-xs font-mono text-slate-400 dark:text-slate-500 flex-shrink-0">{taskKey(linkedTask.id)}</span>
                             <span className="text-xs text-slate-700 dark:text-slate-300 flex-1 truncate">{linkedTask.title}</span>
                             <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 ${STATUS_COLORS[linkedTask.status] || STATUS_COLORS.todo}`}>
                               {STATUS_OPTIONS.find((o) => o.value === linkedTask.status)?.label || linkedTask.status}

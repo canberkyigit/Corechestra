@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useApp } from "../context/AppContext";
 import { useAuth } from "../context/AuthContext";
 import {
@@ -60,7 +60,12 @@ export default function ProfilePage() {
 
   const [editMode,     setEditMode]     = useState(false);
   const [saved,        setSaved]        = useState(false);
-  const [avatarColor,  setAvatarColor]  = useState(AVATAR_COLORS[0]);
+  const [avatarColor,  setAvatarColor]  = useState(appUser?.color || AVATAR_COLORS[0]);
+
+  // Sync avatar color when appUser loads (e.g. on first render before AppContext hydrates)
+  useEffect(() => {
+    if (appUser?.color) setAvatarColor(appUser.color);
+  }, [appUser?.color]); // eslint-disable-line
 
   const [form, setForm] = useState({
     name:     profile?.name     || defaultName,
@@ -73,14 +78,19 @@ export default function ProfilePage() {
   });
 
   const [notifPrefs, setNotifPrefs] = useState(
-    Object.fromEntries(NOTIF_SETTINGS.map((n) => [n.id, true]))
+    profile?.notifPrefs ?? Object.fromEntries(NOTIF_SETTINGS.map((n) => [n.id, true]))
   );
 
   const handleSave = async () => {
-    const fields = { name: form.name, fullName: form.fullName, title: form.title, timezone: form.timezone, bio: form.bio };
+    const fields = {
+      name: form.name, fullName: form.fullName,
+      title: form.title, timezone: form.timezone, bio: form.bio,
+      color: avatarColor,
+      notifPrefs,
+    };
     // Persist to Firestore
     await updateProfile(fields);
-    // Sync to AppContext People list
+    // Sync to AppContext People list (color + name visible everywhere)
     if (appUser) updateUser({ ...appUser, ...fields });
     setSaved(true);
     setEditMode(false);

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
+import { taskKey } from "../utils/helpers";
 import { motion, AnimatePresence } from "framer-motion";
 import { Listbox } from "@headlessui/react";
 import {
@@ -8,6 +9,7 @@ import {
   FaCloudUploadAlt, FaFileAlt,
 } from "react-icons/fa";
 import { useApp } from "../context/AppContext";
+import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { taskSchema } from "../schemas";
 import CommentSection from "./CommentSection";
@@ -93,6 +95,8 @@ export default function TaskDetailModal({
   onOpenPanel,
 }) {
   const { epics, labels, deleteTask, logActivity, sprint, teamMembers, currentProjectId, projects } = useApp();
+  const { role } = useAuth();
+  const isViewer = role === "viewer";
 
   const currentProject = projects.find((p) => p.id === currentProjectId);
   const projectMemberSet = new Set(currentProject?.memberUsernames || []);
@@ -173,7 +177,7 @@ export default function TaskDetailModal({
     const q = linkSearch.toLowerCase();
     return (allTasks || [])
       .filter((t) => t.id !== task?.id && !linkedItems.some((l) => l.targetId === t.id))
-      .filter((t) => t.title.toLowerCase().includes(q) || `cy-${t.id}`.includes(q))
+      .filter((t) => t.title.toLowerCase().includes(q) || taskKey(t.id).toLowerCase().includes(q))
       .slice(0, 8);
   }, [linkSearch, allTasks, task, linkedItems]);
 
@@ -219,6 +223,7 @@ export default function TaskDetailModal({
   });
 
   const handleSave = () => {
+    if (isViewer) return;
     if (isCreate) {
       const result = taskSchema.safeParse({ title, description, type, priority, status, assignedTo, dueDate, storyPoint });
       if (!result.success) {
@@ -404,7 +409,7 @@ export default function TaskDetailModal({
           </div>
           {!isCreate && task?.id && (
             <span className="text-xs font-mono font-semibold text-slate-400 dark:text-slate-500 flex-shrink-0 bg-slate-100 dark:bg-[#232838] px-1.5 py-0.5 rounded">
-              CY-{task.id}
+              {taskKey(task.id)}
             </span>
           )}
           <input
@@ -651,7 +656,7 @@ export default function TaskDetailModal({
                                 <button key={t.id} className="w-full flex items-center gap-2 px-3 py-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-left transition-colors"
                                   onClick={() => handleAddLink(t.id)}>
                                   <TIcon className={`w-3 h-3 flex-shrink-0 ${tInfo.color}`} />
-                                  <span className="text-xs font-mono text-slate-400 flex-shrink-0">CY-{t.id}</span>
+                                  <span className="text-xs font-mono text-slate-400 flex-shrink-0">{taskKey(t.id)}</span>
                                   <span className="text-xs text-slate-700 dark:text-slate-300 flex-1 truncate">{t.title}</span>
                                 </button>
                               );
@@ -673,7 +678,7 @@ export default function TaskDetailModal({
                               return (
                                 <div key={linkId} className="flex items-center gap-2 px-3 py-2 border-b border-slate-50 dark:border-[#2a3044] last:border-0 hover:bg-slate-50 dark:hover:bg-[#232838] group">
                                   <LTIcon className={`w-3.5 h-3.5 flex-shrink-0 ${ltInfo.color}`} />
-                                  <span className="text-xs font-mono text-slate-400 flex-shrink-0">CY-{linkedTask.id}</span>
+                                  <span className="text-xs font-mono text-slate-400 flex-shrink-0">{taskKey(linkedTask.id)}</span>
                                   <span className="text-sm text-slate-700 dark:text-slate-300 flex-1 truncate">{linkedTask.title}</span>
                                   <button className="opacity-0 group-hover:opacity-100 p-0.5 text-slate-300 hover:text-red-500 transition-all" onClick={() => handleRemoveLink(linkId)}>
                                     <FaTimes className="w-2.5 h-2.5" />
@@ -1027,7 +1032,7 @@ export default function TaskDetailModal({
                             <button key={t.id} className="w-full flex items-center gap-2 px-3 py-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-left transition-colors"
                               onClick={() => handleAddLink(t.id)}>
                               <TIcon className={`w-3 h-3 flex-shrink-0 ${tInfo.color}`} />
-                              <span className="text-xs font-mono text-slate-400 flex-shrink-0">CY-{t.id}</span>
+                              <span className="text-xs font-mono text-slate-400 flex-shrink-0">{taskKey(t.id)}</span>
                               <span className="text-xs text-slate-700 dark:text-slate-300 flex-1 truncate">{t.title}</span>
                             </button>
                           );
@@ -1053,7 +1058,7 @@ export default function TaskDetailModal({
                           return (
                             <div key={linkId} className="flex items-center gap-2 px-3 py-2 border-b border-slate-50 dark:border-[#2a3044] last:border-0 hover:bg-slate-50 dark:hover:bg-[#232838] group">
                               <LTIcon className={`w-3.5 h-3.5 flex-shrink-0 ${ltInfo.color}`} />
-                              <span className="text-xs font-mono text-slate-400 flex-shrink-0">CY-{linkedTask.id}</span>
+                              <span className="text-xs font-mono text-slate-400 flex-shrink-0">{taskKey(linkedTask.id)}</span>
                               <span className="text-sm text-slate-700 dark:text-slate-300 flex-1 truncate">{linkedTask.title}</span>
                               <button className="opacity-0 group-hover:opacity-100 p-0.5 text-slate-300 hover:text-red-500 transition-all" onClick={() => handleRemoveLink(linkId)} title="Unlink">
                                 <FaTimes className="w-2.5 h-2.5" />
@@ -1195,12 +1200,18 @@ export default function TaskDetailModal({
             >
               {hasChanges ? "Discard" : "Close"}
             </button>
-            <button
-              className="px-4 py-1.5 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              onClick={handleSave}
-            >
-              {isCreate ? "Create Task" : "Save Changes"}
-            </button>
+            {isViewer ? (
+              <span className="px-4 py-1.5 text-sm font-medium text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-[#2a3044] rounded-lg cursor-not-allowed" title="Viewers cannot edit tasks">
+                Read-only
+              </span>
+            ) : (
+              <button
+                className="px-4 py-1.5 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                onClick={handleSave}
+              >
+                {isCreate ? "Create Task" : "Save Changes"}
+              </button>
+            )}
           </div>
         </div>
       </motion.div>

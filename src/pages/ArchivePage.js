@@ -18,7 +18,7 @@ const STATUS_COLORS = {
 export default function ArchivePage() {
   const {
     archivedTasks, restoreTask, permanentDeleteTask, emptyArchive,
-    projects,
+    projects, currentProjectId,
   } = useApp();
   const { addToast } = useToast();
 
@@ -26,9 +26,12 @@ export default function ArchivePage() {
   const [confirmEmpty, setConfirmEmpty] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [sortBy, setSortBy] = useState("date");
+  const [showAllProjects, setShowAllProjects] = useState(false);
 
   const filtered = useMemo(() => {
-    let items = [...archivedTasks];
+    let items = showAllProjects
+      ? [...archivedTasks]
+      : archivedTasks.filter((t) => (t.projectId || "proj-1") === currentProjectId);
     if (search.trim()) {
       const q = search.toLowerCase();
       items = items.filter((t) =>
@@ -75,7 +78,7 @@ export default function ArchivePage() {
     return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
   };
 
-  const totalCount = archivedTasks.length;
+  const totalCount = filtered.length;
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
@@ -90,24 +93,36 @@ export default function ArchivePage() {
             </p>
           </div>
         </div>
-        {totalCount > 0 && (
-          <div>
-            {!confirmEmpty ? (
-              <button
-                onClick={() => setConfirmEmpty(true)}
-                className="flex items-center gap-2 px-3 py-2 text-sm text-red-500 border border-red-200 dark:border-red-900/30 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
-              >
-                <FaTrashAlt className="w-3.5 h-3.5" /> Empty Archive
-              </button>
-            ) : (
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-red-500 font-medium">Delete all permanently?</span>
-                <button onClick={handleEmptyArchive} className="px-3 py-1.5 text-xs bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">Yes, empty</button>
-                <button onClick={() => setConfirmEmpty(false)} className="px-3 py-1.5 text-xs border border-slate-200 dark:border-slate-700 text-slate-500 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">Cancel</button>
-              </div>
-            )}
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowAllProjects((v) => !v)}
+            className={`text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors ${
+              showAllProjects
+                ? "bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400"
+                : "border-slate-200 dark:border-[#2a3044] text-slate-500 dark:text-slate-400 hover:border-blue-300"
+            }`}
+          >
+            {showAllProjects ? "Current Project" : "All Projects"}
+          </button>
+          {totalCount > 0 && (
+            <div>
+              {!confirmEmpty ? (
+                <button
+                  onClick={() => setConfirmEmpty(true)}
+                  className="flex items-center gap-2 px-3 py-2 text-sm text-red-500 border border-red-200 dark:border-red-900/30 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
+                >
+                  <FaTrashAlt className="w-3.5 h-3.5" /> Empty Archive
+                </button>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-red-500 font-medium">Delete all permanently?</span>
+                  <button onClick={handleEmptyArchive} className="px-3 py-1.5 text-xs bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">Yes, empty</button>
+                  <button onClick={() => setConfirmEmpty(false)} className="px-3 py-1.5 text-xs border border-slate-200 dark:border-slate-700 text-slate-500 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">Cancel</button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Search & Sort */}
