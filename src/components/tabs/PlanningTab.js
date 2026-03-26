@@ -18,10 +18,10 @@ const MAX_CAPACITY_MEMBERS = 8;
 
 // ─── Color helpers ────────────────────────────────────────────────────────────
 const PRIORITY_CLASSES = {
-  critical: "bg-red-900/30 text-red-400 border border-red-800/40",
-  high:     "bg-red-900/20 text-red-400 border border-red-800/30",
-  medium:   "bg-yellow-900/20 text-yellow-400 border border-yellow-800/30",
-  low:      "bg-green-900/20 text-green-400 border border-green-800/30",
+  critical: "bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/40",
+  high:     "bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/30",
+  medium:   "bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-800/30",
+  low:      "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800/30",
 };
 
 const PRIORITY_DOT = {
@@ -32,12 +32,12 @@ const PRIORITY_DOT = {
 };
 
 const STATUS_CLASSES = {
-  todo:       "bg-slate-700/60 text-slate-300",
-  inprogress: "bg-blue-900/40 text-blue-400",
-  review:     "bg-purple-900/40 text-purple-400",
-  awaiting:   "bg-orange-900/30 text-orange-400",
-  blocked:    "bg-red-900/30 text-red-400",
-  done:       "bg-green-900/30 text-green-400",
+  todo:       "bg-slate-100 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300",
+  inprogress: "bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400",
+  review:     "bg-purple-50 dark:bg-purple-900/40 text-purple-700 dark:text-purple-400",
+  awaiting:   "bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400",
+  blocked:    "bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400",
+  done:       "bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400",
 };
 
 const STATUS_LABEL = {
@@ -79,7 +79,7 @@ function StatusChip({ status }) {
 function SPBadge({ points }) {
   const n = Number(points) || 0;
   return (
-    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#232838] border border-[#2a3044] text-slate-300 min-w-[22px] text-center">
+    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-[#232838] border border-slate-200 dark:border-[#2a3044] text-slate-600 dark:text-slate-300 min-w-[22px] text-center">
       {n}
     </span>
   );
@@ -121,8 +121,8 @@ function SectionLabel({ title, count }) {
       <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">
         {title}
       </span>
-      <span className="text-[10px] text-slate-600 font-medium">({count})</span>
-      <div className="flex-1 h-px bg-[#252b3b]" />
+      <span className="text-[10px] text-slate-400 dark:text-slate-600 font-medium">({count})</span>
+      <div className="flex-1 h-px bg-slate-200 dark:bg-[#252b3b]" />
     </div>
   );
 }
@@ -140,18 +140,18 @@ function CapacityBar({ totalSP, capacitySP }) {
     <div className="space-y-1">
       <div className="flex justify-between items-center text-[10px] text-slate-500">
         <span>{totalSP} SP used</span>
-        <span className={overCapacity ? "text-red-400 font-semibold" : nearCapacity ? "text-yellow-400" : "text-green-400"}>
+        <span className={overCapacity ? "text-red-500 dark:text-red-400 font-semibold" : nearCapacity ? "text-yellow-600 dark:text-yellow-400" : "text-green-600 dark:text-green-400"}>
           {capacitySP > 0 ? `${Math.round(pct)}%` : "—"} of {capacitySP} SP capacity
         </span>
       </div>
-      <div className="h-2 rounded-full bg-[#232838] overflow-hidden">
+      <div className="h-2 rounded-full bg-slate-200 dark:bg-[#232838] overflow-hidden">
         <div
           className={`h-full rounded-full transition-all duration-500 ${barColor}`}
           style={{ width: `${pct}%` }}
         />
       </div>
       {overCapacity && (
-        <div className="flex items-center gap-1 text-[10px] text-red-400">
+        <div className="flex items-center gap-1 text-[10px] text-red-500 dark:text-red-400">
           <FaExclamationCircle className="w-2.5 h-2.5" />
           <span>Over capacity by {totalSP - capacitySP} SP</span>
         </div>
@@ -164,7 +164,7 @@ function CapacityBar({ totalSP, capacitySP }) {
 function VelocityChart({ snapshots }) {
   if (!snapshots || snapshots.length === 0) {
     return (
-      <div className="flex items-center justify-center h-16 text-slate-500 text-sm text-center">
+      <div className="flex items-center justify-center h-16 text-slate-400 dark:text-slate-500 text-sm text-center">
         No velocity data yet — complete a sprint to start tracking
       </div>
     );
@@ -192,7 +192,7 @@ function VelocityChart({ snapshots }) {
                 title={`${v} SP on ${dateStr}`}
               />
             </div>
-            <span className="text-[9px] text-slate-600 truncate w-full text-center">{dateStr}</span>
+            <span className="text-[9px] text-slate-400 dark:text-slate-600 truncate w-full text-center">{dateStr}</span>
           </div>
         );
       })}
@@ -212,6 +212,7 @@ export default function PlanningTab() {
     burndownSnapshots,
     users,
     teams,
+    projects,
     currentProjectId,
   } = useApp();
 
@@ -219,14 +220,7 @@ export default function PlanningTab() {
   const [goalDraft, setGoalDraft] = useState(sprint?.goal || "");
   const [hoveredBacklogId, setHoveredBacklogId] = useState(null);
   const [hoveredSprintId, setHoveredSprintId] = useState(null);
-
-  // Capacity: { username: 80 } — default 80%
-  const initialCapacities = useMemo(() => {
-    const map = {};
-    (users || []).slice(0, MAX_CAPACITY_MEMBERS).forEach((u) => { map[u] = 80; });
-    return map;
-  }, [users]);
-  const [capacities, setCapacities] = useState(initialCapacities);
+  const [capacities, setCapacities] = useState({});
 
   // ── Sync goal draft when sprint changes ──────────────────────────────────────
   const handleGoalBlur = useCallback(() => {
@@ -270,13 +264,21 @@ export default function PlanningTab() {
     return Math.round(sum / velocities.length);
   }, [burndownSnapshots]);
 
-  // Team capacity — normalize to [{id, name}] regardless of whether users are objects or strings
-  const memberList = useMemo(
-    () => (users || []).slice(0, MAX_CAPACITY_MEMBERS).map((u) =>
-      typeof u === "object" ? u : { id: u, name: u }
-    ),
-    [users]
-  );
+  // Team capacity — filter to current project members only, then normalize to [{id, name}]
+  const memberList = useMemo(() => {
+    const currentProject = projects?.find((p) => p.id === currentProjectId);
+    const memberNames = new Set(currentProject?.memberUsernames || []);
+    const filtered = memberNames.size > 0
+      ? (users || []).filter((u) =>
+          typeof u === "string"
+            ? memberNames.has(u)
+            : memberNames.has(u.username) || memberNames.has(u.id)
+        )
+      : (users || []);
+    return filtered
+      .slice(0, MAX_CAPACITY_MEMBERS)
+      .map((u) => (typeof u === "object" ? u : { id: u, name: u }));
+  }, [users, projects, currentProjectId]);
 
   const totalCapacitySP = useMemo(() => {
     return memberList.reduce((sum, u) => {
@@ -352,7 +354,7 @@ export default function PlanningTab() {
             <FaRocket className="w-4 h-4 text-blue-400" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-slate-100 leading-tight">Sprint Planning</h1>
+            <h1 className="text-xl font-bold text-slate-800 dark:text-slate-100 leading-tight">Sprint Planning</h1>
             <p className="text-xs text-slate-500 mt-0.5">
               {sprint?.name || "No sprint"}&nbsp;
               {sprint?.startDate || sprint?.endDate ? (
@@ -365,30 +367,30 @@ export default function PlanningTab() {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {avgVelocity !== null ? (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#1c2030] border border-[#2a3044] text-sm font-semibold text-slate-200">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white dark:bg-[#1c2030] border border-slate-200 dark:border-[#2a3044] text-sm font-semibold text-slate-700 dark:text-slate-200">
               <FaChartBar className="w-3 h-3 text-blue-400" />
-              Avg velocity: <span className="text-blue-400">{avgVelocity} SP</span>
+              Avg velocity: <span className="text-blue-500 dark:text-blue-400">{avgVelocity} SP</span>
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#1c2030] border border-[#2a3044] text-xs text-slate-500">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white dark:bg-[#1c2030] border border-slate-200 dark:border-[#2a3044] text-xs text-slate-500">
               <FaChartBar className="w-3 h-3" />
               Velocity: —
             </span>
           )}
-          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#1c2030] border border-[#2a3044] text-xs font-semibold text-slate-300">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white dark:bg-[#1c2030] border border-slate-200 dark:border-[#2a3044] text-xs font-semibold text-slate-600 dark:text-slate-300">
             {projectActiveTasks.length} tasks · {sprintTotalSP} SP
           </span>
         </div>
       </div>
 
       {/* ── 2. Sprint Goal card ────────────────────────────────────────────── */}
-      <div className="rounded-xl bg-gradient-to-r from-blue-900/25 to-indigo-900/15 border border-blue-700/30 p-4">
+      <div className="rounded-xl bg-blue-50 dark:bg-gradient-to-r dark:from-blue-900/25 dark:to-indigo-900/15 border border-blue-200 dark:border-blue-700/30 p-4">
         <div className="flex items-center gap-2 mb-2">
-          <FaCheckCircle className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
-          <span className="text-xs font-semibold uppercase tracking-wider text-blue-400">Sprint Goal</span>
+          <FaCheckCircle className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400 flex-shrink-0" />
+          <span className="text-xs font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400">Sprint Goal</span>
         </div>
         <textarea
-          className="w-full bg-transparent text-slate-200 placeholder-slate-600 text-sm leading-relaxed resize-none focus:outline-none focus:ring-1 focus:ring-blue-500/50 rounded px-1 min-h-[48px]"
+          className="w-full bg-transparent text-slate-700 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-600 text-sm leading-relaxed resize-none focus:outline-none focus:ring-1 focus:ring-blue-500/50 rounded px-1 min-h-[48px]"
           placeholder="Define the sprint goal — what value will be delivered by the end of this sprint?"
           value={goalDraft}
           onChange={(e) => setGoalDraft(e.target.value)}
@@ -401,23 +403,23 @@ export default function PlanningTab() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
 
         {/* ── Left: Backlog Pool ─────────────────────────────────────────── */}
-        <div className="rounded-xl bg-[#1a1f2e] border border-[#252b3b] flex flex-col overflow-hidden">
+        <div className="rounded-xl bg-slate-50 dark:bg-[#1a1f2e] border border-slate-200 dark:border-[#252b3b] flex flex-col overflow-hidden">
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-[#252b3b]">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-[#252b3b]">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-slate-200">Backlog Pool</span>
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-[#232838] text-slate-400 border border-[#2a3044]">
+              <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">Backlog Pool</span>
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-[#232838] text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044]">
                 {totalBacklogCount}
               </span>
             </div>
-            <FaArrowRight className="w-3 h-3 text-slate-600" />
+            <FaArrowRight className="w-3 h-3 text-slate-400 dark:text-slate-600" />
           </div>
 
           {/* Task list */}
           <div className="flex-1 overflow-y-auto max-h-[420px] px-3 py-2 space-y-0.5">
             {totalBacklogCount === 0 ? (
-              <div className="flex flex-col items-center justify-center py-10 text-slate-600 text-xs text-center gap-2">
-                <FaCheckCircle className="w-5 h-5 text-green-700/60" />
+              <div className="flex flex-col items-center justify-center py-10 text-slate-400 dark:text-slate-600 text-xs text-center gap-2">
+                <FaCheckCircle className="w-5 h-5 text-green-500/60 dark:text-green-700/60" />
                 All backlog tasks are in the sprint
               </div>
             ) : (
@@ -431,12 +433,12 @@ export default function PlanningTab() {
                       return (
                         <div
                           key={task.id}
-                          className="group relative flex items-center gap-2 py-2 px-2 rounded-lg hover:bg-[#232838] transition-colors cursor-default"
+                          className="group relative flex items-center gap-2 py-2 px-2 rounded-lg hover:bg-slate-100 dark:hover:bg-[#232838] transition-colors cursor-default"
                           onMouseEnter={() => setHoveredBacklogId(task.id)}
                           onMouseLeave={() => setHoveredBacklogId(null)}
                         >
                           <TypeDot type={task.type} />
-                          <span className="flex-1 text-xs text-slate-300 truncate" title={task.title}>
+                          <span className="flex-1 text-xs text-slate-700 dark:text-slate-300 truncate" title={task.title}>
                             {task.title}
                           </span>
                           <div className="flex items-center gap-1 flex-shrink-0">
@@ -464,12 +466,12 @@ export default function PlanningTab() {
         </div>
 
         {/* ── Center: Sprint Backlog ─────────────────────────────────────── */}
-        <div className="rounded-xl bg-[#1c2030] border border-[#252b3b] flex flex-col overflow-hidden">
+        <div className="rounded-xl bg-white dark:bg-[#1c2030] border border-slate-200 dark:border-[#252b3b] flex flex-col overflow-hidden">
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-[#252b3b]">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-[#252b3b]">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-slate-200">Sprint Backlog</span>
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-[#232838] text-slate-400 border border-[#2a3044]">
+              <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">Sprint Backlog</span>
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-[#232838] text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044]">
                 {projectActiveTasks.length} tasks · {sprintTotalSP} SP
               </span>
             </div>
@@ -477,17 +479,17 @@ export default function PlanningTab() {
           </div>
 
           {/* Capacity bar */}
-          <div className="px-4 py-3 border-b border-[#252b3b]">
+          <div className="px-4 py-3 border-b border-slate-200 dark:border-[#252b3b]">
             <CapacityBar totalSP={sprintTotalSP} capacitySP={totalCapacitySP} />
           </div>
 
           {/* Task list */}
           <div className="flex-1 overflow-y-auto max-h-[380px] px-3 py-2 space-y-0.5">
             {projectActiveTasks.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-10 text-slate-600 text-xs text-center gap-2">
-                <FaPlus className="w-5 h-5 text-slate-700" />
+              <div className="flex flex-col items-center justify-center py-10 text-slate-400 dark:text-slate-600 text-xs text-center gap-2">
+                <FaPlus className="w-5 h-5 text-slate-300 dark:text-slate-700" />
                 No tasks in sprint yet
-                <span className="text-slate-700 text-[10px]">Add tasks from the Backlog Pool →</span>
+                <span className="text-slate-400 dark:text-slate-700 text-[10px]">Add tasks from the Backlog Pool →</span>
               </div>
             ) : (
               projectActiveTasks.map((task) => {
@@ -495,12 +497,12 @@ export default function PlanningTab() {
                 return (
                   <div
                     key={task.id}
-                    className="group relative flex items-center gap-2 py-2 px-2 rounded-lg hover:bg-[#232838] transition-colors cursor-default"
+                    className="group relative flex items-center gap-2 py-2 px-2 rounded-lg hover:bg-slate-100 dark:hover:bg-[#232838] transition-colors cursor-default"
                     onMouseEnter={() => setHoveredSprintId(task.id)}
                     onMouseLeave={() => setHoveredSprintId(null)}
                   >
                     <StatusChip status={task.status} />
-                    <span className="flex-1 text-xs text-slate-300 truncate" title={task.title}>
+                    <span className="flex-1 text-xs text-slate-700 dark:text-slate-300 truncate" title={task.title}>
                       {task.title}
                     </span>
                     <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -510,7 +512,7 @@ export default function PlanningTab() {
                     {isHovered && (
                       <button
                         onClick={() => removeFromSprint(task)}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded bg-slate-700 hover:bg-slate-600 text-slate-300 shadow-lg transition-colors"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 shadow-lg transition-colors"
                         title="Remove from Sprint"
                       >
                         <FaArrowLeft className="w-2.5 h-2.5" />
@@ -525,16 +527,16 @@ export default function PlanningTab() {
         </div>
 
         {/* ── Right: Team Capacity ───────────────────────────────────────── */}
-        <div className="rounded-xl bg-[#1a1f2e] border border-[#252b3b] flex flex-col overflow-hidden">
+        <div className="rounded-xl bg-slate-50 dark:bg-[#1a1f2e] border border-slate-200 dark:border-[#252b3b] flex flex-col overflow-hidden">
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-[#252b3b]">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-[#252b3b]">
             <div className="flex items-center gap-2">
-              <FaUsers className="w-3.5 h-3.5 text-slate-500" />
-              <span className="text-sm font-semibold text-slate-200">Team Capacity</span>
+              <FaUsers className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
+              <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">Team Capacity</span>
             </div>
             <button
               onClick={resetCapacities}
-              className="text-[10px] font-semibold text-slate-500 hover:text-slate-300 transition-colors px-2 py-1 rounded hover:bg-[#232838]"
+              className="text-[10px] font-semibold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors px-2 py-1 rounded hover:bg-slate-100 dark:hover:bg-[#232838]"
             >
               Reset to 100%
             </button>
@@ -543,7 +545,7 @@ export default function PlanningTab() {
           {/* Member list */}
           <div className="flex-1 overflow-y-auto max-h-[380px] px-3 py-2 space-y-3">
             {memberList.length === 0 ? (
-              <div className="flex items-center justify-center py-8 text-slate-600 text-xs">
+              <div className="flex items-center justify-center py-8 text-slate-400 dark:text-slate-600 text-xs">
                 No team members found
               </div>
             ) : (
@@ -554,7 +556,7 @@ export default function PlanningTab() {
                   <div key={member.id} className="space-y-1.5 py-1">
                     <div className="flex items-center gap-2">
                       <Avatar name={member.name || member.id} size="sm" />
-                      <span className="flex-1 text-xs font-medium text-slate-300 truncate capitalize">
+                      <span className="flex-1 text-xs font-medium text-slate-700 dark:text-slate-300 truncate capitalize">
                         {member.name || member.id}
                       </span>
                       <span className="text-[10px] text-slate-500 font-semibold min-w-[36px] text-right">
@@ -582,22 +584,22 @@ export default function PlanningTab() {
           </div>
 
           {/* Total capacity footer */}
-          <div className="px-4 py-3 border-t border-[#252b3b] flex items-center justify-between">
+          <div className="px-4 py-3 border-t border-slate-200 dark:border-[#252b3b] flex items-center justify-between">
             <span className="text-xs text-slate-500">Total capacity</span>
-            <span className="text-sm font-bold text-blue-400">{totalCapacitySP} SP</span>
+            <span className="text-sm font-bold text-blue-500 dark:text-blue-400">{totalCapacitySP} SP</span>
           </div>
         </div>
       </div>
 
       {/* ── 4. Velocity Reference row ──────────────────────────────────────── */}
-      <div className="rounded-xl bg-[#1a1f2e] border border-[#252b3b] p-4">
+      <div className="rounded-xl bg-slate-50 dark:bg-[#1a1f2e] border border-slate-200 dark:border-[#252b3b] p-4">
         <div className="flex items-center gap-2 mb-3">
-          <FaChartBar className="w-3.5 h-3.5 text-slate-500" />
+          <FaChartBar className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
           <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
             Velocity Reference
           </span>
           {burndownSnapshots && burndownSnapshots.length > 0 && (
-            <span className="text-[10px] text-slate-600 ml-auto">
+            <span className="text-[10px] text-slate-400 dark:text-slate-600 ml-auto">
               Last {Math.min(burndownSnapshots.length, 5)} data points
             </span>
           )}

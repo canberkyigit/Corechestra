@@ -22,6 +22,7 @@ import {
 } from "react-icons/fa";
 import { useApp } from "../context/AppContext";
 import { useAuth } from "../context/AuthContext";
+import { BoardSkeleton } from "../components/Skeleton";
 import { TYPE_OPTIONS } from "../constants";
 import { parseISO, differenceInDays, format } from "date-fns";
 
@@ -303,7 +304,7 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
     updateBoardSettings,
     currentProjectId, projects,
     perProjectBoardFilters, setPerProjectBoardFilters,
-    teamMembers,
+    teamMembers, dbReady,
   } = useApp();
 
   const projectActiveTasks = activeTasks.filter(
@@ -491,6 +492,7 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
     return result;
   }, [projectActiveTasks, filter, member, search]);
 
+  if (!dbReady) return <BoardSkeleton />;
   return (
     <div className="h-full bg-slate-50 dark:bg-[#141720] flex flex-col transition-colors">
       {/* Sprint header banner */}

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { FaPlus, FaCheck, FaUsers, FaTasks, FaLayerGroup, FaTimes, FaTh, FaList, FaCog } from "react-icons/fa";
 import { useApp } from "../context/AppContext";
+import { ProjectsSkeleton } from "../components/Skeleton";
 import { useAuth } from "../context/AuthContext";
 import ProjectSettingsModal from "../components/ProjectSettingsModal";
 
@@ -140,7 +141,7 @@ function CreateProjectModal({ onClose, onCreate }) {
 }
 
 export default function ProjectsPage({ onNavigate }) {
-  const { projects, currentProjectId, setCurrentProjectId, activeTasks, users, createProject, projectsViewMode, setProjectsViewMode } = useApp();
+  const { projects, currentProjectId, setCurrentProjectId, activeTasks, users, createProject, projectsViewMode, setProjectsViewMode, dbReady } = useApp();
   const { isAdmin } = useAuth();
   const [showCreate, setShowCreate] = useState(false);
   const [settingsProject, setSettingsProject] = useState(null);
@@ -156,6 +157,7 @@ export default function ProjectsPage({ onNavigate }) {
     createProject(data);
   };
 
+  if (!dbReady) return <ProjectsSkeleton />;
   return (
     <div className="p-6 max-w-5xl mx-auto">
       {/* Header */}

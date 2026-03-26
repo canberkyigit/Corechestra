@@ -164,7 +164,9 @@ export default function KanbanBoard({
           <div className="flex-1 overflow-auto px-4">
             {swimlaneGroups.map(({ assignee, tasks: groupTasks }) => {
               const isCollapsed = collapsedLanes.has(assignee);
-              const color = teamMembers.find(m => m.value === assignee)?.color || "#94a3b8";
+              const member = teamMembers.find((m) => m.value === assignee);
+              const color = member?.color || "#94a3b8";
+              const displayName = member?.label || assignee;
               const doneCount = groupTasks.filter((t) => t.status === "done").length;
               return (
                 <div key={assignee} className="mb-3">
@@ -180,9 +182,9 @@ export default function KanbanBoard({
                     }
                     <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 shadow-sm"
                       style={{ backgroundColor: color }}>
-                      {assignee !== "unassigned" ? assignee.charAt(0).toUpperCase() : <FaUserAlt className="w-3 h-3" />}
+                      {assignee !== "unassigned" ? displayName.charAt(0).toUpperCase() : <FaUserAlt className="w-3 h-3" />}
                     </div>
-                    <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 capitalize">{assignee}</span>
+                    <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">{displayName}</span>
                     <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: color + "22", color }}>
                       {groupTasks.length} task{groupTasks.length !== 1 ? "s" : ""}
                     </span>

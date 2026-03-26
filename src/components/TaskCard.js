@@ -76,7 +76,7 @@ export default function TaskCard({
   onClick,
   compact = false,
 }) {
-  const { epics, labels } = useApp();
+  const { epics, labels, users } = useApp();
   const [showSubtasks, setShowSubtasks] = useState(false);
   const [doneFlash, setDoneFlash] = useState(false);
   const prevStatus = useRef(task.status);
@@ -100,6 +100,18 @@ export default function TaskCard({
     : "#e2e8f0";
 
   const epic = epics?.find((e) => e.id === task.epicId);
+
+  // Resolve assignee display name + avatar color from users list
+  const assignedUser = (task.assignedTo && task.assignedTo !== "unassigned")
+    ? users?.find((u) => u.username === task.assignedTo || u.id === task.assignedTo)
+    : null;
+  const assignedName   = assignedUser?.name || task.assignedTo;
+  const assignedInitial = assignedName && assignedName !== "unassigned"
+    ? assignedName.charAt(0).toUpperCase()
+    : "?";
+  const FALLBACK_COLORS = ["#3b82f6","#8b5cf6","#10b981","#ec4899","#6366f1"];
+  const assignedBg = assignedUser?.color
+    || FALLBACK_COLORS[(task.assignedTo || "").charCodeAt(0) % FALLBACK_COLORS.length];
   const taskLabels = (task.labels || [])
     .map((id) => labels?.find((l) => l.id === id))
     .filter(Boolean);
@@ -212,10 +224,11 @@ export default function TaskCard({
         {/* Assignee avatar */}
         {task.assignedTo && task.assignedTo !== "unassigned" && (
           <div
-            className={`w-5 h-5 rounded-full flex-shrink-0 ${getAvatarColor(task.assignedTo)} flex items-center justify-center text-white text-xs font-bold`}
-            title={task.assignedTo}
+            className="w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center text-white text-xs font-bold"
+            style={{ backgroundColor: assignedBg }}
+            title={assignedName}
           >
-            {getInitials(task.assignedTo)}
+            {assignedInitial}
           </div>
         )}
       </div>

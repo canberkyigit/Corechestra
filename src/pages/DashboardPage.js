@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { useApp } from "../context/AppContext";
+import { DashboardSkeleton } from "../components/Skeleton";
 import { format, parseISO, isValid, differenceInDays } from "date-fns";
 import {
   FaRocket, FaCheckCircle, FaHourglass, FaBolt, FaUserAlt,
@@ -94,7 +95,7 @@ function TaskDrillModal({ title, tasks, onClose }) {
 }
 
 export default function DashboardPage() {
-  const { activeTasks, sprint, epics, globalActivityLog, backlogSections, currentProjectId, currentUser } = useApp();
+  const { activeTasks, sprint, epics, globalActivityLog, backlogSections, currentProjectId, currentUser, dbReady } = useApp();
   const [drillModal, setDrillModal] = useState(null);
 
   const projectTasks = activeTasks.filter((t) => (t.projectId || "proj-1") === currentProjectId);
@@ -133,6 +134,7 @@ export default function DashboardPage() {
 
   const openDrill = (title, tasks) => setDrillModal({ title, tasks });
 
+  if (!dbReady) return <DashboardSkeleton />;
   return (
     <div className="p-6 max-w-7xl mx-auto">
       {/* Sprint banner */}
