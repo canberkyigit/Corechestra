@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useCallback, useRef } from "react";
 import { useApp } from "../context/AppContext";
+import { ReportsSkeleton } from "../components/Skeleton";
 import { FaChartBar, FaBolt, FaCheckCircle, FaExclamationTriangle, FaFire, FaTrophy, FaCalendarAlt, FaDownload, FaPrint } from "react-icons/fa";
 import { parseISO, format, isValid, isAfter, isBefore } from "date-fns";
 
@@ -235,7 +236,7 @@ function VelocityChart({ completedPoints, completedSprints = [] }) {
 }
 
 export default function ReportsPage() {
-  const { activeTasks, backlogSections, epics, sprint, currentProjectId, burndownSnapshots, completedSprints, users } = useApp();
+  const { activeTasks, backlogSections, epics, sprint, currentProjectId, burndownSnapshots, completedSprints, users, dbReady } = useApp();
   const [activeTab, setActiveTab] = useState("overview");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo]     = useState("");
@@ -354,6 +355,7 @@ export default function ReportsPage() {
     { id: "history", label: "Sprint History" },
   ];
 
+  if (!dbReady) return <ReportsSkeleton />;
   return (
     <div className="p-6 max-w-6xl mx-auto" id="reports-print-area">
       {/* Print styles */}

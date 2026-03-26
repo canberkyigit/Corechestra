@@ -17,11 +17,11 @@ const daysDiff = (start, end) => {
 
 function StatusBadge({ status }) {
   if (status === "active")
-    return <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-green-500/15 text-green-400 border border-green-500/30 uppercase tracking-wide">Active</span>;
+    return <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-green-50 dark:bg-green-500/15 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-500/30 uppercase tracking-wide">Active</span>;
   if (status === "planned")
-    return <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-indigo-500/15 text-indigo-400 border border-indigo-500/30 uppercase tracking-wide">Planned</span>;
+    return <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/30 uppercase tracking-wide">Planned</span>;
   if (status === "completed")
-    return <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-slate-500/15 text-slate-400 border border-slate-500/30 uppercase tracking-wide">Completed</span>;
+    return <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-500/15 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-500/30 uppercase tracking-wide">Completed</span>;
   return null;
 }
 
@@ -34,15 +34,15 @@ function SprintCard({ sprint, taskCount, doneCount, onGoTo, goToLabel, large }) 
   const accentColor =
     sprint.status === "active"  ? "bg-green-500" :
     sprint.status === "planned" ? "bg-indigo-500" :
-    "bg-slate-400 dark:bg-slate-600";
+    "bg-slate-300 dark:bg-slate-600";
 
   const btnClass =
-    sprint.status === "active"    ? "bg-green-600 hover:bg-green-700 text-white" :
-    sprint.status === "planned"   ? "bg-indigo-600 hover:bg-indigo-700 text-white" :
-    "bg-[#232838] hover:bg-[#2a3044] text-slate-300";
+    sprint.status === "active"  ? "bg-green-600 hover:bg-green-700 text-white" :
+    sprint.status === "planned" ? "bg-indigo-600 hover:bg-indigo-700 text-white" :
+    "bg-slate-100 dark:bg-[#232838] hover:bg-slate-200 dark:hover:bg-[#2a3044] text-slate-700 dark:text-slate-300";
 
   return (
-    <div className="border border-[#2a3044] rounded-2xl bg-[#1a1f2e] hover:border-[#3a4460] transition-all duration-200 overflow-hidden flex flex-col h-full">
+    <div className="border border-slate-200 dark:border-[#2a3044] rounded-2xl bg-white dark:bg-[#1a1f2e] hover:border-slate-300 dark:hover:border-[#3a4460] transition-all duration-200 overflow-hidden flex flex-col h-full shadow-sm dark:shadow-none">
       {/* Accent bar */}
       <div className={`h-1 w-full ${accentColor}`} />
 
@@ -53,11 +53,11 @@ function SprintCard({ sprint, taskCount, doneCount, onGoTo, goToLabel, large }) 
             <div className="flex items-center gap-2.5 mb-2">
               <StatusBadge status={sprint.status} />
             </div>
-            <h3 className={`font-bold text-slate-100 leading-tight ${large ? "text-xl" : "text-base"}`}>
+            <h3 className={`font-bold text-slate-800 dark:text-slate-100 leading-tight ${large ? "text-xl" : "text-base"}`}>
               {sprint.name}
             </h3>
             {sprint.goal && (
-              <p className="text-sm text-slate-400 mt-1.5 italic line-clamp-2">"{sprint.goal}"</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1.5 italic line-clamp-2">"{sprint.goal}"</p>
             )}
           </div>
           <button
@@ -69,17 +69,17 @@ function SprintCard({ sprint, taskCount, doneCount, onGoTo, goToLabel, large }) 
         </div>
 
         {/* Divider */}
-        <div className="border-t border-[#252b3b] mb-4" />
+        <div className="border-t border-slate-100 dark:border-[#252b3b] mb-4" />
 
         {/* Dates + duration */}
-        <div className="flex items-center gap-5 text-sm text-slate-400 mb-4">
+        <div className="flex items-center gap-5 text-sm text-slate-500 dark:text-slate-400 mb-4">
           <span className="flex items-center gap-2">
-            <FaCalendarAlt className="w-3.5 h-3.5 text-slate-500" />
+            <FaCalendarAlt className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
             {fmt(sprint.startDate)} → {fmt(sprint.endDate)}
           </span>
           {duration !== null && (
             <span className="flex items-center gap-1.5">
-              <FaClock className="w-3.5 h-3.5 text-slate-500" />
+              <FaClock className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
               {duration} days
             </span>
           )}
@@ -89,8 +89,8 @@ function SprintCard({ sprint, taskCount, doneCount, onGoTo, goToLabel, large }) 
         {(taskCount !== null || totalPoints !== null) && (
           <div className="flex items-center gap-5 mb-4">
             {taskCount !== null && (
-              <div className="flex items-center gap-2 text-sm text-slate-400">
-                <FaTasks className="w-3.5 h-3.5 text-slate-500" />
+              <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+                <FaTasks className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
                 <span>
                   {sprint.status === "completed"
                     ? `${sprint.doneTasks ?? doneCount} / ${sprint.totalTasks ?? taskCount} tasks`
@@ -99,8 +99,8 @@ function SprintCard({ sprint, taskCount, doneCount, onGoTo, goToLabel, large }) 
               </div>
             )}
             {totalPoints !== null && (
-              <div className="flex items-center gap-2 text-sm text-slate-400">
-                <FaFlag className="w-3.5 h-3.5 text-slate-500" />
+              <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+                <FaFlag className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
                 <span>
                   {sprint.status === "completed"
                     ? `${completedPoints} / ${totalPoints} pts`
@@ -114,11 +114,11 @@ function SprintCard({ sprint, taskCount, doneCount, onGoTo, goToLabel, large }) 
         {/* Progress bar */}
         {pct !== null && sprint.status !== "planned" && (
           <div className="mt-auto">
-            <div className="flex justify-between text-xs text-slate-500 mb-1.5">
+            <div className="flex justify-between text-xs text-slate-400 dark:text-slate-500 mb-1.5">
               <span>{doneCount ?? sprint.doneTasks ?? 0} done</span>
-              <span className="font-semibold text-slate-400">{pct}%</span>
+              <span className="font-semibold text-slate-500 dark:text-slate-400">{pct}%</span>
             </div>
-            <div className="h-2 bg-[#232838] rounded-full overflow-hidden">
+            <div className="h-2 bg-slate-100 dark:bg-[#232838] rounded-full overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all ${
                   pct >= 80 ? "bg-green-500" : pct >= 50 ? "bg-yellow-500" : "bg-red-400"
@@ -144,8 +144,8 @@ export default function AllSprintsTab({ onNavigate }) {
     (a, b) => new Date(a.startDate) - new Date(b.startDate)
   );
 
-  const hasActive = sprint && sprint.status === "active";
-  const hasPlanned = sortedPlanned.length > 0;
+  const hasActive    = sprint && sprint.status === "active";
+  const hasPlanned   = sortedPlanned.length > 0;
   const hasCompleted = completedSprints.length > 0;
 
   return (
@@ -155,7 +155,7 @@ export default function AllSprintsTab({ onNavigate }) {
       <section>
         <div className="flex items-center gap-2.5 mb-4">
           <FaRocket className="w-4 h-4 text-green-500" />
-          <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Active Sprint</h2>
+          <h2 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Active Sprint</h2>
         </div>
         {hasActive ? (
           <SprintCard
@@ -167,7 +167,7 @@ export default function AllSprintsTab({ onNavigate }) {
             large
           />
         ) : (
-          <div className="border border-dashed border-[#2a3044] rounded-2xl p-8 text-center text-sm text-slate-500">
+          <div className="border border-dashed border-slate-200 dark:border-[#2a3044] rounded-2xl p-8 text-center text-sm text-slate-400 dark:text-slate-500">
             No active sprint. Start one from the Active Sprint tab.
           </div>
         )}
@@ -177,9 +177,9 @@ export default function AllSprintsTab({ onNavigate }) {
       <section>
         <div className="flex items-center gap-2.5 mb-4">
           <FaCalendarAlt className="w-4 h-4 text-indigo-500" />
-          <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Planned Future Sprints</h2>
+          <h2 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Planned Future Sprints</h2>
           {hasPlanned && (
-            <span className="text-[11px] bg-indigo-500/15 text-indigo-400 font-bold px-2 py-0.5 rounded-full border border-indigo-500/30">
+            <span className="text-[11px] bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 font-bold px-2 py-0.5 rounded-full border border-indigo-200 dark:border-indigo-500/30">
               {sortedPlanned.length}
             </span>
           )}
@@ -198,9 +198,9 @@ export default function AllSprintsTab({ onNavigate }) {
             ))}
           </div>
         ) : (
-          <div className="border border-dashed border-[#2a3044] rounded-2xl p-8 text-center text-sm text-slate-500">
+          <div className="border border-dashed border-slate-200 dark:border-[#2a3044] rounded-2xl p-8 text-center text-sm text-slate-400 dark:text-slate-500">
             No future sprints planned yet.{" "}
-            <span className="text-indigo-400 font-medium">Plan a future sprint</span>{" "}
+            <span className="text-indigo-500 dark:text-indigo-400 font-medium">Plan a future sprint</span>{" "}
             butonunu kullanarak ekleyebilirsin.
           </div>
         )}
@@ -214,13 +214,13 @@ export default function AllSprintsTab({ onNavigate }) {
             onClick={() => setCompletedOpen((v) => !v)}
           >
             {completedOpen
-              ? <FaChevronDown className="w-3.5 h-3.5 text-slate-500" />
-              : <FaChevronRight className="w-3.5 h-3.5 text-slate-500" />}
-            <FaCheckCircle className="w-4 h-4 text-slate-500" />
-            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest group-hover:text-slate-300 transition-colors">
+              ? <FaChevronDown className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
+              : <FaChevronRight className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />}
+            <FaCheckCircle className="w-4 h-4 text-slate-400 dark:text-slate-500" />
+            <h2 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest group-hover:text-slate-700 dark:group-hover:text-slate-300 transition-colors">
               Completed Sprints
             </h2>
-            <span className="text-[11px] bg-slate-700/50 text-slate-400 font-bold px-2 py-0.5 rounded-full border border-slate-600/30">
+            <span className="text-[11px] bg-slate-100 dark:bg-slate-700/50 text-slate-600 dark:text-slate-400 font-bold px-2 py-0.5 rounded-full border border-slate-200 dark:border-slate-600/30">
               {completedSprints.length}
             </span>
           </button>
@@ -243,9 +243,9 @@ export default function AllSprintsTab({ onNavigate }) {
 
       {!hasActive && !hasPlanned && !hasCompleted && (
         <div className="flex flex-col items-center justify-center py-32 text-center">
-          <FaRocket className="w-14 h-14 text-slate-700 mb-5" />
-          <p className="text-slate-400 text-base font-medium">No sprints yet.</p>
-          <p className="text-slate-600 text-sm mt-1">Start your first sprint from the Active Sprint tab.</p>
+          <FaRocket className="w-14 h-14 text-slate-300 dark:text-slate-700 mb-5" />
+          <p className="text-slate-500 dark:text-slate-400 text-base font-medium">No sprints yet.</p>
+          <p className="text-slate-400 dark:text-slate-600 text-sm mt-1">Start your first sprint from the Active Sprint tab.</p>
         </div>
       )}
     </div>

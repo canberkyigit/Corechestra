@@ -5,7 +5,6 @@ import { generateId } from "../utils/helpers";
 import { DEFAULT_SPRINT_DEFAULTS, DEFAULT_BOARD_SETTINGS, DEFAULT_COLUMNS } from "./AppSeeds";
 
 // ─── Context ──────────────────────────────────────────────────────────────────
-const _cachedDark = (() => { try { return localStorage.getItem("corechestra_dark") === "1"; } catch { return false; } })();
 const AppContext = createContext(null);
 
 export function AppProvider({ children }) {
@@ -396,8 +395,6 @@ export function AppProvider({ children }) {
       comments: [],
       activityLog: [],
       labels: taskData.labels || [],
-      timeEstimate: taskData.timeEstimate || 0,
-      timeSpent: 0,
       watchers: [],
       epicId: taskData.epicId || null,
       projectId: currentProjectId,
@@ -1191,11 +1188,6 @@ export function AppProvider({ children }) {
 
   return (
     <AppContext.Provider value={value}>
-      {!dbReady && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center" style={{ backgroundColor: _cachedDark ? "#181c2a" : "#ffffff" }}>
-          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-        </div>
-      )}
       {children}
     </AppContext.Provider>
   );

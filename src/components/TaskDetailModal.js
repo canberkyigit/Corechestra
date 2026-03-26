@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Listbox } from "@headlessui/react";
 import {
   FaTimes, FaTrash, FaCheck, FaPlus, FaChevronDown, FaSearch,
-  FaEye, FaEyeSlash, FaClock, FaTag, FaLink,
+  FaEye, FaEyeSlash, FaTag, FaLink,
   FaComment, FaCompress,
   FaCloudUploadAlt, FaFileAlt,
 } from "react-icons/fa";
@@ -115,8 +115,6 @@ export default function TaskDetailModal({
   const [storyPoint, setStoryPoint] = useState("");
   const [epicId, setEpicId] = useState(null);
   const [taskLabels, setTaskLabels] = useState([]);
-  const [timeEstimate, setTimeEstimate] = useState(0);
-  const [timeSpent, setTimeSpent] = useState(0);
   const [watchers, setWatchers] = useState([]);
   const [subtasks, setSubtasks] = useState([]);
   const [linkedItems, setLinkedItems] = useState([]);
@@ -155,8 +153,6 @@ export default function TaskDetailModal({
     setStoryPoint(task.storyPoint ?? task.storyPoints ?? "");
     setEpicId(task.epicId || null);
     setTaskLabels(task.labels || []);
-    setTimeEstimate(task.timeEstimate || 0);
-    setTimeSpent(task.timeSpent || 0);
     setWatchers(task.watchers || []);
     setSubtasks(task.subtasks || []);
     setLinkedItems(task.linkedItems || []);
@@ -208,8 +204,6 @@ export default function TaskDetailModal({
     storyPoint: storyPoint !== "" ? Number(storyPoint) : undefined,
     epicId,
     labels: taskLabels,
-    timeEstimate: Number(timeEstimate) || 0,
-    timeSpent: Number(timeSpent) || 0,
     watchers,
     subtasks,
     linkedItems,
@@ -365,7 +359,6 @@ export default function TaskDetailModal({
       { id: "comments", label: "Comments" },
       { id: "activity", label: "Activity" },
     ] : []),
-    { id: "time",     label: "Time" },
   ];
 
   const completedSubs = subtasks.filter((s) => s.done).length;
@@ -1100,71 +1093,6 @@ export default function TaskDetailModal({
             </div>
           )}
 
-          {activeTab === "time" && (
-            <div className="p-5 space-y-4">
-              <h3 className="font-medium text-slate-700 text-sm flex items-center gap-2">
-                <FaClock className="w-4 h-4 text-slate-400" /> Time Tracking
-              </h3>
-
-              {/* Progress bar */}
-              {(timeEstimate > 0 || timeSpent > 0) && (
-                <div>
-                  <div className="flex justify-between text-xs text-slate-500 mb-1.5">
-                    <span>{timeSpent}h logged</span>
-                    <span>{Math.max(0, timeEstimate - timeSpent)}h remaining</span>
-                  </div>
-                  <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all ${timeSpent > timeEstimate ? "bg-red-500" : "bg-blue-500"}`}
-                      style={{ width: `${timeEstimate > 0 ? Math.min(100, (timeSpent / timeEstimate) * 100) : 0}%` }}
-                    />
-                  </div>
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <FieldLabel>Estimate (hours)</FieldLabel>
-                  <input
-                    type="number"
-                    min="0"
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                    value={timeEstimate}
-                    onChange={(e) => { setTimeEstimate(e.target.value); changed(); }}
-                  />
-                </div>
-                <div>
-                  <FieldLabel>Time Spent (hours)</FieldLabel>
-                  <input
-                    type="number"
-                    min="0"
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                    value={timeSpent}
-                    onChange={(e) => { setTimeSpent(e.target.value); changed(); }}
-                  />
-                </div>
-              </div>
-
-              <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
-                <div className="grid grid-cols-3 gap-3 text-center">
-                  <div>
-                    <div className="text-lg font-bold text-slate-700">{timeEstimate}h</div>
-                    <div className="text-xs text-slate-400">Estimated</div>
-                  </div>
-                  <div>
-                    <div className="text-lg font-bold text-blue-600">{timeSpent}h</div>
-                    <div className="text-xs text-slate-400">Logged</div>
-                  </div>
-                  <div>
-                    <div className={`text-lg font-bold ${timeSpent > timeEstimate ? "text-red-500" : "text-green-500"}`}>
-                      {Math.max(0, timeEstimate - timeSpent)}h
-                    </div>
-                    <div className="text-xs text-slate-400">Remaining</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Discard confirmation banner */}
