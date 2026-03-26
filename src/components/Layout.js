@@ -9,7 +9,7 @@ import {
   FaShieldAlt, FaLayerGroup, FaBook, FaTag, FaFlask,
   FaCheckSquare, FaBug, FaPlusSquare, FaExclamationCircle,
   FaUser, FaFlag, FaPlay, FaRegDotCircle, FaTimes, FaArchive, FaUndo, FaBolt,
-  FaSignOutAlt,
+  FaSignOutAlt, FaBars,
 } from "react-icons/fa";
 import { useApp } from "../context/AppContext";
 import { useToast } from "../context/ToastContext";
@@ -122,6 +122,8 @@ export default function Layout({
   const [notifOpen,       setNotifOpen]       = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef(null);
+  const [isMobile,       setIsMobile]       = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
+  const [mobileNavOpen,  setMobileNavOpen]  = useState(false);
 
   // Inline search state
   const [searchQuery,  setSearchQuery]  = useState("");
@@ -139,6 +141,16 @@ export default function Layout({
     window.addEventListener("corechestra:storage-error", handler);
     return () => window.removeEventListener("corechestra:storage-error", handler);
   }, [addToast]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (!mobile) setMobileNavOpen(false);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   const toggleCollapsed = () => setCollapsed(!collapsed);
 
@@ -248,17 +260,18 @@ export default function Layout({
   // ── Nav button (handles collapsed / expanded) ──────────────────────────────
   const NavBtn = ({ id, label, Icon }) => {
     const isActive = activePage === id;
+    const showLabels = isMobile || !collapsed;
     return (
       <button
         key={id}
-        onClick={() => onPageChange && onPageChange(id)}
-        title={collapsed ? label : undefined}
+        onClick={() => { onPageChange && onPageChange(id); setMobileNavOpen(false); }}
+        title={(!isMobile && collapsed) ? label : undefined}
         className={`w-full flex items-center rounded-lg text-sm transition-colors ${
-          collapsed ? "justify-center p-2.5" : "gap-3 px-3 py-2"
+          (!isMobile && collapsed) ? "justify-center p-2.5" : "gap-3 px-3 py-2"
         } ${isActive ? navActive : navInactive}`}
       >
         <Icon className="w-4 h-4 flex-shrink-0" />
-        {!collapsed && <span>{label}</span>}
+        {showLabels && <span>{label}</span>}
       </button>
     );
   };
@@ -266,19 +279,38 @@ export default function Layout({
   return (
     <div className={`flex h-screen overflow-hidden ${outerBg}`}>
 
+      {/* ── Mobile backdrop ──────────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {isMobile && mobileNavOpen && (
+          <motion.div
+            key="mobile-overlay"
+            className="fixed inset-0 z-30 bg-black/50"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            onClick={() => setMobileNavOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+
       {/* ── Sidebar ─────────────────────────────────────────────────────────── */}
       <motion.aside
-        animate={{ width: collapsed ? 56 : 224 }}
+        animate={{
+          width: isMobile ? 256 : (collapsed ? 56 : 224),
+          x: isMobile ? (mobileNavOpen ? 0 : -280) : 0,
+        }}
         transition={{ duration: 0.2, ease: "easeInOut" }}
         className={`
-        flex-shrink-0 flex flex-col overflow-hidden
+        ${isMobile ? "fixed top-0 left-0 h-full z-40 shadow-2xl" : "flex-shrink-0"}
+        flex flex-col overflow-hidden
         ${sidebarBg}
         border-r ${borderColor}
       `}>
 
         {/* App branding */}
-        <div className={`h-14 flex-shrink-0 border-b ${borderColor} flex items-center ${collapsed ? "justify-center px-2" : "justify-center px-4"}`}>
-          {collapsed ? (
+        <div className={`h-14 flex-shrink-0 border-b ${borderColor} flex items-center ${(!isMobile && collapsed) ? "justify-center px-2" : "justify-center px-4"}`}>
+          {(!isMobile && collapsed) ? (
             <div
               className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center cursor-pointer"
               title="Corechestra"
@@ -297,7 +329,7 @@ export default function Layout({
         </div>
 
         {/* Nav */}
-        <nav className={`flex-1 overflow-y-auto py-2 ${collapsed ? "px-1 space-y-0.5" : "px-2 space-y-0.5"}`}>
+        <nav className={`flex-1 overflow-y-auto py-2 ${(!isMobile && collapsed) ? "px-1 space-y-0.5" : "px-2 space-y-0.5"}`}>
           {NAV_ITEMS
             .filter(({ id }) => isAdmin || (id !== "archive"))
             .map(({ id, label, icon: Icon }) => (
@@ -305,7 +337,7 @@ export default function Layout({
             ))}
 
           {/* Admin section — admin only */}
-          {isAdmin && (collapsed ? (
+          {isAdmin && (!isMobile && collapsed ? (
             <div className={`mt-2 pt-2 border-t ${borderColor} space-y-0.5`}>
               {ADMIN_NAV_ITEMS.map(({ id, label, icon: Icon }) => (
                 <NavBtn key={id} id={id} label={label} Icon={Icon} />
@@ -322,35 +354,35 @@ export default function Layout({
         </nav>
 
         {/* Bottom */}
-        <div className={`border-t ${borderColor} py-2 ${collapsed ? "px-1 space-y-0.5" : "px-2 space-y-0.5"}`}>
+        <div className={`border-t ${borderColor} py-2 ${(!isMobile && collapsed) ? "px-1 space-y-0.5" : "px-2 space-y-0.5"}`}>
           {/* Dark mode */}
           <button
             onClick={onToggleDark}
             title={darkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
             className={`w-full flex items-center rounded-lg text-sm transition-colors ${
-              collapsed ? "justify-center p-2.5" : "gap-3 px-3 py-2"
+              (!isMobile && collapsed) ? "justify-center p-2.5" : "gap-3 px-3 py-2"
             } ${bottomRowClass}`}
           >
             {darkMode ? <FaSun className="w-4 h-4 text-yellow-400 flex-shrink-0" /> : <FaMoon className="w-4 h-4 flex-shrink-0" />}
-            {!collapsed && <span>{darkMode ? "Light Mode" : "Dark Mode"}</span>}
+            {(isMobile || !collapsed) && <span>{darkMode ? "Light Mode" : "Dark Mode"}</span>}
           </button>
 
           {/* Settings — admin only */}
           {isAdmin && (
             <button
               onClick={onSettingsClick}
-              title={collapsed ? "Settings" : undefined}
+              title={(!isMobile && collapsed) ? "Settings" : undefined}
               className={`w-full flex items-center rounded-lg text-sm transition-colors ${
-                collapsed ? "justify-center p-2.5" : "gap-3 px-3 py-2"
+                (!isMobile && collapsed) ? "justify-center p-2.5" : "gap-3 px-3 py-2"
               } ${bottomRowClass}`}
             >
               <FaCog className="w-4 h-4 flex-shrink-0" />
-              {!collapsed && <span>Settings</span>}
+              {(isMobile || !collapsed) && <span>Settings</span>}
             </button>
           )}
 
           {/* User + collapse toggle */}
-          {collapsed ? (
+          {!isMobile && collapsed ? (
             <button
               onClick={toggleCollapsed}
               title="Expand sidebar"
@@ -379,14 +411,16 @@ export default function Layout({
               >
                 <FaSignOutAlt className="w-3 h-3" />
               </button>
-              {/* Collapse */}
-              <button
-                onClick={toggleCollapsed}
-                title="Collapse sidebar"
-                className={`p-1 rounded-md transition-colors flex-shrink-0 ${bottomRowClass}`}
-              >
-                <FaChevronLeft className="w-3 h-3" />
-              </button>
+              {/* Collapse — desktop only */}
+              {!isMobile && (
+                <button
+                  onClick={toggleCollapsed}
+                  title="Collapse sidebar"
+                  className={`p-1 rounded-md transition-colors flex-shrink-0 ${bottomRowClass}`}
+                >
+                  <FaChevronLeft className="w-3 h-3" />
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -397,11 +431,20 @@ export default function Layout({
 
         {/* Topbar — same bg as sidebar to kill the seam */}
         <header className={`
-          h-14 flex items-center px-5 gap-4 flex-shrink-0 transition-colors
+          h-14 flex items-center px-4 md:px-5 gap-2 md:gap-4 flex-shrink-0 transition-colors
           ${topbarBg} border-b ${borderColor}
         `}>
-          {/* Breadcrumb */}
-          <div className="flex items-center gap-1 text-sm min-w-0">
+          {/* Hamburger — mobile only */}
+          <button
+            className={`flex md:hidden p-2 -ml-1 rounded-lg transition-colors ${bottomRowClass}`}
+            onClick={() => setMobileNavOpen((v) => !v)}
+            aria-label="Open navigation"
+          >
+            <FaBars className="w-4 h-4" />
+          </button>
+
+          {/* Breadcrumb — desktop only */}
+          <div className="hidden md:flex items-center gap-1 text-sm min-w-0">
             <span className={`font-medium truncate ${projNameText}`}>
               {projects?.find((p) => p.id === currentProjectId)?.name || "Corechestra"}
             </span>
@@ -413,8 +456,15 @@ export default function Layout({
             )}
           </div>
 
-          {/* Search */}
-          <div className="flex-1 max-w-md mx-auto relative" ref={searchContainerRef}>
+          {/* App name — mobile only */}
+          <div className={`flex items-center gap-2 md:hidden min-w-0`}>
+            <span className={`text-sm font-bold truncate ${projNameText}`}>
+              {projects?.find((p) => p.id === currentProjectId)?.name || "Corechestra"}
+            </span>
+          </div>
+
+          {/* Search — desktop only */}
+          <div className="hidden md:flex flex-1 max-w-md mx-auto relative" ref={searchContainerRef}>
             <FaSearch className={`absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${subText} pointer-events-none z-10`} />
             <input
               type="text"
@@ -542,8 +592,19 @@ export default function Layout({
             </AnimatePresence>
           </div>
 
+          {/* Spacer — mobile only (pushes actions to the right) */}
+          <div className="flex-1 md:hidden" />
+
           {/* Actions */}
-          <div className="flex items-center gap-2 ml-auto">
+          <div className="flex items-center gap-1.5 md:gap-2 md:ml-auto">
+            {/* Search icon — mobile only */}
+            <button
+              className={`flex md:hidden p-2 rounded-lg transition-colors ${bottomRowClass}`}
+              onClick={onSearchClick}
+              aria-label="Search"
+            >
+              <FaSearch className="w-3.5 h-3.5" />
+            </button>
             {/* Notifications */}
             <div className="relative" ref={notifRef}>
               <button
@@ -565,7 +626,7 @@ export default function Layout({
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -8, scale: 0.95 }}
                   transition={{ duration: 0.15 }}
-                  className={`absolute right-0 top-full mt-2 w-80 rounded-xl border shadow-xl z-50 overflow-hidden ${
+                  className={`absolute right-0 top-full mt-2 w-[min(320px,calc(100vw-1rem))] rounded-xl border shadow-xl z-50 overflow-hidden ${
                   darkMode ? "bg-[#1c2030] border-[#252b3b]" : "bg-white border-slate-200"
                 }`}>
                   <div className={`flex items-center justify-between px-4 py-3 border-b ${borderColor}`}>
@@ -653,7 +714,7 @@ export default function Layout({
                     animate={{ opacity: 1, y: 0,  scale: 1    }}
                     exit={{    opacity: 0, y: -8, scale: 0.95 }}
                     transition={{ duration: 0.15 }}
-                    className={`absolute right-0 top-full mt-2 w-52 rounded-xl border shadow-xl z-50 overflow-hidden ${
+                    className={`absolute right-0 top-full mt-2 w-[min(208px,calc(100vw-1rem))] rounded-xl border shadow-xl z-50 overflow-hidden ${
                       darkMode ? "bg-[#1c2030] border-[#252b3b]" : "bg-white border-slate-200"
                     }`}
                   >

@@ -368,7 +368,7 @@ export default function TaskDetailModal({
       {shouldRender && (
     <motion.div
       key="modal-backdrop"
-      className="fixed inset-0 z-50 flex items-start justify-center pt-10 pb-4 bg-black/40 backdrop-blur-sm overflow-y-auto"
+      className="fixed inset-0 z-50 flex items-end md:items-start justify-center md:pt-10 md:pb-4 bg-black/40 backdrop-blur-sm overflow-y-auto"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -376,7 +376,7 @@ export default function TaskDetailModal({
       onClick={handleClose}
     >
       <motion.div
-        className="bg-white dark:bg-[#1c2030] rounded-2xl shadow-2xl w-full max-w-3xl mx-4 flex flex-col max-h-[90vh] overflow-hidden transition-colors relative"
+        className="bg-white dark:bg-[#1c2030] rounded-t-2xl md:rounded-2xl shadow-2xl w-full max-w-5xl md:mx-4 flex flex-col max-h-[92dvh] md:max-h-[90vh] overflow-hidden transition-colors relative"
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -396,7 +396,7 @@ export default function TaskDetailModal({
           }}
         />
         {/* Header */}
-        <div className="flex items-center gap-3 px-5 py-3 border-b border-slate-100 dark:border-[#232838] flex-shrink-0">
+        <div className="flex items-center gap-2 md:gap-3 px-3 md:px-5 py-3 border-b border-slate-100 dark:border-[#232838] flex-shrink-0">
           <div className={`flex items-center justify-center w-7 h-7 rounded flex-shrink-0 ${typeInfo.color.replace("text-", "bg-").replace("500", "50").replace("600", "50")} dark:bg-white/10`}>
             <TypeIcon className={`w-4 h-4 ${typeInfo.color}`} />
           </div>
@@ -448,12 +448,12 @@ export default function TaskDetailModal({
         )}
 
         {/* Tab bar */}
-        <div className="flex border-b border-slate-100 dark:border-[#232838] px-5 flex-shrink-0">
+        <div className="flex border-b border-slate-100 dark:border-[#232838] px-3 md:px-5 flex-shrink-0 overflow-x-auto scrollbar-none">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-3 py-2.5 text-sm font-medium border-b-2 transition-colors mr-1 ${
+              className={`flex-shrink-0 px-2.5 md:px-3 py-2.5 text-xs md:text-sm font-medium border-b-2 transition-colors mr-1 whitespace-nowrap ${
                 activeTab === tab.id
                   ? "border-blue-500 text-blue-600"
                   : "border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
@@ -467,9 +467,9 @@ export default function TaskDetailModal({
         {/* Body */}
         <div className="flex-1 overflow-y-auto">
           {activeTab === "details" && (
-            <div className="flex gap-0 min-h-0">
+            <div className="flex flex-col md:flex-row gap-0 min-h-0">
               {/* Main */}
-              <div className="flex-1 p-5 space-y-4 min-w-0">
+              <div className="flex-1 p-4 md:p-5 space-y-4 min-w-0">
                 {/* Description */}
                 <div>
                   <FieldLabel>Description</FieldLabel>
@@ -774,7 +774,7 @@ export default function TaskDetailModal({
               </div>
 
               {/* Sidebar */}
-              <div className="w-52 flex-shrink-0 border-l border-slate-100 dark:border-[#232838] p-4 space-y-4">
+              <div className="w-full md:w-52 flex-shrink-0 border-t md:border-t-0 md:border-l border-slate-100 dark:border-[#232838] p-4 space-y-4">
                 <SelectField
                   label="Status"
                   value={status}
@@ -818,8 +818,8 @@ export default function TaskDetailModal({
                   value={assignedTo}
                   options={projectAssignees.map(m => ({ value: m.value, label: m.label }))}
                   onChange={(v) => { setAssignedTo(v); changed(); }}
-                  renderValue={(v) => <span className="capitalize">{v}</span>}
-                  renderOption={(opt) => <span className="capitalize">{opt.label}</span>}
+                  renderValue={(v) => <span>{projectAssignees.find((m) => m.value === v)?.label || v}</span>}
+                  renderOption={(opt) => <span>{opt.label}</span>}
                 />
 
                 <div>
@@ -945,13 +945,13 @@ export default function TaskDetailModal({
                       <div className="flex justify-center">
                         <select value={sub.assignedTo || "unassigned"} onChange={(e) => updateSubtask(sub.id, { assignedTo: e.target.value })} className="sr-only" id={`modal-sub-asgn-${sub.id}`}>
                           <option value="unassigned">–</option>
-                          {["alice","bob","carol","dave"].map((a) => <option key={a} value={a}>{a.charAt(0).toUpperCase()+a.slice(1)}</option>)}
+                          {projectAssignees.filter((m) => m.value && m.value !== "unassigned").map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
                         </select>
                         <label htmlFor={`modal-sub-asgn-${sub.id}`}
                           className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[9px] font-bold cursor-pointer hover:ring-2 hover:ring-blue-300 transition-all"
                           style={{ backgroundColor: assigneeColors[sub.assignedTo] || "#94a3b8" }}
-                          title={sub.assignedTo !== "unassigned" ? sub.assignedTo : "Unassigned"}>
-                          {sub.assignedTo && sub.assignedTo !== "unassigned" ? sub.assignedTo.charAt(0).toUpperCase() : "–"}
+                          title={sub.assignedTo && sub.assignedTo !== "unassigned" ? (projectAssignees.find((m) => m.value === sub.assignedTo)?.label || sub.assignedTo) : "Unassigned"}>
+                          {sub.assignedTo && sub.assignedTo !== "unassigned" ? (projectAssignees.find((m) => m.value === sub.assignedTo)?.label || sub.assignedTo).charAt(0).toUpperCase() : "–"}
                         </label>
                       </div>
                       <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium text-center leading-tight ${sub.done ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-slate-100 text-slate-500 dark:bg-slate-700/50 dark:text-slate-400"}`}>

@@ -357,7 +357,7 @@ export default function ReportsPage() {
 
   if (!dbReady) return <ReportsSkeleton />;
   return (
-    <div className="p-6 max-w-6xl mx-auto" id="reports-print-area">
+    <div className="p-4 md:p-6 max-w-6xl mx-auto" id="reports-print-area">
       {/* Print styles */}
       <style>{`
         @media print {
@@ -446,12 +446,12 @@ export default function ReportsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-0.5 border-b border-slate-200 dark:border-[#2a3044] mb-6">
+      <div className="flex gap-0.5 border-b border-slate-200 dark:border-[#2a3044] mb-4 md:mb-6 overflow-x-auto scrollbar-none">
         {tabs.map((t) => (
           <button
             key={t.id}
             onClick={() => setActiveTab(t.id)}
-            className={`px-4 py-2.5 text-sm font-medium transition-all border-b-2 -mb-px ${
+            className={`flex-shrink-0 px-3 md:px-4 py-2.5 text-xs md:text-sm font-medium whitespace-nowrap transition-all border-b-2 -mb-px ${
               activeTab === t.id
                 ? "border-blue-500 text-blue-600"
                 : "border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
@@ -473,7 +473,7 @@ export default function ReportsPage() {
             <StatCard label="Backlog" value={backlogTasks.length} sub="tasks queued" color="#a855f7" icon={FaFire} />
           </div>
 
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
             {/* Status breakdown */}
             <div className="bg-white dark:bg-[#1c2030] rounded-xl border border-slate-200 dark:border-[#2a3044] p-5 shadow-sm">
               <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-4">Status Breakdown</h3>

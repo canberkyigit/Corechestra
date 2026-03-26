@@ -156,9 +156,9 @@ export default function TaskRow({
           >
             <div className="relative w-24">
               <Listbox.Button className="w-full px-2 py-0.5 rounded bg-blue-100 text-blue-700 text-xs border border-blue-200 font-semibold text-left">
-                {assignedTo === "unassigned"
+                {assignedTo === "unassigned" || !assignedTo
                   ? "Unassigned"
-                  : (assignedTo || "").charAt(0).toUpperCase() + (assignedTo || "").slice(1)}
+                  : teamMembers.find((m) => m.value === assignedTo)?.label || assignedTo}
               </Listbox.Button>
               <Listbox.Options className="absolute mt-1 max-h-60 w-full overflow-auto rounded-lg bg-white py-1 text-xs shadow-lg ring-1 ring-black/10 focus:outline-none z-50">
                 {teamMembers.filter((m) => m.value).map((member) => (

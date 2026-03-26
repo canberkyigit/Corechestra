@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import {
   FaRocket, FaCalendarAlt, FaCheckCircle, FaChevronDown, FaChevronRight,
-  FaClock, FaArrowRight, FaTasks, FaFlag,
+  FaClock, FaArrowRight, FaTasks, FaFlag, FaTrash,
 } from "react-icons/fa";
 import { useApp } from "../../context/AppContext";
 import { format, parseISO, differenceInDays } from "date-fns";
@@ -25,7 +25,7 @@ function StatusBadge({ status }) {
   return null;
 }
 
-function SprintCard({ sprint, taskCount, doneCount, onGoTo, goToLabel, large }) {
+function SprintCard({ sprint, taskCount, doneCount, onGoTo, goToLabel, large, onDelete }) {
   const duration = sprint.startDate && sprint.endDate ? daysDiff(sprint.startDate, sprint.endDate) : null;
   const totalPoints = sprint.totalPoints ?? null;
   const completedPoints = sprint.completedPoints ?? null;
@@ -60,12 +60,23 @@ function SprintCard({ sprint, taskCount, doneCount, onGoTo, goToLabel, large }) 
               <p className="text-sm text-slate-500 dark:text-slate-400 mt-1.5 italic line-clamp-2">"{sprint.goal}"</p>
             )}
           </div>
-          <button
-            className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl flex-shrink-0 transition-colors ${btnClass}`}
-            onClick={onGoTo}
-          >
-            {goToLabel} <FaArrowRight className="w-3 h-3" />
-          </button>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {onDelete && (
+              <button
+                className="p-2 rounded-xl text-slate-400 dark:text-slate-500 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                onClick={onDelete}
+                title="Delete sprint"
+              >
+                <FaTrash className="w-3.5 h-3.5" />
+              </button>
+            )}
+            <button
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl transition-colors ${btnClass}`}
+              onClick={onGoTo}
+            >
+              {goToLabel} <FaArrowRight className="w-3 h-3" />
+            </button>
+          </div>
         </div>
 
         {/* Divider */}
@@ -134,8 +145,9 @@ function SprintCard({ sprint, taskCount, doneCount, onGoTo, goToLabel, large }) 
 }
 
 export default function AllSprintsTab({ onNavigate }) {
-  const { sprint, plannedSprints, completedSprints, activeTasks } = useApp();
+  const { sprint, plannedSprints, completedSprints, activeTasks, deletePlannedSprint } = useApp();
   const [completedOpen, setCompletedOpen] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
   const activeTaskCount = activeTasks.length;
   const activeDone = activeTasks.filter((t) => t.status === "done").length;
@@ -149,7 +161,7 @@ export default function AllSprintsTab({ onNavigate }) {
   const hasCompleted = completedSprints.length > 0;
 
   return (
-    <div className="p-6 space-y-8 w-full">
+    <div className="p-4 md:p-6 space-y-6 md:space-y-8 w-full">
 
       {/* Active Sprint */}
       <section>
@@ -187,21 +199,44 @@ export default function AllSprintsTab({ onNavigate }) {
         {hasPlanned ? (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {sortedPlanned.map((s) => (
-              <SprintCard
-                key={s.id}
-                sprint={{ ...s, status: "planned" }}
-                taskCount={null}
-                doneCount={null}
-                goToLabel="Go to Backlog"
-                onGoTo={() => onNavigate("backlog", s.backlogSectionId)}
-              />
+              <div key={s.id} className="relative">
+                {confirmDeleteId === s.id && (
+                  <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-white/90 dark:bg-[#1a1f2e]/90 backdrop-blur-sm rounded-2xl border border-red-200 dark:border-red-700/40">
+                    <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 text-center px-4">
+                      Delete <span className="text-red-500">"{s.name}"</span>?
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <button
+                        className="px-3 py-1.5 text-xs font-semibold bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
+                        onClick={() => { deletePlannedSprint(s.id); setConfirmDeleteId(null); }}
+                      >
+                        Delete
+                      </button>
+                      <button
+                        className="px-3 py-1.5 text-xs font-semibold bg-slate-100 dark:bg-[#252b3b] hover:bg-slate-200 dark:hover:bg-[#2a3044] text-slate-600 dark:text-slate-300 rounded-lg transition-colors"
+                        onClick={() => setConfirmDeleteId(null)}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+                <SprintCard
+                  sprint={{ ...s, status: "planned" }}
+                  taskCount={null}
+                  doneCount={null}
+                  goToLabel="Go to Backlog"
+                  onGoTo={() => onNavigate("backlog", s.backlogSectionId)}
+                  onDelete={() => setConfirmDeleteId(s.id)}
+                />
+              </div>
             ))}
           </div>
         ) : (
           <div className="border border-dashed border-slate-200 dark:border-[#2a3044] rounded-2xl p-8 text-center text-sm text-slate-400 dark:text-slate-500">
-            No future sprints planned yet.{" "}
+            No future sprints planned yet. Use the{" "}
             <span className="text-indigo-500 dark:text-indigo-400 font-medium">Plan a future sprint</span>{" "}
-            butonunu kullanarak ekleyebilirsin.
+            button to add one.
           </div>
         )}
       </section>

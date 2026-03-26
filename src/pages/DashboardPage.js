@@ -25,13 +25,13 @@ function StatCard({ label, value, sub, color = "blue", icon: Icon, onClick }) {
   return (
     <button
       onClick={onClick}
-      className={`${c.bg} rounded-xl p-4 flex items-center gap-4 w-full h-full text-left transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98] ${onClick ? "cursor-pointer" : "cursor-default"}`}
+      className={`${c.bg} rounded-xl p-3 md:p-4 flex items-center gap-3 md:gap-4 w-full h-full text-left transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98] ${onClick ? "cursor-pointer" : "cursor-default"}`}
     >
-      <div className={`${c.iconBg} rounded-lg p-2.5 flex-shrink-0`}>
-        <Icon className={`w-5 h-5 ${c.text}`} />
+      <div className={`${c.iconBg} rounded-lg p-2 md:p-2.5 flex-shrink-0`}>
+        <Icon className={`w-4 h-4 md:w-5 md:h-5 ${c.text}`} />
       </div>
-      <div>
-        <div className={`text-2xl font-bold ${c.text}`}>{value}</div>
+      <div className="min-w-0">
+        <div className={`text-xl md:text-2xl font-bold ${c.text}`}>{value}</div>
         <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">{label}</div>
         {sub && <div className="text-xs text-slate-400 dark:text-slate-500">{sub}</div>}
       </div>
@@ -136,24 +136,24 @@ export default function DashboardPage() {
 
   if (!dbReady) return <DashboardSkeleton />;
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-4 md:p-6 max-w-7xl mx-auto">
       {/* Sprint banner */}
       {sprint && (
-        <div className="mb-6 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-5 text-white shadow-lg">
-          <div className="flex items-start justify-between">
+        <div className="mb-6 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-4 md:p-5 text-white shadow-lg">
+          <div className="flex items-start justify-between gap-3">
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <FaRocket className="w-4 h-4 opacity-80" />
                 <span className="text-sm font-medium opacity-80 uppercase tracking-wide">Active Sprint</span>
               </div>
-              <h2 className="text-xl font-bold">{sprint.name}</h2>
+              <h2 className="text-lg md:text-xl font-bold">{sprint.name}</h2>
               {sprint.goal && (
                 <p className="text-sm opacity-75 mt-1 max-w-lg">{sprint.goal}</p>
               )}
             </div>
             <div className="text-right flex-shrink-0">
               {sprintDaysLeft !== null && (
-                <div className={`text-3xl font-bold flex items-center justify-end gap-1.5 ${sprintDaysLeft <= 2 ? "text-red-200" : ""}`}>
+                <div className={`text-2xl md:text-3xl font-bold flex items-center justify-end gap-1.5 ${sprintDaysLeft <= 2 ? "text-red-200" : ""}`}>
                   {sprintDaysLeft <= 2 && <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-300 animate-pulse" />}
                   {sprintDaysLeft}
                 </div>
@@ -173,7 +173,7 @@ export default function DashboardPage() {
       )}
 
       {/* Stats grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
         {[
           { label: "Total Tasks", value: totalTasks, icon: FaFlag, color: "blue", tasks: projectTasks, title: "All Tasks" },
           { label: "Completed", value: doneTasks, sub: `${totalTasks > 0 ? Math.round((doneTasks/totalTasks)*100) : 0}% done`, icon: FaCheckCircle, color: "green", tasks: projectTasks.filter((t) => t.status === "done"), title: "Completed Tasks" },
@@ -194,7 +194,7 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
         {/* Status breakdown */}
         <div className="lg:col-span-1 bg-white dark:bg-[#1c2030] rounded-xl border border-slate-200 dark:border-[#2a3044] shadow-sm p-4">
           <h3 className="font-semibold text-slate-700 dark:text-slate-200 mb-4 text-sm">Status Breakdown</h3>

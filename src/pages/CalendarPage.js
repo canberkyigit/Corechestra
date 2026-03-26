@@ -315,7 +315,7 @@ export default function CalendarPage() {
   return (
     <div className="p-4 h-full flex flex-col max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4 flex-shrink-0">
+      <div className="flex items-center justify-between mb-4 flex-shrink-0 flex-wrap gap-2">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
             <FaCalendarAlt className="w-4 h-4 text-blue-500" />
@@ -502,7 +502,7 @@ export default function CalendarPage() {
           </div>
         ) : (
           /* Month / Week calendar grid */
-          <div className="flex-1 flex flex-col bg-white dark:bg-[#1c2030] rounded-xl border border-slate-200 dark:border-[#2a3044] shadow-sm overflow-hidden min-w-0">
+          <div className="flex-1 flex flex-col bg-white dark:bg-[#1c2030] rounded-xl border border-slate-200 dark:border-[#2a3044] shadow-sm overflow-hidden min-w-0 overflow-x-auto">
             {/* Day headers */}
             <div className="grid grid-cols-7 border-b border-slate-100 dark:border-[#232838] flex-shrink-0">
               {weekDays.map((d, i) => (

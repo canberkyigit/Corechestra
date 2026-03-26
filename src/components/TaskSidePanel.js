@@ -99,6 +99,7 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
 
   // Resize
   const [panelWidth, setPanelWidth] = useState(580);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
   const isResizingRef = useRef(false);
   const prevId = useRef(null);
 
@@ -115,11 +116,14 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
         document.body.style.userSelect = "";
       }
     };
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
     document.addEventListener("mousemove", handleMouseMove);
     document.addEventListener("mouseup", handleMouseUp);
+    window.addEventListener("resize", handleResize);
     return () => {
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("resize", handleResize);
     };
   }, []);
 
@@ -337,7 +341,7 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
         <motion.div
           key="task-side-panel"
           className="fixed top-0 right-0 h-full z-40 bg-white dark:bg-[#1c2030] border-l border-slate-200 dark:border-[#2a3044] shadow-2xl flex flex-col overflow-hidden"
-          style={{ width: panelWidth }}
+          style={{ width: isMobile ? "100vw" : panelWidth }}
           initial={{ x: "100%" }}
           animate={{ x: 0 }}
           exit={{ x: "100%" }}
@@ -355,8 +359,8 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
           autoSave({ subtasks: newSubtasks });
         }}
       />
-      {/* ── Resize handle ── */}
-      <div
+      {/* ── Resize handle — desktop only ── */}
+      {!isMobile && <div
         className="absolute top-0 left-0 h-full w-2 cursor-col-resize z-50 group flex items-stretch"
         onMouseDown={(e) => {
           e.preventDefault();
@@ -366,7 +370,7 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
         }}
       >
         <div className="w-px h-full bg-slate-200 dark:bg-[#2a3044] group-hover:bg-blue-400 group-hover:w-0.5 transition-all ml-0.5" />
-      </div>
+      </div>}
 
       {/* ── Header ── */}
       <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-100 dark:border-[#232838] flex-shrink-0 pl-4">
@@ -473,8 +477,8 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
                   value={assignedTo}
                   options={projectAssignees.map(m => ({ value: m.value, label: m.label }))}
                   onChange={(v) => { setAssignedTo(v); autoSave({ assignedTo: v }); }}
-                  renderValue={(v) => <span className="capitalize">{v}</span>}
-                  renderOption={(opt) => <span className="capitalize">{opt.label}</span>}
+                  renderValue={(v) => <span>{projectAssignees.find((m) => m.value === v)?.label || v}</span>}
+                  renderOption={(opt) => <span>{opt.label}</span>}
                 />
               </div>
               <div>
@@ -685,7 +689,7 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
                         htmlFor={`sub-asgn-${sub.id}`}
                         className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[9px] font-bold cursor-pointer hover:ring-2 hover:ring-blue-300 transition-all flex-shrink-0"
                         style={{ backgroundColor: assigneeColors[sub.assignedTo] || "#94a3b8" }}
-                        title={sub.assignedTo !== "unassigned" ? sub.assignedTo : "Unassigned"}
+                        title={sub.assignedTo && sub.assignedTo !== "unassigned" ? (projectAssignees.find((m) => m.value === sub.assignedTo)?.label || sub.assignedTo) : "Unassigned"}
                       >
                         {assigneeInitial}
                       </label>
