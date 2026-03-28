@@ -185,53 +185,53 @@ export default function TaskCard({
         </div>
       )}
 
-      {/* Bottom row: due date + story points + assignee */}
-      <div className="flex items-center gap-1.5 mt-1 min-w-0 overflow-hidden">
-        {/* Due date */}
-        {dueDateText && (
-          <span className={`text-xs flex items-center gap-0.5 flex-shrink-0 ${
-            dueDateStatus === "overdue" ? "text-red-600 font-semibold" :
-            dueDateStatus === "soon" ? "text-orange-500" :
-            "text-slate-400"
-          }`}>
-            {dueDateStatus === "overdue" && "⚠"}
-            {dueDateText}
-          </span>
-        )}
+      {/* Due date + story points row */}
+      {(dueDateText || (task.storyPoint != null && task.storyPoint !== "")) && (
+        <div className="flex items-center gap-1.5 mt-1 min-w-0">
+          {dueDateText && (
+            <span className={`text-xs flex items-center gap-0.5 flex-shrink-0 ${
+              dueDateStatus === "overdue" ? "text-red-600 font-semibold" :
+              dueDateStatus === "soon" ? "text-orange-500" :
+              "text-slate-400"
+            }`}>
+              {dueDateStatus === "overdue" && "⚠"}
+              {dueDateText}
+            </span>
+          )}
+          {task.storyPoint != null && task.storyPoint !== "" && (
+            <span className="text-xs bg-slate-100 dark:bg-[#232838] text-slate-600 dark:text-slate-400 px-1.5 py-0.5 rounded font-medium flex-shrink-0">
+              {task.storyPoint}
+            </span>
+          )}
+        </div>
+      )}
 
-        {/* Story points */}
-        {task.storyPoint != null && task.storyPoint !== "" && (
-          <span className="text-xs bg-slate-100 dark:bg-[#232838] text-slate-600 dark:text-slate-400 px-1.5 py-0.5 rounded font-medium flex-shrink-0">
-            {task.storyPoint}
-          </span>
-        )}
-
-        <div className="flex-1 min-w-0" />
-
-        {/* Subtask toggle */}
-        {subtaskButtonsOpen && totalSubtasks > 0 && (
-          <button
-            className="flex items-center gap-0.5 text-xs text-slate-400 hover:text-blue-500 transition-colors flex-shrink-0"
-            onClick={() => setShowSubtasks((v) => !v)}
-            title="Toggle subtasks"
-          >
-            <FaList className="w-3 h-3" />
-            <span>{completedSubtasks}/{totalSubtasks}</span>
-            {showSubtasks ? <FaChevronUp className="w-2.5 h-2.5" /> : <FaChevronDown className="w-2.5 h-2.5" />}
-          </button>
-        )}
-
-        {/* Assignee avatar */}
-        {task.assignedTo && task.assignedTo !== "unassigned" && (
-          <div
-            className="w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center text-white text-xs font-bold"
-            style={{ backgroundColor: assignedBg }}
-            title={assignedName}
-          >
-            {assignedInitial}
-          </div>
-        )}
-      </div>
+      {/* Bottom row: subtask toggle (left) + assignee avatar (right) */}
+      {(subtaskButtonsOpen && totalSubtasks > 0) || (task.assignedTo && task.assignedTo !== "unassigned") ? (
+        <div className="flex items-center mt-1.5 min-w-0">
+          {subtaskButtonsOpen && totalSubtasks > 0 && (
+            <button
+              className="flex items-center gap-0.5 text-xs text-slate-400 hover:text-blue-500 transition-colors"
+              onClick={() => setShowSubtasks((v) => !v)}
+              title="Toggle subtasks"
+            >
+              <FaList className="w-3 h-3" />
+              <span>{completedSubtasks}/{totalSubtasks}</span>
+              {showSubtasks ? <FaChevronUp className="w-2.5 h-2.5" /> : <FaChevronDown className="w-2.5 h-2.5" />}
+            </button>
+          )}
+          <div className="flex-1 min-w-0" />
+          {task.assignedTo && task.assignedTo !== "unassigned" && (
+            <div
+              className="w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center text-white text-xs font-bold"
+              style={{ backgroundColor: assignedBg }}
+              title={assignedName}
+            >
+              {assignedInitial}
+            </div>
+          )}
+        </div>
+      ) : null}
 
       {/* Subtask list — smooth accordion */}
       <div

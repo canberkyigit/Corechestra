@@ -57,10 +57,10 @@ const PATH_TO_PAGE = {
   "/for-you":   "for-you",
 };
 
-function PageTransition({ children }) {
+function PageTransition({ children, fullHeight = false }) {
   return (
     <motion.div
-      className="h-full overflow-hidden"
+      className={fullHeight ? "h-full overflow-hidden" : "min-h-full"}
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -8 }}
@@ -169,7 +169,7 @@ function AppInner() {
   }, [sprintOptions, role]);
 
   const boardPage = (
-    <PageTransition>
+    <PageTransition fullHeight>
       <BoardPage
         forcedTab={forcedBoardTab}
         onForcedTabConsumed={() => setForcedBoardTab(null)}

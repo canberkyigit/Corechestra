@@ -186,7 +186,7 @@ export default function KanbanBoard({
                   {/* Lane columns */}
                   {!isCollapsed && (
                     <div className="grid gap-3 items-start pl-2 md:pl-4 overflow-x-auto"
-                      style={{ gridTemplateColumns: `repeat(${boardColumns.length}, minmax(180px,1fr))` }}>
+                      style={{ gridTemplateColumns: `repeat(${boardColumns.length}, minmax(150px,1fr))` }}>
                       {boardColumns.map((col) => (
                         <KanbanColumn
                           key={`${assignee}-${col.id}`}
@@ -212,7 +212,7 @@ export default function KanbanBoard({
           <div className="flex-1 overflow-auto px-4 pt-4 pb-6">
             <div
               className="grid gap-4 h-full"
-              style={{ gridTemplateColumns: `repeat(${boardColumns.length}, minmax(210px, 1fr))` }}
+              style={{ gridTemplateColumns: `repeat(${boardColumns.length}, minmax(170px, 1fr))` }}
             >
               {boardColumns.map((col) => (
                 <div key={col.id} className="group flex flex-col">
