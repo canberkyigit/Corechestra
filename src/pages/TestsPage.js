@@ -7,6 +7,7 @@ import {
 } from "react-icons/fa";
 import { useApp } from "../context/AppContext";
 import { useToast } from "../context/ToastContext";
+import { TestsSkeleton } from "../components/Skeleton";
 
 
 function generateTestId(prefix = "t") {
@@ -1399,7 +1400,7 @@ export default function TestsPage() {
     projects, currentProjectId, allTasks,
     testSuites, setTestSuites,
     testCases, setTestCases,
-    testRuns, setTestRuns,
+    testRuns, setTestRuns, dbReady,
   } = useApp();
   const { addToast } = useToast();
 
@@ -1540,6 +1541,7 @@ export default function TestsPage() {
   }, [setTestRuns]);
 
   // ── Render ────────────────────────────────────────────────────────────────
+  if (!dbReady) return <TestsSkeleton />;
   return (
     <div className="flex h-full bg-slate-100 dark:bg-[#141720] overflow-hidden">
       {/* ── Sidebar ── */}

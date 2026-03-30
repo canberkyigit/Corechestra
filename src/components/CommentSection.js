@@ -547,6 +547,11 @@ export default function CommentSection({ savedComments = [], allTasks = [], onUp
     pushUpdate(newAll);
     if (taskTitle) {
       addNotification({ type: "comment", taskId, taskTitle, text: `You commented on "${taskTitle}"` });
+      // Fire mention notifications for each @username in the comment
+      const mentions = [...new Set((compose.trim().match(/@(\w+)/g) || []).map(m => m.slice(1)))];
+      mentions.forEach(username => {
+        addNotification({ type: "mention", taskId, taskTitle, text: `@${username} was mentioned in "${taskTitle}"` });
+      });
     }
   };
 

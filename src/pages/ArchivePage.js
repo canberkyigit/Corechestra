@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import { ArchiveSkeleton } from "../components/Skeleton";
 import {
   FaArchive, FaUndo, FaTrash, FaSearch,
   FaTrashAlt, FaChevronDown,
@@ -18,7 +19,7 @@ const STATUS_COLORS = {
 export default function ArchivePage() {
   const {
     archivedTasks, restoreTask, permanentDeleteTask, emptyArchive,
-    projects, currentProjectId,
+    projects, currentProjectId, dbReady,
   } = useApp();
   const { addToast } = useToast();
 
@@ -80,6 +81,7 @@ export default function ArchivePage() {
 
   const totalCount = filtered.length;
 
+  if (!dbReady) return <ArchiveSkeleton />;
   return (
     <div className="p-6 max-w-5xl mx-auto">
       {/* Header */}

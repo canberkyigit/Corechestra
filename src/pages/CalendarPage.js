@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { useApp } from "../context/AppContext";
+import { CalendarSkeleton } from "../components/Skeleton";
 import {
   format, startOfMonth, endOfMonth, startOfWeek, endOfWeek,
   addDays, isSameMonth, isToday, parseISO, isValid, addMonths, subMonths,
@@ -64,7 +65,7 @@ function TaskPill({ task, onClick }) {
 
 
 export default function CalendarPage() {
-  const { activeTasks, backlogSections, currentProjectId, updateActiveTask } = useApp();
+  const { activeTasks, backlogSections, currentProjectId, updateActiveTask, dbReady } = useApp();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState(null);
   const [selectedTask, setSelectedTask] = useState(null);
@@ -312,6 +313,7 @@ export default function CalendarPage() {
     );
   }
 
+  if (!dbReady) return <CalendarSkeleton />;
   return (
     <div className="p-4 h-full flex flex-col max-w-7xl mx-auto">
       {/* Header */}

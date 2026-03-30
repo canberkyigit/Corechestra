@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { useApp } from "../context/AppContext";
+import { ForYouSkeleton } from "../components/Skeleton";
 import {
   FaBell, FaCheckCircle, FaExclamationTriangle, FaComment, FaArrowRight,
   FaArchive, FaUndo, FaBolt, FaLayerGroup, FaPlay, FaCheck, FaInbox,
@@ -59,9 +60,8 @@ function relativeTime(isoStr) {
 export default function ForYouPage() {
   const {
     notifications, markNotifRead, markAllNotifsRead,
-    activeTasks, backlogSections, currentUser,
+    activeTasks, backlogSections, currentUser, dbReady,
   } = useApp();
-
   const [filter, setFilter] = useState("all");
 
   const allBacklogTasks = useMemo(
@@ -86,6 +86,7 @@ export default function ForYouPage() {
   const blockedTasks = assignedTasks.filter((t) => t.status === "blocked");
   const inProgressTasks = assignedTasks.filter((t) => t.status === "inprogress");
 
+  if (!dbReady) return <ForYouSkeleton />;
   return (
     <div className="h-full overflow-y-auto bg-slate-50 dark:bg-[#141720]">
       <div className="max-w-3xl mx-auto px-6 py-8 space-y-8">
