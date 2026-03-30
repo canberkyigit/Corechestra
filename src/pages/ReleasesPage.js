@@ -7,6 +7,7 @@ import {
 } from "react-icons/fa";
 import { useApp } from "../context/AppContext";
 import { useToast } from "../context/ToastContext";
+import { ReleasesSkeleton } from "../components/Skeleton";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -378,7 +379,7 @@ export default function ReleasesPage() {
   const {
     releases, createRelease, updateRelease, deleteRelease,
     addChangelogEntry, deleteChangelogEntry,
-    allTasks,
+    allTasks, dbReady,
   } = useApp();
   const { addToast } = useToast();
 
@@ -555,6 +556,7 @@ export default function ReleasesPage() {
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
+  if (!dbReady) return <ReleasesSkeleton />;
   return (
     <div className="flex h-full bg-slate-100 dark:bg-[#141720] overflow-hidden">
       {/* ── Sidebar ──────────────────────────────────────────────────────── */}

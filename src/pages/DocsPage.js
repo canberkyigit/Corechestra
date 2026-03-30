@@ -15,6 +15,7 @@ import {
 import { useApp } from "../context/AppContext";
 import { useToast } from "../context/ToastContext";
 import { formatDistanceToNow } from "date-fns";
+import { DocsSkeleton } from "../components/Skeleton";
 
 // ─── Page Templates ────────────────────────────────────────────────────────────
 
@@ -428,7 +429,7 @@ export default function DocsPage() {
   const {
     spaces, createSpace,
     docPages, createDocPage, updateDocPage, deleteDocPage,
-    projects, currentUser,
+    projects, currentUser, dbReady,
   } = useApp();
   const { addToast } = useToast();
 
@@ -617,7 +618,7 @@ export default function DocsPage() {
   const isDark = document.documentElement.classList.contains("dark");
 
   // ── Render ────────────────────────────────────────────────────────────────
-
+  if (!dbReady) return <DocsSkeleton />;
   return (
     <div className="flex h-full overflow-hidden bg-slate-50 dark:bg-[#141720]">
 

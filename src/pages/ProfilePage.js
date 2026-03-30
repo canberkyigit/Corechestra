@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useApp } from "../context/AppContext";
 import { useAuth } from "../context/AuthContext";
+import { auth } from "../services/firebase";
+import { sendPasswordResetEmail } from "firebase/auth";
 import {
   FaUserCircle, FaEdit, FaCheck, FaBell, FaLock, FaShieldAlt,
-  FaSignOutAlt, FaClock,
+  FaSignOutAlt, FaClock, FaEnvelope, FaGoogle,
 } from "react-icons/fa";
 
 const AVATAR_COLORS = [
@@ -48,7 +50,7 @@ function Field({ label, field, type = "text", form, setForm, editMode, readOnly 
 }
 
 export default function ProfilePage() {
-  const { activeTasks, users, updateUser } = useApp();
+  const { activeTasks, users, updateUser, globalActivityLog } = useApp();
   const { user, role, profile, logout, updateProfile } = useAuth();
 
   // Current user's app record (synced from Firebase on login)
@@ -56,11 +58,18 @@ export default function ProfilePage() {
 
   // Derive display info from Firebase email
   const emailPrefix = user?.email?.split("@")[0] || "";
+
+  // Filter activity log to this user's actions (last 20)
+  const myActivity = useMemo(() =>
+    (globalActivityLog || []).filter(e => e.user === emailPrefix).slice(0, 20),
+    [globalActivityLog, emailPrefix]
+  );
   const defaultName = emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
 
   const [editMode,     setEditMode]     = useState(false);
   const [saved,        setSaved]        = useState(false);
   const [avatarColor,  setAvatarColor]  = useState(appUser?.color || AVATAR_COLORS[0]);
+  const [pwResetSent,  setPwResetSent]  = useState(false);
 
   // Sync avatar color when appUser loads (e.g. on first render before AppContext hydrates)
   useEffect(() => {
@@ -270,23 +279,52 @@ export default function ProfilePage() {
               <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Security</h3>
             </div>
             <div className="space-y-3">
-              <div className="w-full flex items-center gap-3 p-3 rounded-lg border border-slate-200 dark:border-[#2a3044] text-left">
-                <FaLock className="w-4 h-4 text-slate-400 flex-shrink-0" />
+              {/* Auth provider */}
+              <div className="flex items-center gap-3 p-3 rounded-lg border border-slate-200 dark:border-[#2a3044]">
+                {user?.providerData?.[0]?.providerId === "google.com"
+                  ? <FaGoogle className="w-4 h-4 text-red-400 flex-shrink-0" />
+                  : <FaEnvelope className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                }
                 <div>
-                  <p className="text-sm font-medium text-slate-700 dark:text-slate-200">Password</p>
-                  <p className="text-xs text-slate-400 dark:text-slate-500">Managed via Firebase Authentication</p>
+                  <p className="text-sm font-medium text-slate-700 dark:text-slate-200">Sign-in method</p>
+                  <p className="text-xs text-slate-400 dark:text-slate-500">
+                    {user?.providerData?.[0]?.providerId === "google.com" ? "Google" : "Email / Password"}
+                  </p>
                 </div>
               </div>
-              <div className="w-full flex items-center gap-3 p-3 rounded-lg border border-slate-200 dark:border-[#2a3044] text-left">
-                <FaShieldAlt className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                <div>
-                  <p className="text-sm font-medium text-slate-700 dark:text-slate-200">Two-Factor Authentication</p>
-                  <p className="text-xs text-slate-400 dark:text-slate-500">Not enabled</p>
+              {/* Last sign-in */}
+              {user?.metadata?.lastSignInTime && (
+                <div className="flex items-center gap-3 p-3 rounded-lg border border-slate-200 dark:border-[#2a3044]">
+                  <FaClock className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-slate-700 dark:text-slate-200">Last sign-in</p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500">
+                      {new Date(user.metadata.lastSignInTime).toLocaleString()}
+                    </p>
+                  </div>
                 </div>
-                <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-800">
-                  Recommended
-                </span>
-              </div>
+              )}
+              {/* Change password (only for email/password accounts) */}
+              {user?.providerData?.[0]?.providerId !== "google.com" && (
+                <button
+                  onClick={async () => {
+                    if (!user?.email) return;
+                    await sendPasswordResetEmail(auth, user.email);
+                    setPwResetSent(true);
+                    setTimeout(() => setPwResetSent(false), 5000);
+                  }}
+                  className="w-full flex items-center gap-3 p-3 rounded-lg border border-slate-200 dark:border-[#2a3044] hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors text-left"
+                >
+                  <FaLock className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-slate-700 dark:text-slate-200">Change Password</p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500">
+                      {pwResetSent ? "Reset email sent — check your inbox" : "Send a password reset email"}
+                    </p>
+                  </div>
+                  {pwResetSent && <FaCheck className="w-3.5 h-3.5 text-green-500 ml-auto" />}
+                </button>
+              )}
             </div>
           </div>
 
@@ -296,7 +334,40 @@ export default function ProfilePage() {
               <FaClock className="w-4 h-4 text-slate-400" />
               <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Recent Activity</h3>
             </div>
-            <p className="text-xs text-slate-400 dark:text-slate-500 py-4 text-center">No recent activity</p>
+            {myActivity.length === 0 ? (
+              <p className="text-xs text-slate-400 dark:text-slate-500 py-4 text-center">No recent activity</p>
+            ) : (
+              <div className="space-y-0">
+                {myActivity.map((entry) => {
+                  const task = activeTasks.find(t => t.id === entry.taskId);
+                  const taskLabel = task?.title ? `"${task.title}"` : entry.taskId ? `#${entry.taskId}` : "";
+                  const relTime = (() => {
+                    try {
+                      const d = new Date(entry.timestamp);
+                      const s = Math.floor((Date.now() - d.getTime()) / 1000);
+                      if (s < 60) return "just now";
+                      if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+                      if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+                      return d.toLocaleDateString();
+                    } catch { return ""; }
+                  })();
+                  return (
+                    <div key={entry.id} className="flex items-start gap-3 py-2.5 border-b border-slate-100 dark:border-[#2a3044] last:border-0">
+                      <div className="w-6 h-6 rounded-full bg-slate-100 dark:bg-[#232838] flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <FaClock className="w-2.5 h-2.5 text-slate-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-slate-700 dark:text-slate-200 leading-snug">
+                          <span className="capitalize">{entry.action}</span>
+                          {taskLabel && <span className="text-slate-500 dark:text-slate-400"> · {taskLabel}</span>}
+                        </p>
+                        <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">{relTime}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -15,32 +15,6 @@ import {
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
 
-const EMPLOYEES = [
-  { id: 1,  name: "Abbi Rose Jones",    role: "Business Development Representative", country: "United Kingdom", flag: "🇬🇧", manager: "Brigid Ling",       reports: 0,  color: "#3b82f6" },
-  { id: 2,  name: "Beyazid Yargici",    role: "Senior Android Developer",            country: "Turkey",         flag: "🇹🇷", manager: "Karol Kulesza",    reports: 0,  color: "#8b5cf6" },
-  { id: 3,  name: "Alberto Galan Diez", role: "Cloud Engineer",                      country: "Spain",          flag: "🇪🇸", manager: "Lefteris Pegiadis", reports: 0,  color: "#6366f1" },
-  { id: 4,  name: "Alek Lipski",        role: "VP Engineering",                      country: "Poland",         flag: "🇵🇱", manager: "Jim Franzel",       reports: 14, color: "#ec4899" },
-  { id: 5,  name: "Anca Baiasu",        role: "Accountant",                          country: "Romania",        flag: "🇷🇴", manager: "Kris Dunn",         reports: 0,  color: "#f59e0b" },
-  { id: 6,  name: "Andrii Yakubenko",   role: "Quality Assurance Tester",            country: "Ukraine",        flag: "🇺🇦", manager: "Rinat Shaipov",     reports: 0,  color: "#10b981" },
-  { id: 7,  name: "Andy Spedick",       role: "Marketing Operations Manager",        country: "United States",  flag: "🇺🇸", manager: "Brigid Ling",       reports: 0,  color: "#3b82f6" },
-  { id: 8,  name: "Angela Kunz",        role: "Senior Sales Engineer",               country: "United States",  flag: "🇺🇸", manager: "Brigid Ling",       reports: 0,  color: "#059669" },
-  { id: 9,  name: "Armen Purundzhan",   role: "Quality Assurance Tester",            country: "Ukraine",        flag: "🇺🇦", manager: "Rinat Shaipov",     reports: 0,  color: "#0891b2" },
-  { id: 10, name: "Aysegul Solukcu",    role: "Quality Assurance Tester",            country: "Turkey",         flag: "🇹🇷", manager: "Rinat Shaipov",     reports: 0,  color: "#db2777" },
-  { id: 11, name: "Basrican Sen",       role: "Technical Lead",                      country: "Turkey",         flag: "🇹🇷", manager: "Murat Ezgi Bingol", reports: 3,  color: "#0891b2" },
-  { id: 12, name: "Bastien Vogt",       role: "Product Manager",                     country: "Switzerland",    flag: "🇨🇭", manager: "Jim Franzel",       reports: 0,  color: "#7c3aed", reportTo: "Eleni Katsiavou" },
-  { id: 13, name: "Berk Arslan",        role: "Technical Lead",                      country: "Turkey",         flag: "🇹🇷", manager: "Pavan Dave",        reports: 0,  color: "#059669" },
-  { id: 14, name: "Blazej Podkowka",    role: "UI/UX Designer",                      country: "Poland",         flag: "🇵🇱", manager: "Eleni Katsiavou",   reports: 0,  color: "#6366f1" },
-  { id: 15, name: "Brigid Ling",        role: "Chief Marketing Officer",             country: "United States",  flag: "🇺🇸", manager: "Kevin Chew",        reports: 10, color: "#dc2626" },
-  { id: 16, name: "Canberk Yigit",      role: "Software Engineer",                   country: "Turkey",         flag: "🇹🇷", manager: "Haroon Rashid",     reports: 0,  color: "#3b82f6", isCurrentUser: true },
-  { id: 17, name: "Haroon Rashid",      role: "Technical Lead",                      country: "Turkey",         flag: "🇹🇷", manager: "Murat Ezgi Bingol", reports: 2,  color: "#6366f1" },
-  { id: 18, name: "Jim Franzel",        role: "VP of Product Management",            country: "United States",  flag: "🇺🇸", manager: "Kevin Chew",        reports: 8,  color: "#2563eb" },
-  { id: 19, name: "Kevin Chew",         role: "CEO",                                 country: "United States",  flag: "🇺🇸", manager: null,                reports: 97, color: "#7c3aed" },
-  { id: 20, name: "Lukasz Ostrowski",   role: "Technical Lead",                      country: "Poland",         flag: "🇵🇱", manager: "Murat Ezgi Bingol", reports: 5,  color: "#f59e0b" },
-  { id: 21, name: "Murat Ezgi Bingol",  role: "Leader of Technical Products",        country: "Turkey",         flag: "🇹🇷", manager: "Alek Lipski",       reports: 26, color: "#ea580c" },
-  { id: 22, name: "Rinat Shaipov",      role: "QA Lead",                             country: "Ukraine",        flag: "🇺🇦", manager: "Alek Lipski",       reports: 9,  color: "#10b981" },
-  { id: 23, name: "Eleni Katsiavou",    role: "Head of Design",                      country: "Greece",         flag: "🇬🇷", manager: "Jim Franzel",       reports: 4,  color: "#db2777" },
-];
-
 const PUBLIC_HOLIDAYS = [
   { date: "Thu Apr 23rd 2026", name: "National Sovereignty and Children's Day" },
   { date: "Fri May 1st 2026",  name: "Labor and Solidarity Day" },
@@ -363,13 +337,13 @@ function OverviewTab({ userName }) {
 
 // ─── People Tab ───────────────────────────────────────────────────────────────
 
-function PeopleTab() {
+function PeopleTab({ employees, currentUserId }) {
   const [search, setSearch] = useState("");
   const filtered = useMemo(() =>
-    EMPLOYEES.filter(e =>
-      e.name.toLowerCase().includes(search.toLowerCase()) ||
-      e.role.toLowerCase().includes(search.toLowerCase())
-    ), [search]
+    employees.filter(e =>
+      (e.name || "").toLowerCase().includes(search.toLowerCase()) ||
+      (e.role || "").toLowerCase().includes(search.toLowerCase())
+    ), [search, employees]
   );
 
   return (
@@ -411,23 +385,27 @@ function PeopleTab() {
             <tbody>
               {filtered.map((emp) => (
                 <tr key={emp.id}
-                  className={`border-b border-slate-100 dark:border-[#2a3044]/50 hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors last:border-0 ${emp.isCurrentUser ? "bg-blue-50/30 dark:bg-blue-900/10" : ""}`}>
+                  className={`border-b border-slate-100 dark:border-[#2a3044]/50 hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors last:border-0 ${emp.id === currentUserId ? "bg-blue-50/30 dark:bg-blue-900/10" : ""}`}>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
-                      <Avatar name={emp.name} color={emp.color} size="sm" />
+                      <Avatar name={emp.name || "?"} color={emp.color} size="sm" />
                       <div>
                         <p className="text-xs font-medium text-blue-500 hover:text-blue-400 cursor-pointer">
-                          {emp.name} {emp.isCurrentUser && <span className="text-[10px] text-slate-400 dark:text-slate-500">(You)</span>}
+                          {emp.name} {emp.id === currentUserId && <span className="text-[10px] text-slate-400 dark:text-slate-500">(You)</span>}
                         </p>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400">{emp.role}</p>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">{emp.role || emp.status || "Team Member"}</p>
                       </div>
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-base">{emp.flag}</span>
-                      <span className="text-xs text-slate-600 dark:text-slate-400">{emp.country}</span>
-                    </div>
+                    {emp.country ? (
+                      <div className="flex items-center gap-1.5">
+                        {emp.flag && <span className="text-base">{emp.flag}</span>}
+                        <span className="text-xs text-slate-600 dark:text-slate-400">{emp.country}</span>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-slate-400">—</span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     {emp.manager ? (
@@ -442,7 +420,7 @@ function PeopleTab() {
                     ) : emp.reportTo ? (
                       <span className="text-xs text-blue-500">{emp.reportTo}</span>
                     ) : (
-                      <span className="text-xs text-slate-400">No Report</span>
+                      <span className="text-xs text-slate-400">—</span>
                     )}
                   </td>
                 </tr>
@@ -1834,9 +1812,19 @@ const TABS = [
 export default function HRPage() {
   const [activeTab, setActiveTab] = useState("overview");
   const { user, profile } = useAuth();
-  const { users } = useApp();
+  const { users: rawUsers } = useApp();
 
-  const currentUser = users?.find(u => u.id === user?.uid || u.email === user?.email);
+  // Deduplicate by id (Firestore sync can produce duplicate entries)
+  const users = useMemo(() => {
+    const seen = new Set();
+    return (rawUsers || []).filter(u => {
+      if (!u.id || seen.has(u.id)) return false;
+      seen.add(u.id);
+      return true;
+    });
+  }, [rawUsers]);
+
+  const currentUser = users.find(u => u.id === user?.uid || u.email === user?.email);
   const userName = profile?.fullName || currentUser?.name || user?.email?.split("@")[0] || "User";
   const userEmail = user?.email || "";
 
@@ -1879,7 +1867,7 @@ export default function HRPage() {
       <div className="flex-1 overflow-auto">
         <div className="px-6 py-6 max-w-7xl mx-auto">
           {activeTab === "overview"     && <OverviewTab userName={userName} />}
-          {activeTab === "people"       && <PeopleTab />}
+          {activeTab === "people"       && <PeopleTab employees={users || []} currentUserId={user?.uid} />}
           {activeTab === "orgchart"     && <OrgChartTab />}
           {activeTab === "profile"      && <MyProfileTab userName={userName} userEmail={userEmail} />}
           {activeTab === "contract"     && <ContractTab userName={userName} />}

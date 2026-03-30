@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import KanbanColumn from "./KanbanColumn";
 import { DragDropContext } from "@hello-pangea/dnd";
 import { FaTrash, FaArrowRight, FaUserAlt, FaChevronDown, FaChevronRight } from "react-icons/fa";
@@ -19,8 +19,39 @@ export default function KanbanBoard({
   onTaskClick,
   columns,
 }) {
-  const { deleteTask, teamMembers } = useApp();
+  const { deleteTask, teamMembers, currentProjectId } = useApp();
   const [collapsedLanes, setCollapsedLanes] = useState(new Set());
+
+  // Persist column collapse state per project in localStorage
+  const collapseKey = `boardCollapsedCols_${currentProjectId || "default"}`;
+  const [collapsedCols, setCollapsedCols] = useState(() => {
+    try {
+      const stored = localStorage.getItem(collapseKey);
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch { return new Set(); }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(collapseKey, JSON.stringify([...collapsedCols]));
+    } catch {}
+  }, [collapsedCols, collapseKey]);
+
+  // Re-read from storage when project changes
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(collapseKey);
+      setCollapsedCols(stored ? new Set(JSON.parse(stored)) : new Set());
+    } catch { setCollapsedCols(new Set()); }
+  }, [collapseKey]);
+
+  const toggleCol = (colId) => {
+    setCollapsedCols((prev) => {
+      const next = new Set(prev);
+      next.has(colId) ? next.delete(colId) : next.add(colId);
+      return next;
+    });
+  };
 
   const toggleLane = (assignee) => {
     setCollapsedLanes((prev) => {
@@ -202,25 +233,27 @@ export default function KanbanBoard({
         ) : (
           /* Normal board view */
           <div className="flex-1 overflow-auto px-4 pt-4 pb-6">
-            <div
-              className="grid gap-4 h-full"
-              style={{ gridTemplateColumns: `repeat(${boardColumns.length}, minmax(170px, 1fr))` }}
-            >
-              {boardColumns.map((col) => (
-                <div key={col.id} className="group flex flex-col">
-                  <KanbanColumn
-                    title={col.title}
-                    tasks={getColTasks(col.id, filteredTasks)}
-                    columnId={col.id}
-                    idToGlobalIndex={idToGlobalIndex}
-                    allBadgesOpen={allBadgesOpen}
-                    priorityColorsOpen={priorityColorsOpen}
-                    taskIdsOpen={taskIdsOpen}
-                    subtaskButtonsOpen={subtaskButtonsOpen}
-                    onTaskClick={handleTaskClick}
-                  />
-                </div>
-              ))}
+            <div className="flex gap-4 h-full">
+              {boardColumns.map((col) => {
+                const isColCollapsed = collapsedCols.has(col.id);
+                return (
+                  <div key={col.id} className={`group flex flex-col flex-shrink-0 ${isColCollapsed ? "w-11" : "flex-1 min-w-[170px]"}`}>
+                    <KanbanColumn
+                      title={col.title}
+                      tasks={getColTasks(col.id, filteredTasks)}
+                      columnId={col.id}
+                      idToGlobalIndex={idToGlobalIndex}
+                      allBadgesOpen={allBadgesOpen}
+                      priorityColorsOpen={priorityColorsOpen}
+                      taskIdsOpen={taskIdsOpen}
+                      subtaskButtonsOpen={subtaskButtonsOpen}
+                      onTaskClick={handleTaskClick}
+                      isCollapsed={isColCollapsed}
+                      onToggleCollapse={() => toggleCol(col.id)}
+                    />
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}

@@ -9,6 +9,7 @@ import {
 } from "react-icons/fa";
 import { useApp } from "../context/AppContext";
 import { useToast } from "../context/ToastContext";
+import { useAuth } from "../context/AuthContext";
 import CommentSection from "./CommentSection";
 import SubtaskDetailPanel from "./SubtaskDetailPanel";
 import {
@@ -28,11 +29,11 @@ const LINK_RELATIONSHIPS = [
   "relates to", "blocks", "is blocked by", "duplicates", "is duplicated by", "clones", "is cloned by",
 ];
 
-function MiniSelect({ value, options, onChange, renderValue, renderOption }) {
+function MiniSelect({ value, options, onChange, renderValue, renderOption, disabled }) {
   return (
-    <Listbox value={value} onChange={onChange}>
+    <Listbox value={value} onChange={onChange} disabled={disabled}>
       <div className="relative">
-        <Listbox.Button className="flex items-center gap-1 px-2 py-1 rounded-md text-xs border border-slate-200 dark:border-[#2a3044] bg-slate-50 dark:bg-[#232838] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#2a3044] transition-colors focus:outline-none">
+        <Listbox.Button className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs border border-slate-200 dark:border-[#2a3044] bg-slate-50 dark:bg-[#232838] text-slate-700 dark:text-slate-300 transition-colors focus:outline-none ${disabled ? "opacity-50 cursor-not-allowed" : "hover:bg-slate-100 dark:hover:bg-[#2a3044]"}`}>
           {renderValue(value)}
           <FaChevronDown className="w-2.5 h-2.5 text-slate-400 ml-0.5" />
         </Listbox.Button>
@@ -61,6 +62,8 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
     ? teamMembers.filter((m) => m.value === "unassigned" || projectMemberSet.has(m.value))
     : teamMembers.filter((m) => m.value !== "");
   const { addToast } = useToast();
+  const { role } = useAuth();
+  const isViewer = role === "viewer";
 
   const [title,        setTitle]        = useState("");
   const [description,  setDescription]  = useState("");
@@ -199,6 +202,7 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
   // Immediately persist action-field changes without requiring the Save button.
   // patch overrides any stale local-state values captured by buildUpdated().
   const autoSave = (patch) => {
+    if (isViewer) return;
     onTaskUpdate?.({ ...buildUpdated(), ...patch });
   };
 
@@ -217,7 +221,7 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
   };
 
   const handleSave = () => {
-    if (!title.trim()) return;
+    if (!title.trim() || isViewer) return;
     onTaskUpdate?.(buildUpdated());
     if (task.id) logActivity(task.id, "updated task");
     setHasChanges(false);
@@ -381,10 +385,11 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
           {taskKey(task.id)}
         </span>
         <input
-          className="flex-1 text-sm font-semibold text-slate-800 dark:text-slate-200 bg-transparent border-none outline-none placeholder-slate-300 dark:placeholder-slate-600 min-w-0"
+          className="flex-1 text-sm font-semibold text-slate-800 dark:text-slate-200 bg-transparent border-none outline-none placeholder-slate-300 dark:placeholder-slate-600 min-w-0 disabled:cursor-not-allowed"
           placeholder="Task title..."
           value={title}
           onChange={(e) => { setTitle(e.target.value); changed(); }}
+          disabled={isViewer}
         />
         <div className="flex items-center gap-1 ml-auto flex-shrink-0">
           {onOpenModal && (
@@ -396,13 +401,15 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
               <FaExpand className="w-3.5 h-3.5" />
             </button>
           )}
-          <button
-            className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-            onClick={() => setConfirmDelete(true)}
-            title="Delete"
-          >
-            <FaTrash className="w-3.5 h-3.5" />
-          </button>
+          {!isViewer && (
+            <button
+              className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+              onClick={() => setConfirmDelete(true)}
+              title="Delete"
+            >
+              <FaTrash className="w-3.5 h-3.5" />
+            </button>
+          )}
           <button
             className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#232838] rounded transition-colors"
             onClick={handleClose}
@@ -434,6 +441,7 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
           onChange={(v) => { setStatus(v); autoSave({ status: v }); }}
           renderValue={() => <span className="text-slate-500 dark:text-slate-400">Change status</span>}
           renderOption={(opt) => opt.label}
+          disabled={isViewer}
         />
       </div>
 
@@ -469,6 +477,7 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
                   onChange={(v) => { setPriority(v); autoSave({ priority: v }); }}
                   renderValue={(v) => { const o = PRIORITY_OPTIONS.find((p) => p.value === v); return o ? <span className={o.color}>{o.label}</span> : v; }}
                   renderOption={(opt) => <span className={opt.color}>{opt.label}</span>}
+                  disabled={isViewer}
                 />
               </div>
               <div>
@@ -479,6 +488,7 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
                   onChange={(v) => { setAssignedTo(v); autoSave({ assignedTo: v }); }}
                   renderValue={(v) => <span>{projectAssignees.find((m) => m.value === v)?.label || v}</span>}
                   renderOption={(opt) => <span>{opt.label}</span>}
+                  disabled={isViewer}
                 />
               </div>
               <div>
@@ -489,23 +499,26 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
                   onChange={(v) => { setType(v); autoSave({ type: v }); }}
                   renderValue={(v) => { const o = TYPE_OPTIONS.find((t) => t.value === v); if (!o) return v; const I = o.icon; return <span className="flex items-center gap-1"><I className={`w-3 h-3 ${o.color}`} />{o.label}</span>; }}
                   renderOption={(opt) => { const I = opt.icon; return <><I className={`w-3 h-3 flex-shrink-0 ${opt.color}`} />{opt.label}</>; }}
+                  disabled={isViewer}
                 />
               </div>
               <div>
                 <div className="text-xs text-slate-400 dark:text-slate-500 mb-1">Story Points</div>
                 <input type="number" min="0"
-                  className="w-full border border-slate-200 dark:border-[#2a3044] rounded-md px-2 py-1 text-xs text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-[#232838] focus:outline-none focus:ring-1 focus:ring-blue-400"
+                  className="w-full border border-slate-200 dark:border-[#2a3044] rounded-md px-2 py-1 text-xs text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-[#232838] focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:opacity-50 disabled:cursor-not-allowed"
                   value={storyPoint}
                   onChange={(e) => { setStoryPoint(e.target.value); changed(); }}
                   placeholder="0"
+                  disabled={isViewer}
                 />
               </div>
               <div>
                 <div className="text-xs text-slate-400 dark:text-slate-500 mb-1">Due Date</div>
                 <input type="date"
-                  className="w-full border border-slate-200 dark:border-[#2a3044] rounded-md px-2 py-1 text-xs text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-[#232838] focus:outline-none focus:ring-1 focus:ring-blue-400"
+                  className="w-full border border-slate-200 dark:border-[#2a3044] rounded-md px-2 py-1 text-xs text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-[#232838] focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:opacity-50 disabled:cursor-not-allowed"
                   value={dueDate}
                   onChange={(e) => { setDueDate(e.target.value); autoSave({ dueDate: e.target.value }); }}
+                  disabled={isViewer}
                 />
               </div>
               <div>
@@ -539,11 +552,12 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
             <div>
               <div className="text-xs text-slate-400 dark:text-slate-500 mb-1">Description</div>
               <textarea
-                className="w-full border border-slate-200 dark:border-[#2a3044] rounded-lg px-3 py-2 text-sm text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-[#232838] resize-none focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-slate-400 dark:placeholder-slate-600"
+                className="w-full border border-slate-200 dark:border-[#2a3044] rounded-lg px-3 py-2 text-sm text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-[#232838] resize-none focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-slate-400 dark:placeholder-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
                 rows={3}
                 placeholder="Add a description..."
                 value={description}
                 onChange={(e) => { setDescription(e.target.value); changed(); }}
+                disabled={isViewer}
               />
             </div>
 
@@ -1027,9 +1041,9 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
             Close
           </button>
           <button
-            className="px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            className="px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             onClick={handleSave}
-            disabled={!title.trim()}
+            disabled={!title.trim() || isViewer}
           >
             Save
           </button>

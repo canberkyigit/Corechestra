@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import TaskCard from "./TaskCard";
 import { Draggable, Droppable } from "@hello-pangea/dnd";
-import { FaPlus, FaTimes, FaInbox } from "react-icons/fa";
+import { FaPlus, FaTimes, FaInbox, FaChevronLeft } from "react-icons/fa";
 import { useApp } from "../context/AppContext";
 
 const COLUMN_COLORS = {
@@ -23,6 +23,8 @@ export default function KanbanColumn({
   taskIdsOpen,
   subtaskButtonsOpen,
   onTaskClick,
+  isCollapsed,
+  onToggleCollapse,
 }) {
   const { createTask } = useApp();
   const [inlineOpen, setInlineOpen] = useState(false);
@@ -39,6 +41,30 @@ export default function KanbanColumn({
     setInlineOpen(false);
   };
 
+  // Collapsed column: narrow vertical strip
+  if (isCollapsed) {
+    return (
+      <div
+        className="flex flex-col h-full min-h-[300px] bg-slate-200/70 dark:bg-[#1a1f2e] rounded-xl border border-slate-300/80 dark:border-[#252b3b] cursor-pointer hover:bg-slate-300/60 dark:hover:bg-[#1e2438] transition-colors overflow-hidden"
+        onClick={onToggleCollapse}
+        title={`Expand ${title}`}
+      >
+        <div className="flex flex-col items-center gap-2 py-3 flex-1">
+          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${colors.dot}`} />
+          <span className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold bg-white dark:bg-[#252b3b] px-1 py-0.5 rounded-full min-w-[16px] text-center">
+            {tasks.length}
+          </span>
+          <span
+            className={`text-[10px] font-semibold uppercase tracking-wider ${colors.header} dark:opacity-90 select-none`}
+            style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
+          >
+            {title}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full min-h-[300px] min-w-0 bg-slate-200/70 dark:bg-[#1a1f2e] rounded-xl border border-slate-300/80 dark:border-[#252b3b]">
       {/* Column Header */}
@@ -50,6 +76,15 @@ export default function KanbanColumn({
         <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold bg-white dark:bg-[#252b3b] px-1.5 py-0.5 rounded-full min-w-[20px] text-center shadow-sm">
           {tasks.length}
         </span>
+        {onToggleCollapse && (
+          <button
+            className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-slate-200 dark:hover:bg-[#2a3044] text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-all"
+            onClick={onToggleCollapse}
+            title="Collapse column"
+          >
+            <FaChevronLeft className="w-3 h-3" />
+          </button>
+        )}
         <button
           className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-slate-200 dark:hover:bg-[#2a3044] text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-all"
           onClick={() => { setInlineOpen(true); setInlineTitle(""); }}
