@@ -378,7 +378,7 @@ export default function ReleasesPage() {
   const {
     releases, createRelease, updateRelease, deleteRelease,
     addChangelogEntry, deleteChangelogEntry,
-    allTasks, projects, currentProjectId,
+    allTasks,
   } = useApp();
   const { addToast } = useToast();
 

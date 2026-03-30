@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { FaPlay, FaEye, FaEyeSlash, FaRedo, FaCheck, FaTimes } from 'react-icons/fa';
+import React, { useState } from 'react';
+import { FaPlay, FaEye, FaRedo, FaCheck, FaTimes } from 'react-icons/fa';
 
 const FIBONACCI_CARDS = [0, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, '?'];
 const TSHIRT_CARDS = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '?'];
@@ -16,7 +16,7 @@ const PlanningPoker = ({
   const [votes, setVotes] = useState({});
   const [revealed, setRevealed] = useState(false);
   const [gamePhase, setGamePhase] = useState('waiting'); // 'waiting', 'voting', 'revealed', 'complete'
-  const [currentPlayer, setCurrentPlayer] = useState('Alice'); // Demo için sabit
+  const [currentPlayer] = useState('Alice'); // Demo için sabit
   const [discussion, setDiscussion] = useState('');
   const [consensus, setConsensus] = useState(null);
 

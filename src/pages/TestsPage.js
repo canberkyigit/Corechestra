@@ -28,7 +28,6 @@ function normalizeTestSteps(steps) {
 const PRIORITY_BORDER = { high: "border-red-500", medium: "border-yellow-500", low: "border-green-500" };
 const PRIORITY_TEXT   = { high: "text-red-600 dark:text-red-400",   medium: "text-yellow-600 dark:text-yellow-400",   low: "text-green-600 dark:text-green-400" };
 const PRIORITY_BG     = { high: "bg-red-100 dark:bg-red-500/10",  medium: "bg-yellow-100 dark:bg-yellow-500/10",  low: "bg-green-100 dark:bg-green-500/10" };
-const PRIORITY_DOT    = { high: "bg-red-500",      medium: "bg-yellow-500",     low: "bg-green-500" };
 
 const STATUS_CONFIG = {
   passed:   { label: "Passed",   color: "text-green-600 dark:text-green-400",  bg: "bg-green-100 dark:bg-green-500/15",  border: "border-green-500/30" },
@@ -1474,11 +1473,11 @@ export default function TestsPage() {
     setTestSuites((prev) => [...prev, { ...data, id, projectId: currentProjectId }]);
     setSelectedSuiteId(id);
     setActiveTab("cases");
-  }, [currentProjectId]);
+  }, [currentProjectId, setTestSuites]);
 
   const updateTestSuite = useCallback((updated) => {
     setTestSuites((prev) => prev.map((s) => s.id === updated.id ? updated : s));
-  }, []);
+  }, [setTestSuites]);
 
   const deleteTestSuite = useCallback((id) => {
     setTestSuites((prev) => prev.filter((s) => s.id !== id));
@@ -1489,21 +1488,21 @@ export default function TestsPage() {
       return remaining[0]?.id || null;
     });
     addToast("Test suite deleted.", "info");
-  }, [projectSuites, addToast]);
+  }, [projectSuites, addToast, setTestSuites, setTestCases, setTestRuns]);
 
   // ── CRUD: Cases ───────────────────────────────────────────────────────────
   const createTestCase = useCallback((data) => {
     const id = generateTestId("case");
     setTestCases((prev) => [...prev, { ...data, id, suiteId: selectedSuiteId }]);
-  }, [selectedSuiteId]);
+  }, [selectedSuiteId, setTestCases]);
 
   const updateTestCase = useCallback((updated) => {
     setTestCases((prev) => prev.map((c) => c.id === updated.id ? updated : c));
-  }, []);
+  }, [setTestCases]);
 
   const deleteTestCase = useCallback((id) => {
     setTestCases((prev) => prev.filter((c) => c.id !== id));
-  }, []);
+  }, [setTestCases]);
 
   // ── CRUD: Runs ────────────────────────────────────────────────────────────
   const createTestRun = useCallback((data) => {
@@ -1521,11 +1520,11 @@ export default function TestsPage() {
         results: initialResults,
       },
     ]);
-  }, [selectedSuiteId, suiteCases]);
+  }, [selectedSuiteId, suiteCases, setTestRuns]);
 
   const updateTestRun = useCallback((updated) => {
     setTestRuns((prev) => prev.map((r) => r.id === updated.id ? updated : r));
-  }, []);
+  }, [setTestRuns]);
 
   const updateTestRunResult = useCallback((runId, caseId, result) => {
     setTestRuns((prev) =>
@@ -1538,7 +1537,7 @@ export default function TestsPage() {
         return { ...r, results: updated };
       })
     );
-  }, []);
+  }, [setTestRuns]);
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (

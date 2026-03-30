@@ -80,7 +80,10 @@ export function AppProvider({ children }) {
   }, [currentProjectId]);
 
   // Computed: current project's backlog sections + scoped setter
-  const backlogSections = perProjectBacklog[currentProjectId] || [];
+  const backlogSections = useMemo(
+    () => perProjectBacklog[currentProjectId] || [],
+    [perProjectBacklog, currentProjectId]
+  );
   const setBacklogSections = useCallback((updaterOrValue) => {
     setPerProjectBacklog((prev) => ({
       ...prev,
@@ -475,7 +478,7 @@ export function AppProvider({ children }) {
     setSprint({ ...sprintData, status: "active" });
     logActivity("sprint", "started sprint", { name: sprintData.name });
     addNotification({ type: "sprint_started", text: `Sprint "${sprintData.name}" started` });
-  }, [logActivity, addNotification]);
+  }, [logActivity, addNotification, setSprint]);
 
   const completeSprint = useCallback((moveToBacklogSectionId) => {
     const projectTasks = activeTasks.filter((t) => (t.projectId || "proj-1") === currentProjectId);
@@ -1120,7 +1123,7 @@ export function AppProvider({ children }) {
     setSidebarCollapsed(false);
     setProjectsViewMode("grid");
     setPerProjectBoardFilters({});
-  }, []);
+  }, [setSprint]);
 
   const value = {
     // Current user

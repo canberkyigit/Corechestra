@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import MDEditor from "@uiw/react-md-editor";
 import {
-  FaTrash, FaCheck, FaPencilAlt, FaPlus, FaCopy, FaStopwatch,
-  FaStickyNote, FaChevronDown, FaChevronRight, FaClock, FaMarkdown,
+  FaTrash, FaPencilAlt, FaPlus, FaCopy, FaStopwatch,
+  FaStickyNote, FaChevronRight, FaClock,
   FaBold, FaItalic, FaStrikethrough, FaCode, FaListUl, FaListOl, FaQuoteLeft, FaMinus, FaLink,
 } from "react-icons/fa";
 import { useApp } from "../../context/AppContext";

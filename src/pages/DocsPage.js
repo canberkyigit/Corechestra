@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import MDEditor from "@uiw/react-md-editor";
-import { useEditor, EditorContent, ReactRenderer } from "@tiptap/react";
+import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { Markdown } from "tiptap-markdown";
 import Mention from "@tiptap/extension-mention";
@@ -114,11 +113,6 @@ function buildTree(pages) {
   roots.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
   roots.forEach(sortNode);
   return roots;
-}
-
-function flattenTree(nodes, result = []) {
-  nodes.forEach((n) => { result.push(n); flattenTree(n.children, result); });
-  return result;
 }
 
 function getBreadcrumb(pageId, pages) {
@@ -329,7 +323,7 @@ function NewPageForm({ parentId, spaceId, onSave, onCancel, templateContent, tem
 
 function CreateSpaceModal({ projects, onSave, onClose }) {
   const [name, setName] = useState("");
-  const [key, setKey] = useState("");
+  const [key] = useState("");
   const [description, setDescription] = useState("");
   const [icon, setIcon] = useState("📘");
   const [color, setColor] = useState("#2563eb");
@@ -432,9 +426,9 @@ function CreateSpaceModal({ projects, onSave, onClose }) {
 
 export default function DocsPage() {
   const {
-    spaces, createSpace, deleteSpace,
+    spaces, createSpace,
     docPages, createDocPage, updateDocPage, deleteDocPage,
-    projects, currentUser, users,
+    projects, currentUser,
   } = useApp();
   const { addToast } = useToast();
 
