@@ -2,7 +2,6 @@ import React, { useState, useMemo, useCallback } from "react";
 import {
   FaRocket,
   FaPlus,
-  FaTimes,
   FaArrowRight,
   FaArrowLeft,
   FaUsers,
@@ -22,13 +21,6 @@ const PRIORITY_CLASSES = {
   high:     "bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/30",
   medium:   "bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-800/30",
   low:      "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800/30",
-};
-
-const PRIORITY_DOT = {
-  critical: "bg-red-500",
-  high:     "bg-red-400",
-  medium:   "bg-yellow-400",
-  low:      "bg-green-400",
 };
 
 const STATUS_CLASSES = {
@@ -211,7 +203,6 @@ export default function PlanningTab() {
     updateSprint,
     burndownSnapshots,
     users,
-    teams,
     projects,
     currentProjectId,
   } = useApp();

@@ -3,12 +3,12 @@ import { useApp } from "../context/AppContext";
 import {
   format, startOfMonth, endOfMonth, startOfWeek, endOfWeek,
   addDays, isSameMonth, isToday, parseISO, isValid, addMonths, subMonths,
-  isPast, isThisWeek, differenceInDays, isSameDay, addWeeks, isTomorrow,
+  isPast, differenceInDays, isSameDay, addWeeks, isTomorrow,
   startOfDay, isBefore,
 } from "date-fns";
 import {
-  FaChevronLeft, FaChevronRight, FaCalendarAlt, FaClock,
-  FaExclamationTriangle, FaCheckCircle, FaCircle, FaUser,
+  FaChevronLeft, FaChevronRight, FaCalendarAlt,
+  FaExclamationTriangle, FaCheckCircle, FaUser,
   FaThLarge, FaListUl,
 } from "react-icons/fa";
 import TaskSidePanel from "../components/TaskSidePanel";

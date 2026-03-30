@@ -12,6 +12,7 @@ import CalendarPage from "./pages/CalendarPage";
 import ReportsPage from "./pages/ReportsPage";
 import ProfilePage from "./pages/ProfilePage";
 import AdminPage from "./pages/AdminPage";
+import HRPage from "./pages/HRPage";
 import ProjectsPage from "./pages/ProjectsPage";
 import DocsPage from "./pages/DocsPage";
 import ReleasesPage from "./pages/ReleasesPage";
@@ -26,6 +27,7 @@ import Logo from "./components/Logo";
 import { AppProvider, useApp } from "./context/AppContext";
 import { ToastProvider } from "./context/ToastContext";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { HRProvider } from "./context/HRContext";
 import "./App.css";
 
 const queryClient = new QueryClient({
@@ -55,6 +57,7 @@ const PATH_TO_PAGE = {
   "/tests":     "tests",
   "/archive":   "archive",
   "/for-you":   "for-you",
+  "/hr":        "hr",
 };
 
 function PageTransition({ children, fullHeight = false }) {
@@ -195,16 +198,17 @@ function AppInner() {
           <Route path="/board"     element={boardPage} />
           <Route path="/dashboard" element={<PageTransition><DashboardPage /></PageTransition>} />
           <Route path="/roadmap"   element={<PageTransition><TimelinePage /></PageTransition>} />
-          <Route path="/calendar"  element={<PageTransition><CalendarPage /></PageTransition>} />
+          <Route path="/calendar"  element={<PageTransition fullHeight><CalendarPage /></PageTransition>} />
           <Route path="/reports"   element={<PageTransition><ReportsPage /></PageTransition>} />
           <Route path="/profile"   element={<PageTransition><ProfilePage /></PageTransition>} />
           <Route path="/admin"     element={<PageTransition>{isAdmin ? <AdminPage /> : <Navigate to="/board" replace />}</PageTransition>} />
           <Route path="/projects"  element={<PageTransition><ProjectsPage onNavigate={(p) => navigate(`/${p}`)} /></PageTransition>} />
-          <Route path="/docs"      element={<PageTransition><DocsPage /></PageTransition>} />
-          <Route path="/releases"  element={<PageTransition><ReleasesPage /></PageTransition>} />
-          <Route path="/tests"     element={<PageTransition><TestsPage /></PageTransition>} />
+          <Route path="/docs"      element={<PageTransition fullHeight><DocsPage /></PageTransition>} />
+          <Route path="/releases"  element={<PageTransition fullHeight><ReleasesPage /></PageTransition>} />
+          <Route path="/tests"     element={<PageTransition fullHeight><TestsPage /></PageTransition>} />
           <Route path="/archive"   element={<PageTransition><ArchivePage /></PageTransition>} />
           <Route path="/for-you"   element={<PageTransition><ForYouPage /></PageTransition>} />
+          <Route path="/hr"        element={<PageTransition><HRPage /></PageTransition>} />
           <Route path="*"          element={boardPage} />
         </Routes>
       </Layout>
@@ -256,7 +260,9 @@ function AuthGate() {
   return (
     <AppProvider>
       <ToastProvider>
-        <AppInner />
+        <HRProvider>
+          <AppInner />
+        </HRProvider>
       </ToastProvider>
     </AppProvider>
   );

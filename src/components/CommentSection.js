@@ -154,7 +154,7 @@ function ToolbarBtn({ icon: Icon, label, onClick, title, active }) {
 // ─── CommentEditor ────────────────────────────────────────────────────────────
 
 function CommentEditor({ value, onChange, onSubmit, onCancel, placeholder, autoFocus, allTasks, replyTo, onCancelReply }) {
-  const { teamMembers, allTasks: ctxAllTasks } = useApp();
+  const { teamMembers } = useApp();
   const taRef = useRef(null);
   const [showEmoji, setShowEmoji] = useState(false);
   const [emojiCat, setEmojiCat] = useState(0);
@@ -496,7 +496,7 @@ function CommentBubble({ comment: c, allTasks, isOwn, isEditing, editingText, on
 // ─── CommentSection ───────────────────────────────────────────────────────────
 
 export default function CommentSection({ savedComments = [], allTasks = [], onUpdate, onTaskRefClick, taskTitle, taskId }) {
-  const { addNotification, users, teamMembers } = useApp();
+  const { addNotification } = useApp();
   const [localNew,       setLocalNew]       = useState([]);
   const [compose,        setCompose]        = useState("");
   const [editingId,      setEditingId]      = useState(null);

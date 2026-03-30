@@ -108,14 +108,6 @@ export default function KanbanBoard({
     setSelectedIds(new Set());
   };
 
-  const toggleSelect = (id) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  };
-
   const getColTasks = (colId, tasksArr) =>
     tasksArr.filter((t) => t.status === colId);
 

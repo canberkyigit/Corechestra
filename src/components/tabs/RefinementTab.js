@@ -349,7 +349,6 @@ export default function RefinementTab({ onTaskClick, onPokerClick }) {
             const avg = numericEstimations.length > 0 ? (numericEstimations.reduce((a, b) => a + b, 0) / numericEstimations.length).toFixed(1) : "–";
             const countMap = {};
             numericEstimations.forEach((n) => { countMap[n] = (countMap[n] || 0) + 1; });
-            const mostCommon = Object.entries(countMap).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "–";
             const withConsensus = pokerHistory.filter((h) => {
               const vals = Object.values(h.votes || {});
               return vals.length > 0 && new Set(vals).size === 1;

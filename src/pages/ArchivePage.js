@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import {
-  FaArchive, FaUndo, FaTrash, FaSearch, FaExclamationTriangle,
-  FaTasks, FaProjectDiagram, FaBolt, FaTrashAlt, FaChevronDown,
+  FaArchive, FaUndo, FaTrash, FaSearch,
+  FaTrashAlt, FaChevronDown,
 } from "react-icons/fa";
 import { useApp } from "../context/AppContext";
 import { useToast } from "../context/ToastContext";
@@ -47,7 +47,7 @@ export default function ArchivePage() {
     }
     if (sortBy === "project") items.sort((a, b) => (a.projectId || "").localeCompare(b.projectId || ""));
     return items;
-  }, [archivedTasks, search, sortBy]);
+  }, [archivedTasks, search, sortBy, currentProjectId, showAllProjects]);
 
   const handleRestore = (taskId) => {
     const task = archivedTasks.find((t) => t.id === taskId);

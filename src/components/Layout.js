@@ -9,7 +9,7 @@ import {
   FaShieldAlt, FaLayerGroup, FaBook, FaTag, FaFlask,
   FaCheckSquare, FaBug, FaPlusSquare, FaExclamationCircle,
   FaUser, FaFlag, FaPlay, FaRegDotCircle, FaTimes, FaArchive, FaUndo, FaBolt,
-  FaSignOutAlt, FaBars,
+  FaSignOutAlt, FaBars, FaBuilding,
 } from "react-icons/fa";
 import { useApp } from "../context/AppContext";
 import { useToast } from "../context/ToastContext";
@@ -103,7 +103,8 @@ const NAV_ITEMS = [
 ];
 
 const ADMIN_NAV_ITEMS = [
-  { id: "admin", label: "Admin", icon: FaShieldAlt },
+  { id: "admin", label: "Admin",             icon: FaShieldAlt },
+  { id: "hr",    label: "Human Resources",   icon: FaBuilding  },
 ];
 
 export default function Layout({
@@ -117,7 +118,6 @@ export default function Layout({
     users,
   } = useApp();
   const { user, role, profile, logout, isAdmin } = useAuth();
-  const appUser     = users?.find((u) => u.id === user?.uid || u.email === user?.email);
   const displayName = profile?.fullName || user?.email || "User";
   const [notifOpen,       setNotifOpen]       = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
@@ -252,7 +252,6 @@ export default function Layout({
     : "text-slate-600 hover:bg-slate-100 hover:text-slate-900";
   const subText        = darkMode ? "text-slate-500" : "text-slate-400";
   const projNameText   = darkMode ? "text-white"     : "text-slate-900";
-  const itemHover      = darkMode ? "hover:bg-white/5" : "hover:bg-slate-50";
   const bottomRowClass = darkMode
     ? "text-slate-400 hover:bg-white/5 hover:text-slate-200"
     : "text-slate-600 hover:bg-slate-100 hover:text-slate-900";

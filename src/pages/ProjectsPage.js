@@ -141,7 +141,7 @@ function CreateProjectModal({ onClose, onCreate }) {
 }
 
 export default function ProjectsPage({ onNavigate }) {
-  const { projects, currentProjectId, setCurrentProjectId, activeTasks, users, createProject, projectsViewMode, setProjectsViewMode, dbReady } = useApp();
+  const { projects, currentProjectId, setCurrentProjectId, activeTasks, createProject, projectsViewMode, setProjectsViewMode, dbReady } = useApp();
   const { isAdmin } = useAuth();
   const [showCreate, setShowCreate] = useState(false);
   const [settingsProject, setSettingsProject] = useState(null);

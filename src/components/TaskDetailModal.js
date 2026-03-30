@@ -5,7 +5,7 @@ import { Listbox } from "@headlessui/react";
 import {
   FaTimes, FaTrash, FaCheck, FaPlus, FaChevronDown, FaSearch,
   FaEye, FaEyeSlash, FaTag, FaLink,
-  FaComment, FaCompress,
+  FaCompress,
   FaCloudUploadAlt, FaFileAlt,
 } from "react-icons/fa";
 import { useApp } from "../context/AppContext";

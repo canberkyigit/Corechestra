@@ -27,13 +27,6 @@ const ROLES = [
 ];
 
 
-const WEEK_DAYS = [
-  { id: "mon", label: "Mon" }, { id: "tue", label: "Tue" },
-  { id: "wed", label: "Wed" }, { id: "thu", label: "Thu" },
-  { id: "fri", label: "Fri" }, { id: "sat", label: "Sat" },
-  { id: "sun", label: "Sun" },
-];
-
 // ─── Shared UI ────────────────────────────────────────────────────────────────
 
 function ColorPicker({ value, onChange }) {
@@ -240,7 +233,7 @@ function TeamCard({ team, projects, users, onEdit, onDelete, onUpdateTeam }) {
   const [userSearch,  setUserSearch]  = useState("");
 
   const assigned = projects.filter((p) => (team.projectIds||[]).includes(p.id));
-  const members  = team.memberNames || [];
+  const members  = useMemo(() => team.memberNames || [], [team.memberNames]);
 
   const resolveUser = (username) =>
     users?.find((u) => u.username === username) ||
@@ -432,47 +425,6 @@ function UserForm({ initial, onSave, onCancel }) {
   );
 }
 
-function UserCard({ user, onEdit, onDelete, onToggleStatus }) {
-  const [del, setDel] = useState(false);
-  const role = ROLES.find((r) => r.value === user.role) || ROLES[1];
-  const isActive = user.status === "active";
-  return (
-    <SectionCard className="p-4">
-      <div className="flex items-center gap-4">
-        {/* Avatar */}
-        <div className="w-11 h-11 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0 shadow-sm" style={{ backgroundColor: user.color }}>
-          {user.name[0]?.toUpperCase()}
-        </div>
-        {/* Info */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-0.5">
-            <span className="font-semibold text-slate-800 dark:text-slate-200 text-sm">{user.name}</span>
-            <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{ backgroundColor: role.color+"20", color: role.color }}>{role.label}</span>
-            {!isActive && <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 font-medium">Inactive</span>}
-          </div>
-          <div className="flex items-center gap-3 text-xs text-slate-400 dark:text-slate-500">
-            <span className="flex items-center gap-1"><FaEnvelope className="w-3 h-3" />{user.email}</span>
-            {user.username && <span className="flex items-center gap-1"><FaUserCircle className="w-3 h-3" />@{user.username}</span>}
-            {user.joinedAt && <span className="flex items-center gap-1"><FaCalendarAlt className="w-3 h-3" />Joined {user.joinedAt}</span>}
-          </div>
-        </div>
-        {/* Actions */}
-        <div className="flex items-center gap-1 flex-shrink-0">
-          <button onClick={onEdit} className="p-1.5 rounded-lg text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"><FaEdit className="w-3.5 h-3.5" /></button>
-          <button onClick={onToggleStatus}
-            className={`px-2 py-1 rounded-lg text-xs font-medium transition-colors ${isActive ? "text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/20" : "text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20"}`}>
-            {isActive ? "Deactivate" : "Activate"}
-          </button>
-          {!del
-            ? <button onClick={() => setDel(true)} className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"><FaTrash className="w-3.5 h-3.5" /></button>
-            : <DeleteConfirm label="Remove?" onConfirm={onDelete} onCancel={() => setDel(false)} />
-          }
-        </div>
-      </div>
-    </SectionCard>
-  );
-}
-
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 // ─── Access / Role Management Tab ─────────────────────────────────────────────
@@ -579,9 +531,9 @@ function AccessTab({ currentUid }) {
 export default function AdminPage() {
   const {
     teams, createTeam, updateTeam, deleteTeam,
-    projects, createProject, updateProject, deleteProject, currentProjectId,
+    projects, createProject, updateProject, deleteProject,
     users, deletedUserIds, createUser, updateUser, deleteUser,
-    sprint, setActiveTasks, setBacklogSections,
+    setActiveTasks, setBacklogSections,
   } = useApp();
 
   const { user: authUser } = useAuth();
@@ -622,7 +574,6 @@ export default function AdminPage() {
   // Projects
   const [showProjForm, setShowProjForm] = useState(false);
   const [editingProj,  setEditingProj]  = useState(null);
-  const totalMembers = new Set(teams.flatMap((t) => t.memberNames || [])).size;
   const activeUsers  = dedupUsers(users, deletedUserIds).filter((u) => u.status === "active").length;
 
   const TABS = [

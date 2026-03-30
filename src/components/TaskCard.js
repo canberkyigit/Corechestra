@@ -43,17 +43,6 @@ const PRIORITY_BORDER_COLOR = {
 };
 
 
-function getInitials(name) {
-  if (!name || name === "unassigned") return "?";
-  return name.charAt(0).toUpperCase();
-}
-
-function getAvatarColor(name) {
-  const colors = ["bg-blue-500", "bg-purple-500", "bg-green-500", "bg-pink-500", "bg-indigo-500"];
-  if (!name) return colors[0];
-  return colors[name.charCodeAt(0) % colors.length];
-}
-
 function getDueDateStatus(dueDateStr) {
   if (!dueDateStr) return null;
   try {
