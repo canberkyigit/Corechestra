@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Corechestra — Orchestrate Your Team's Best Work</title>
+  <meta name="description" content="The all-in-one project management platform that brings your sprints, docs, releases, HR, and team together in perfect harmony.">
+  <meta property="og:title" content="Corechestra — Orchestrate Your Team's Best Work">
+  <meta property="og:description" content="Sprint boards, docs, roadmaps, HR, reports — one cohesive workspace for engineering teams.">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════ NAV -->
+<nav id="nav">
+  <div class="container">
+    <div class="nav-inner">
+      <a href="#" class="nav-logo">
+        <div class="nav-logo-icon">🎼</div>
+        <span class="nav-logo-name">Corechestra</span>
+      </a>
+      <ul class="nav-links">
+        <li><a href="#features">Features</a></li>
+        <li><a href="#product">Product</a></li>
+        <li><a href="#pricing">Pricing</a></li>
+        <li><a href="#faq">Company</a></li>
+      </ul>
+      <div class="nav-actions">
+        <button class="btn btn-primary" onclick="openModal()">Request Demo</button>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<!-- ══════════════════════════════════════════ HERO -->
+<section class="hero">
+  <div class="hero-orb orb-1"></div>
+  <div class="hero-orb orb-2"></div>
+  <div class="hero-orb orb-3"></div>
+
+  <div class="hero-badge">
+    <div class="hero-badge-pip">✦</div>
+    Now with AI-powered sprint planning &amp; smart reporting
+  </div>
+
+  <h1>Orchestrate Your<br><span class="gradient-text">Team's Best Work</span></h1>
+
+  <p class="hero-sub">
+    The all-in-one project management platform where sprints, docs, releases, HR, and insights converge — so your team can focus on building, not managing.
+  </p>
+
+  <div class="hero-btns">
+    <button class="btn btn-cta btn-xl" onclick="openModal()">🚀 Request a Demo</button>
+    <button class="btn btn-ghost btn-xl" onclick="openModal()">Start for Free →</button>
+  </div>
+  <p class="hero-hint">No credit card required &nbsp;·&nbsp; Free for teams up to 5</p>
+
+  <!-- Product Mockup -->
+  <div class="hero-mockup">
+    <div class="mockup-frame">
+      <div class="mockup-topbar">
+        <div class="mock-dots">
+          <div class="mock-dot"></div>
+          <div class="mock-dot"></div>
+          <div class="mock-dot"></div>
+        </div>
+        <div class="mock-url">app.corechestra.io / board — Sprint 4</div>
+      </div>
+      <div class="mockup-body" style="padding:0;overflow:hidden;display:block;">
+        <img src="assets/ss-board.png" alt="Corechestra Sprint Board" style="width:100%;display:block;border-radius:0 0 var(--r-xl) var(--r-xl);">
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════ LOGOS -->
+<div class="logos-strip">
+  <div class="container">
+    <div class="logos-row">
+      <span class="logos-label">Trusted by</span>
+      <div class="marquee-wrap" style="flex:1;overflow:hidden;">
+        <div class="logos-track">
+          <span class="logo-name">Fintech Labs</span>
+          <span class="logo-name">BuildCo</span>
+          <span class="logo-name">Axiom</span>
+          <span class="logo-name">Sparkwave</span>
+          <span class="logo-name">Vertex Studio</span>
+          <span class="logo-name">NorthStack</span>
+          <span class="logo-name">Irongate</span>
+          <span class="logo-name">Pulse Systems</span>
+          <span class="logo-name">Crestline</span>
+          <span class="logo-name">Fintech Labs</span>
+          <span class="logo-name">BuildCo</span>
+          <span class="logo-name">Axiom</span>
+          <span class="logo-name">Sparkwave</span>
+          <span class="logo-name">Vertex Studio</span>
+          <span class="logo-name">NorthStack</span>
+          <span class="logo-name">Irongate</span>
+          <span class="logo-name">Pulse Systems</span>
+          <span class="logo-name">Crestline</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════ FEATURES -->
+<section id="features">
+  <div class="container">
+    <div style="text-align:center;">
+      <div class="sec-label" style="justify-content:center;">Features</div>
+      <h2 class="sec-title reveal">Everything your team needs,<br>nothing they don't</h2>
+      <p class="sec-sub reveal d1" style="margin:0 auto;">
+        Corechestra brings together the tools your team actually uses — in one cohesive, beautiful workspace.
+      </p>
+    </div>
+    <div class="features-grid">
+      <div class="feat-card reveal">
+        <div class="feat-icon ic-violet">📋</div>
+        <h3>Sprint Board</h3>
+        <p>Drag-and-drop Kanban with swim lanes, bulk actions, custom columns, and collapsible views. Your team always knows what's happening.</p>
+      </div>
+      <div class="feat-card reveal d1">
+        <div class="feat-icon ic-sky">📊</div>
+        <h3>Live Dashboard</h3>
+        <p>Sprint health at a glance. Velocity trends, burndown charts, status breakdowns, and team assignments — all auto-updating in real time.</p>
+      </div>
+      <div class="feat-card reveal d2">
+        <div class="feat-icon ic-green">🗺️</div>
+        <h3>Visual Roadmap</h3>
+        <p>Interactive Gantt chart for epics and milestones. Drag bars to reschedule, zoom from day to quarter. Share with stakeholders in one click.</p>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon ic-amber">📄</div>
+        <h3>Team Docs</h3>
+        <p>Confluence-like documentation with rich text, @mentions, image embeds, templates, and a hierarchical space/page structure teams actually navigate.</p>
+      </div>
+      <div class="feat-card reveal d1">
+        <div class="feat-icon ic-red">🏷️</div>
+        <h3>Release Tracking</h3>
+        <p>Version management with changelogs, linked tasks, release notes, and deployment status — every release documented, every team member informed.</p>
+      </div>
+      <div class="feat-card reveal d2">
+        <div class="feat-icon ic-pink">👥</div>
+        <h3>HR &amp; People</h3>
+        <p>People directory, org chart, time tracking, time-off requests, contracts, and payslips — connected directly to real user accounts.</p>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon ic-teal">🧪</div>
+        <h3>Test Management</h3>
+        <p>Create test suites, write test cases, run executions, and track pass/fail history. Link tests directly to tasks and release versions.</p>
+      </div>
+      <div class="feat-card reveal d1">
+        <div class="feat-icon ic-indigo">📅</div>
+        <h3>Calendar View</h3>
+        <p>Month, week, and agenda views for all team tasks. See due dates, spot overdue items, and plan your week without leaving the app.</p>
+      </div>
+      <div class="feat-card reveal d2">
+        <div class="feat-icon ic-cyan">📈</div>
+        <h3>Smart Reports</h3>
+        <p>Velocity trends, burndown analysis, assignee breakdown, priority distribution, and CSV export. Turn data into decisions, not spreadsheets.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════ BIG FEATURE -->
+<section id="product" style="background:var(--bg-1);border-top:1px solid var(--border-1);">
+  <div class="container">
+    <div class="bigfeat reveal">
+      <div>
+        <div class="sec-label">Sprint Board</div>
+        <h2 class="sec-title">Your board,<br>your way</h2>
+        <p class="sec-sub" style="margin-bottom:28px;">
+          Switch between Kanban, list, and table views without losing context. Drag tasks across columns, bulk-move entire groups, collapse lanes you don't need, and find anything instantly with full-text search.
+        </p>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:32px;">
+          <span class="tag-chip"><span class="tag-pip" style="background:#2563eb;"></span>Drag &amp; Drop</span>
+          <span class="tag-chip"><span class="tag-pip" style="background:#0ea5e9;"></span>Swim Lanes</span>
+          <span class="tag-chip"><span class="tag-pip" style="background:#059669;"></span>Bulk Actions</span>
+          <span class="tag-chip"><span class="tag-pip" style="background:#d97706;"></span>Collapsible Columns</span>
+          <span class="tag-chip"><span class="tag-pip" style="background:#7c3aed;"></span>Real-time Sync</span>
+        </div>
+        <button class="btn btn-primary btn-lg" onclick="openModal()">See it live →</button>
+      </div>
+      <div class="bigfeat-visual" style="padding:0;overflow:hidden;">
+        <img src="assets/ss-board.png" alt="Corechestra Sprint Board" style="width:100%;display:block;border-radius:var(--r-xl);">
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════ HR SECTION -->
+<section id="hr" style="background:var(--bg-0);border-top:1px solid var(--border-1);padding:100px 0;">
+  <div class="container">
+    <div style="text-align:center;margin-bottom:60px;">
+      <div class="sec-label reveal" style="justify-content:center;">HR &amp; People</div>
+      <h2 class="sec-title reveal" style="max-width:680px;margin:0 auto 18px;">Everything HR, built into<br><span class="gradient-text">your workspace</span></h2>
+      <p class="sec-sub reveal d1" style="max-width:560px;margin:0 auto;">
+        No more switching between HR software and your project tools. Manage your entire people operation — from hiring to payroll — in the same platform your engineers already live in.
+      </p>
+    </div>
+
+    <div class="hr-grid reveal">
+
+      <!-- Leave & Time Off -->
+      <div class="hr-card">
+        <div class="hr-card-icon" style="background:linear-gradient(135deg,#dbeafe,#bfdbfe);">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        </div>
+        <h3 class="hr-card-title">Leave &amp; Time Off</h3>
+        <p class="hr-card-desc">Annual leave, sick days, remote days, and custom leave types. Approval workflows, team calendars, and accrual policies — all configurable.</p>
+        <ul class="hr-feature-list">
+          <li>✓ Multi-type leave requests</li>
+          <li>✓ Manager approval workflow</li>
+          <li>✓ Leave balance tracking</li>
+          <li>✓ Team absence calendar</li>
+        </ul>
+      </div>
+
+      <!-- Contract Management -->
+      <div class="hr-card">
+        <div class="hr-card-icon" style="background:linear-gradient(135deg,#d1fae5,#a7f3d0);">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        </div>
+        <h3 class="hr-card-title">Contract Management</h3>
+        <p class="hr-card-desc">Store, version, and track employee contracts. Set expiry reminders, manage renewals, and keep a full audit trail — never miss a critical date again.</p>
+        <ul class="hr-feature-list">
+          <li>✓ Contract storage &amp; versioning</li>
+          <li>✓ Expiry &amp; renewal alerts</li>
+          <li>✓ Digital signature support</li>
+          <li>✓ Full audit trail</li>
+        </ul>
+      </div>
+
+      <!-- Documents -->
+      <div class="hr-card">
+        <div class="hr-card-icon" style="background:linear-gradient(135deg,#fef3c7,#fde68a);">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        </div>
+        <h3 class="hr-card-title">Documents &amp; Policies</h3>
+        <p class="hr-card-desc">Centralize HR policies, onboarding materials, handbooks, and compliance documents. Control who can view or edit each document by role or team.</p>
+        <ul class="hr-feature-list">
+          <li>✓ Role-based document access</li>
+          <li>✓ Policy acknowledgement tracking</li>
+          <li>✓ Onboarding document packages</li>
+          <li>✓ Version history</li>
+        </ul>
+      </div>
+
+      <!-- Finance & Payroll -->
+      <div class="hr-card">
+        <div class="hr-card-icon" style="background:linear-gradient(135deg,#ede9fe,#ddd6fe);">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        </div>
+        <h3 class="hr-card-title">Finance &amp; Payroll</h3>
+        <p class="hr-card-desc">Manage compensation records, salary revisions, bonuses, and expense claims. Generate payroll summaries and keep finance and HR in perfect sync.</p>
+        <ul class="hr-feature-list">
+          <li>✓ Compensation history</li>
+          <li>✓ Salary revision tracking</li>
+          <li>✓ Bonus &amp; expense records</li>
+          <li>✓ Payroll export</li>
+        </ul>
+      </div>
+
+      <!-- Interviews & Recruitment -->
+      <div class="hr-card">
+        <div class="hr-card-icon" style="background:linear-gradient(135deg,#fee2e2,#fecaca);">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <h3 class="hr-card-title">Interviews &amp; Recruitment</h3>
+        <p class="hr-card-desc">Track candidates through your pipeline, schedule interviews, share feedback across hiring teams, and move top talent to onboarding without missing a beat.</p>
+        <ul class="hr-feature-list">
+          <li>✓ Candidate pipeline board</li>
+          <li>✓ Interview scheduling</li>
+          <li>✓ Structured feedback forms</li>
+          <li>✓ Offer &amp; onboarding handoff</li>
+        </ul>
+      </div>
+
+      <!-- Org Chart & People -->
+      <div class="hr-card">
+        <div class="hr-card-icon" style="background:linear-gradient(135deg,#e0f2fe,#bae6fd);">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0ea5e9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="16" width="6" height="6" rx="1"/><rect x="17" y="16" width="6" height="6" rx="1"/><line x1="12" y1="7" x2="12" y2="13"/><line x1="4" y1="16" x2="4" y2="13"/><line x1="20" y1="16" x2="20" y2="13"/><line x1="4" y1="13" x2="20" y2="13"/></svg>
+        </div>
+        <h3 class="hr-card-title">Org Chart &amp; Directory</h3>
+        <p class="hr-card-desc">Visual org chart that updates automatically as your team grows. Employee profiles, reporting lines, department groupings, and contact info — always current.</p>
+        <ul class="hr-feature-list">
+          <li>✓ Auto-updating org chart</li>
+          <li>✓ Employee profiles</li>
+          <li>✓ Department &amp; team views</li>
+          <li>✓ Headcount analytics</li>
+        </ul>
+      </div>
+
+    </div>
+
+    <div style="text-align:center;margin-top:56px;" class="reveal d2">
+      <button class="btn btn-primary btn-lg" onclick="openModal()">Explore the HR module →</button>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════ STATS -->
+<section style="padding:60px 0;background:var(--bg-0);">
+  <div class="container">
+    <div class="stats-bar reveal">
+      <div class="stat-cell">
+        <div class="stat-num gradient-text">14+</div>
+        <div class="stat-lbl">Integrated modules</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-num gradient-text">∞</div>
+        <div class="stat-lbl">Sprints you can run</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-num gradient-text">100%</div>
+        <div class="stat-lbl">Real-time synced</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-num gradient-text">0ms</div>
+        <div class="stat-lbl">Setup required</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════ HOW IT WORKS -->
+<section style="background:var(--bg-1);border-top:1px solid var(--border-1);border-bottom:1px solid var(--border-1);">
+  <div class="container">
+    <div style="text-align:center;">
+      <div class="sec-label" style="justify-content:center;">How it works</div>
+      <h2 class="sec-title reveal">Up and running in minutes,<br>not months</h2>
+      <p class="sec-sub reveal d1" style="margin:0 auto;">
+        No consultants needed. No 40-page setup guide. Sign up, invite your team, and start shipping.
+      </p>
+    </div>
+    <div class="steps-row">
+      <div class="step reveal">
+        <div class="step-num">1</div>
+        <h3>Create your workspace</h3>
+        <p>Sign up, name your workspace, and invite your team. Set roles — admin, member, or viewer — with fine-grained permissions from day one.</p>
+      </div>
+      <div class="step reveal d1">
+        <div class="step-num">2</div>
+        <h3>Set up your projects</h3>
+        <p>Create projects, define epics, and configure your Kanban columns to match your team's actual workflow — not a template you'll fight against.</p>
+      </div>
+      <div class="step reveal d2">
+        <div class="step-num">3</div>
+        <h3>Run your first sprint</h3>
+        <p>Add tasks to the backlog, plan sprint scope, and kick off. The board, burndown chart, and notifications activate automatically.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════ SCREENSHOT GALLERY -->
+<section style="background:var(--bg-1);border-top:1px solid var(--border-1);padding:80px 0;">
+  <div class="container">
+    <div style="text-align:center;margin-bottom:48px;">
+      <div class="sec-label reveal" style="justify-content:center;">Product Tour</div>
+      <h2 class="sec-title reveal" style="max-width:600px;margin:0 auto;">Every module, built with<br>the same attention to detail</h2>
+    </div>
+    <div class="gallery-tabs reveal" id="gallery-tabs">
+      <button class="gallery-tab active" onclick="showTab('board')">Sprint Board</button>
+      <button class="gallery-tab" onclick="showTab('dashboard')">Dashboard</button>
+      <button class="gallery-tab" onclick="showTab('reports')">Reports</button>
+      <button class="gallery-tab" onclick="showTab('hr')">HR &amp; People</button>
+      <button class="gallery-tab" onclick="showTab('docs')">Documentation</button>
+      <button class="gallery-tab" onclick="showTab('releases')">Releases</button>
+      <button class="gallery-tab" onclick="showTab('calendar')">Calendar</button>
+    </div>
+    <div class="gallery-frame reveal d1">
+      <div class="gallery-topbar">
+        <div class="mock-dots"><div class="mock-dot"></div><div class="mock-dot"></div><div class="mock-dot"></div></div>
+        <div class="mock-url" id="gallery-url">app.corechestra.io / board</div>
+      </div>
+      <div class="gallery-img-wrap">
+        <img id="gallery-img" src="assets/ss-board.png" alt="Corechestra Sprint Board">
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════ SCRUM CEREMONIES -->
+<section class="scrum-section">
+  <div class="container">
+    <div style="text-align:center;margin-bottom:56px;">
+      <div class="sec-label reveal" style="justify-content:center;">Full Scrum Coverage</div>
+      <h2 class="sec-title reveal" style="max-width:700px;margin:0 auto;">Every Scrum ceremony,<br>handled end-to-end</h2>
+      <p class="sec-sub reveal" style="max-width:560px;margin:16px auto 0;">From planning to retrospective, Corechestra guides your team through the entire sprint lifecycle — no external tools needed.</p>
+    </div>
+    <div class="scrum-grid">
+
+      <div class="scrum-card reveal">
+        <div class="scrum-card-header">
+          <div class="scrum-num">01</div>
+          <div class="scrum-label">Refinement</div>
+        </div>
+        <h3 class="scrum-card-title">Estimate stories<br>before the sprint</h3>
+        <p class="scrum-card-desc">Inline story point editing, built-in Planning Poker sessions, and live estimation progress tracking — so your backlog is always sprint-ready.</p>
+        <div class="scrum-tags">
+          <span>Planning Poker</span><span>Story Points</span><span>Backlog Grooming</span>
+        </div>
+        <div class="scrum-ss-wrap">
+          <img src="assets/ss-refinement.png" alt="Story Refinement" loading="lazy">
+        </div>
+      </div>
+
+      <div class="scrum-card reveal d1">
+        <div class="scrum-card-header">
+          <div class="scrum-num">02</div>
+          <div class="scrum-label">Sprint Planning</div>
+        </div>
+        <h3 class="scrum-card-title">Plan capacity,<br>commit to a goal</h3>
+        <p class="scrum-card-desc">Drag tasks from your backlog pool into the sprint, set a sprint goal, and track team capacity with per-member availability sliders and velocity references.</p>
+        <div class="scrum-tags">
+          <span>Capacity Planning</span><span>Velocity</span><span>Sprint Goal</span>
+        </div>
+        <div class="scrum-ss-wrap">
+          <img src="assets/ss-planning.png" alt="Sprint Planning" loading="lazy">
+        </div>
+      </div>
+
+      <div class="scrum-card reveal d2">
+        <div class="scrum-card-header">
+          <div class="scrum-num">03</div>
+          <div class="scrum-label">Sprint Review</div>
+        </div>
+        <h3 class="scrum-card-title">Demo what shipped,<br>capture what didn't</h3>
+        <p class="scrum-card-desc">See exactly what was completed vs. not completed, mark items as demo-ready, add meeting notes, and review velocity against previous sprints — all in one place.</p>
+        <div class="scrum-tags">
+          <span>Demo Ready</span><span>Meeting Notes</span><span>Sprint History</span>
+        </div>
+        <div class="scrum-ss-wrap">
+          <img src="assets/ss-sprint-review.png" alt="Sprint Review" loading="lazy">
+        </div>
+      </div>
+
+      <div class="scrum-card reveal d3">
+        <div class="scrum-card-header">
+          <div class="scrum-num">04</div>
+          <div class="scrum-label">Retrospective</div>
+        </div>
+        <h3 class="scrum-card-title">Reflect, vote,<br>and improve</h3>
+        <p class="scrum-card-desc">Collaborative retro board with Went Well / Went Wrong / Can Improve / Action Items columns, upvoting, a built-in timer, and one-click export.</p>
+        <div class="scrum-tags">
+          <span>Retro Board</span><span>Upvoting</span><span>Action Items</span><span>Export</span>
+        </div>
+        <div class="scrum-ss-wrap">
+          <img src="assets/ss-retrospective.png" alt="Retrospective" loading="lazy">
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════ TESTIMONIALS -->
+<section>
+  <div class="container">
+    <div style="text-align:center;">
+      <div class="sec-label" style="justify-content:center;">Testimonials</div>
+      <h2 class="sec-title reveal">Teams that made the switch</h2>
+    </div>
+    <div class="testi-grid">
+      <div class="testi-card reveal">
+        <div class="testi-stars">★★★★★</div>
+        <p class="testi-text">"We tried several platforms over the years. Corechestra does everything we need — and the board actually works the way we think. No plugins, no config wars."</p>
+        <div class="testi-author">
+          <div class="testi-avatar">S</div>
+          <div>
+            <div class="testi-name">Sarah Chen</div>
+            <div class="testi-role">VP Engineering, Axiom</div>
+          </div>
+        </div>
+      </div>
+      <div class="testi-card reveal d1">
+        <div class="testi-stars">★★★★★</div>
+        <p class="testi-text">"Having HR, docs, and the sprint board in one place sounds obvious in hindsight. The context switching we used to do was invisible overhead — until it wasn't."</p>
+        <div class="testi-author">
+          <div class="testi-avatar" style="background:linear-gradient(135deg,#0ea5e9,#059669);">M</div>
+          <div>
+            <div class="testi-name">Marcus Webb</div>
+            <div class="testi-role">CTO, Sparkwave</div>
+          </div>
+        </div>
+      </div>
+      <div class="testi-card reveal d2">
+        <div class="testi-stars">★★★★★</div>
+        <p class="testi-text">"The roadmap Gantt is the best I've used. Stakeholders can see the plan without needing board access. That alone was worth the switch."</p>
+        <div class="testi-author">
+          <div class="testi-avatar" style="background:linear-gradient(135deg,#d97706,#dc2626);">L</div>
+          <div>
+            <div class="testi-name">Leila Osman</div>
+            <div class="testi-role">Product Lead, BuildCo</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════ PRICING -->
+<section id="pricing" style="background:var(--bg-1);border-top:1px solid var(--border-1);">
+  <div class="container">
+    <div style="text-align:center;">
+      <div class="sec-label" style="justify-content:center;">Pricing</div>
+      <h2 class="sec-title reveal">Simple pricing,<br>no surprises</h2>
+      <p class="sec-sub reveal d1" style="margin:0 auto;">
+        Start free, scale when you're ready. Every plan includes all core features.
+      </p>
+    </div>
+    <div class="pricing-grid">
+      <div class="price-card reveal">
+        <div class="price-tier">Starter</div>
+        <div class="price-amount">$0</div>
+        <div class="price-period">forever</div>
+        <p class="price-desc">Everything you need to get started with up to 5 team members.</p>
+        <ul class="price-features">
+          <li>Up to 5 users</li>
+          <li>3 active projects</li>
+          <li>Unlimited sprints</li>
+          <li>Kanban + list + table views</li>
+          <li>Docs &amp; Calendar</li>
+          <li>5 GB storage</li>
+        </ul>
+        <button class="btn btn-ghost" style="width:100%;padding:13px;" onclick="openModal()">Get started free</button>
+      </div>
+      <div class="price-card featured reveal d1">
+        <div class="price-badge">Most Popular</div>
+        <div class="price-tier featured-tier">Pro</div>
+        <div class="price-amount gradient-text">$12</div>
+        <div class="price-period">per user / month</div>
+        <p class="price-desc">The full Corechestra experience for growing engineering teams.</p>
+        <ul class="price-features">
+          <li>Unlimited users</li>
+          <li>Unlimited projects</li>
+          <li>HR &amp; People module</li>
+          <li>Test management</li>
+          <li>Release tracking</li>
+          <li>Advanced reports + CSV export</li>
+          <li>Priority support</li>
+          <li>50 GB storage</li>
+        </ul>
+        <button class="btn btn-primary" style="width:100%;padding:13px;" onclick="openModal()">Start 14-day trial</button>
+      </div>
+      <div class="price-card reveal d2">
+        <div class="price-tier">Enterprise</div>
+        <div class="price-amount">Custom</div>
+        <div class="price-period">&nbsp;</div>
+        <p class="price-desc">Tailored for large organizations with security and compliance needs.</p>
+        <ul class="price-features">
+          <li>Everything in Pro</li>
+          <li>SSO / SAML</li>
+          <li>Custom data retention</li>
+          <li>Dedicated SLA</li>
+          <li>Onboarding &amp; training</li>
+          <li>Self-hosted option</li>
+          <li>Unlimited storage</li>
+        </ul>
+        <button class="btn btn-ghost" style="width:100%;padding:13px;" onclick="openModal()">Contact sales</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════ CTA BAND -->
+<section class="cta-band">
+  <div class="container">
+    <div class="sec-label reveal" style="justify-content:center;">Start Today</div>
+    <h2 class="sec-title reveal" style="max-width:680px;margin:0 auto 22px;">
+      Your team deserves a tool<br>that thinks like they do
+    </h2>
+    <p class="sec-sub reveal d1" style="margin:0 auto 40px;">
+      See why engineering teams are switching to Corechestra — a single platform that actually works the way your team works, without the complexity of stitching multiple tools together.
+    </p>
+    <div style="display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;" class="reveal d2">
+      <button class="btn btn-cta btn-xl" onclick="openModal()">🚀 Request a Demo</button>
+      <button class="btn btn-ghost btn-xl" onclick="openModal()">Start for Free — No CC needed</button>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════ FOOTER -->
+<footer id="faq">
+  <div class="container">
+    <div class="footer-grid">
+      <div>
+        <a href="#" class="nav-logo">
+          <div class="nav-logo-icon">🎼</div>
+          <span class="nav-logo-name">Corechestra</span>
+        </a>
+        <p class="footer-brand-desc">The all-in-one project management platform that orchestrates your team's best work. Built for engineering teams that move fast.</p>
+        <div class="footer-socials">
+          <a href="#" class="footer-social" title="X / Twitter">𝕏</a>
+          <a href="#" class="footer-social" title="GitHub">⌥</a>
+          <a href="#" class="footer-social" title="LinkedIn" style="font-size:11px;font-weight:700;">in</a>
+        </div>
+      </div>
+      <div class="footer-col">
+        <h4>Product</h4>
+        <ul>
+          <li><a href="#features">Features</a></li>
+          <li><a href="#pricing">Pricing</a></li>
+          <li><a href="#" onclick="openModal();return false;">Request Demo</a></li>
+          <li><a href="#">Changelog</a></li>
+          <li><a href="#">Roadmap</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Company</h4>
+        <ul>
+          <li><a href="#">About</a></li>
+          <li><a href="#">Blog</a></li>
+          <li><a href="#">Careers</a></li>
+          <li><a href="#">Press</a></li>
+          <li><a href="#">Contact</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Legal</h4>
+        <ul>
+          <li><a href="#">Privacy Policy</a></li>
+          <li><a href="#">Terms of Service</a></li>
+          <li><a href="#">Security</a></li>
+          <li><a href="#">Status</a></li>
+          <li><a href="#">Cookies</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 Corechestra. All rights reserved.</span>
+      <span style="display:flex;align-items:center;gap:8px;">
+        <span class="status-dot"></span>
+        All systems operational
+      </span>
+    </div>
+  </div>
+</footer>
+
+<!-- ══════════════════════════════════════════ MODAL -->
+<div class="modal-overlay" id="modal-overlay" onclick="overlayClick(event)">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+
+    <!-- Form -->
+    <div id="form-wrap">
+      <div class="modal-head">
+        <div class="modal-icon">🎼</div>
+        <div>
+          <h2>Request a Demo</h2>
+          <p>We'll reach out within one business day</p>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>First name</label>
+          <input type="text" placeholder="Alex" id="inp-first">
+        </div>
+        <div class="form-group">
+          <label>Last name</label>
+          <input type="text" placeholder="Johnson">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Work email</label>
+        <input type="email" placeholder="alex@company.com" id="inp-email">
+      </div>
+      <div class="form-group">
+        <label>Company</label>
+        <input type="text" placeholder="Acme Corp">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Team size</label>
+          <select>
+            <option value="">Select…</option>
+            <option>1–5 people</option>
+            <option>6–20 people</option>
+            <option>21–100 people</option>
+            <option>100+ people</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Current tool</label>
+          <select>
+            <option value="">Select…</option>
+            <option>Project management tool</option>
+            <option>Issue tracker</option>
+            <option>Wiki / docs tool</option>
+            <option>Multiple separate tools</option>
+            <option>Spreadsheets</option>
+            <option>Nothing yet</option>
+            <option>Other</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>What interests you most? <span style="color:var(--text-3);font-weight:400;text-transform:none;letter-spacing:0;">(optional)</span></label>
+        <textarea rows="3" placeholder="e.g. Sprint management, HR module, reporting…"></textarea>
+      </div>
+      <button class="btn btn-cta" style="width:100%;padding:14px;font-size:15px;" onclick="submitForm()">🚀 Request Demo</button>
+      <p class="form-hint">No spam. No pitch decks. Just a real conversation.</p>
+    </div>
+
+    <!-- Success -->
+    <div id="success-wrap" style="display:none;" class="modal-success">
+      <span class="success-emoji">🎉</span>
+      <h2 style="font-size:24px;margin-bottom:12px;letter-spacing:-0.5px;">You're on the list!</h2>
+      <p style="font-size:15px;color:var(--text-2);line-height:1.65;margin-bottom:28px;">
+        We'll reach out to <strong id="confirm-email" style="color:var(--text-1);">you</strong> within one business day to schedule your personalized demo.
+      </p>
+      <button class="btn btn-primary btn-lg" onclick="closeModal()">Sounds great →</button>
+    </div>
+  </div>
+</div>
+
+
+<script src="script.js"></script>
+</body>
+</html>
