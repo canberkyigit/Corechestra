@@ -1802,13 +1802,13 @@ function FinanceTab() {
 // ─── Interview Pipeline Tab ───────────────────────────────────────────────────
 
 const PIPELINE_STAGES = [
-  { id: "pool",       label: "Candidate Pool", tailwind: "bg-slate-400"  },
-  { id: "screening",  label: "Screening",      tailwind: "bg-blue-400"   },
-  { id: "interview1", label: "Interview I",    tailwind: "bg-indigo-500" },
-  { id: "interview2", label: "Interview II",   tailwind: "bg-purple-500" },
-  { id: "technical",  label: "Technical",      tailwind: "bg-amber-500"  },
-  { id: "offer",      label: "Offer",          tailwind: "bg-orange-500" },
-  { id: "hired",      label: "Hired",          tailwind: "bg-green-500"  },
+  { id: "pool",       label: "Candidate Pool", tailwind: "bg-slate-400",  hex: "#94a3b8" },
+  { id: "screening",  label: "Screening",      tailwind: "bg-blue-400",   hex: "#60a5fa" },
+  { id: "interview1", label: "Interview I",    tailwind: "bg-indigo-500", hex: "#6366f1" },
+  { id: "interview2", label: "Interview II",   tailwind: "bg-purple-500", hex: "#a855f7" },
+  { id: "technical",  label: "Technical",      tailwind: "bg-amber-500",  hex: "#f59e0b" },
+  { id: "offer",      label: "Offer",          tailwind: "bg-orange-500", hex: "#f97316" },
+  { id: "hired",      label: "Hired",          tailwind: "bg-green-500",  hex: "#22c55e" },
 ];
 
 const DEFAULT_CRITERIA = [
@@ -1865,37 +1865,37 @@ function StarRating({ rating, size = "sm", onClick }) {
 }
 
 function CandidateCard({ candidate, dragProvided, onClick, scorecards }) {
-  const hasSC      = scorecards.some(s => s.candidateId === candidate.id);
-  const source     = CANDIDATE_SOURCES.find(s => s.value === candidate.source)?.label || candidate.source;
-  const initials   = (candidate.name || "?").split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase();
-  const colorIdx   = candidate.name ? candidate.name.charCodeAt(0) % CAND_COLORS.length : 0;
+  const hasSC    = scorecards.some(s => s.candidateId === candidate.id);
+  const source   = CANDIDATE_SOURCES.find(s => s.value === candidate.source)?.label || candidate.source;
+  const initials = (candidate.name || "?").split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase();
+  const colorIdx = candidate.name ? candidate.name.charCodeAt(0) % CAND_COLORS.length : 0;
   return (
     <div
       ref={dragProvided.innerRef}
       {...dragProvided.draggableProps}
       {...dragProvided.dragHandleProps}
       onClick={() => onClick(candidate)}
-      className="bg-white dark:bg-[#232838] rounded-lg border border-slate-200 dark:border-[#2a3044] p-3 mb-2 cursor-pointer hover:shadow-md hover:border-blue-300 dark:hover:border-blue-700 transition-all select-none"
+      className="bg-white dark:bg-[#1c2030] rounded-xl border border-slate-200 dark:border-[#2a3044] p-4 mb-3 cursor-pointer hover:shadow-lg hover:border-blue-300 dark:hover:border-blue-600 hover:-translate-y-0.5 transition-all select-none group"
     >
-      <div className="flex items-start gap-2">
+      <div className="flex items-center gap-3">
         <div
-          className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold text-white"
+          className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-sm font-bold text-white shadow-sm"
           style={{ backgroundColor: CAND_COLORS[colorIdx] }}
         >
           {initials}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate">{candidate.name}</p>
-          <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{source}</p>
+          <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate leading-tight">{candidate.name}</p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 truncate">{source}</p>
         </div>
         {hasSC && (
-          <span className="flex-shrink-0 w-4 h-4 rounded-full bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center">
-            <FaClipboardList className="w-2 h-2 text-indigo-500" />
+          <span title="Has scorecard" className="flex-shrink-0 w-5 h-5 rounded-full bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center opacity-70 group-hover:opacity-100 transition-opacity">
+            <FaClipboardList className="w-2.5 h-2.5 text-indigo-500" />
           </span>
         )}
       </div>
       {candidate.rating > 0 && (
-        <div className="mt-2 pl-10">
+        <div className="mt-3 pt-3 border-t border-slate-100 dark:border-[#2a3044]">
           <StarRating rating={candidate.rating} />
         </div>
       )}
@@ -1905,23 +1905,30 @@ function CandidateCard({ candidate, dragProvided, onClick, scorecards }) {
 
 function PipelineColumn({ stage, candidates, onCandidateClick, onAddCandidate, scorecards }) {
   return (
-    <div className="flex flex-col w-52 flex-shrink-0">
-      <div className="flex items-center gap-2 px-2 py-2 mb-2">
-        <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${stage.tailwind}`} />
-        <span className="text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wide">{stage.label}</span>
-        <span className="ml-auto text-xs text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-[#1a1f2e] rounded-full px-1.5 py-0.5 font-medium">
-          {candidates.length}
-        </span>
+    <div className="flex flex-col w-64 flex-shrink-0">
+      {/* Column header with accent top-border */}
+      <div className={`rounded-t-xl px-4 py-3 border-t-[3px] bg-white dark:bg-[#1a1f2e] border-x border-b border-slate-200 dark:border-[#2a3044] mb-0`}
+        style={{ borderTopColor: stage.hex }}
+      >
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">{stage.label}</span>
+          <span className="text-xs font-semibold px-2 py-0.5 rounded-full text-white"
+            style={{ backgroundColor: stage.hex + "cc" }}
+          >
+            {candidates.length}
+          </span>
+        </div>
       </div>
+      {/* Droppable body */}
       <Droppable droppableId={stage.id}>
         {(provided, snapshot) => (
           <div
             ref={provided.innerRef}
             {...provided.droppableProps}
-            className={`flex-1 rounded-xl p-2 min-h-[200px] transition-colors border-2 ${
+            className={`flex-1 rounded-b-xl p-3 min-h-[240px] transition-colors border-x border-b ${
               snapshot.isDraggingOver
                 ? "bg-blue-50 dark:bg-blue-900/10 border-blue-300 dark:border-blue-700"
-                : "bg-slate-50 dark:bg-[#1a1f2e] border-transparent"
+                : "bg-slate-50/60 dark:bg-[#141720] border-slate-200 dark:border-[#2a3044]"
             }`}
           >
             {candidates.map((cand, idx) => (
@@ -1940,7 +1947,7 @@ function PipelineColumn({ stage, candidates, onCandidateClick, onAddCandidate, s
             {stage.id === "pool" && onAddCandidate && (
               <button
                 onClick={onAddCandidate}
-                className="w-full py-2 text-xs text-slate-400 dark:text-slate-500 hover:text-blue-500 dark:hover:text-blue-400 transition-colors flex items-center justify-center gap-1"
+                className="w-full mt-1 py-2.5 text-xs text-slate-400 dark:text-slate-500 hover:text-blue-500 dark:hover:text-blue-400 transition-colors flex items-center justify-center gap-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/10 border border-dashed border-slate-200 dark:border-[#2a3044] hover:border-blue-300 dark:hover:border-blue-700"
               >
                 <FaPlus className="w-2.5 h-2.5" /> Add candidate
               </button>
@@ -2456,10 +2463,10 @@ function InterviewTab() {
   const getCandCount  = (jobId)  => candidates.filter(c => c.jobReqId === jobId && c.stage !== "rejected").length;
 
   return (
-    <div className="flex gap-5" style={{ minHeight: "65vh" }}>
+    <div className="flex gap-6" style={{ minHeight: "70vh" }}>
 
       {/* ── Left: Job requisitions ────────────────────────────────────── */}
-      <div className="w-64 flex-shrink-0 flex flex-col gap-3">
+      <div className="w-72 flex-shrink-0 flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Job Requisitions</h3>
           <button onClick={() => setShowNewJobModal(true)}
@@ -2490,23 +2497,23 @@ function InterviewTab() {
             const isSelected = job.id === selectedJobId;
             return (
               <button key={job.id} onClick={() => setSelectedJobId(job.id === selectedJobId ? null : job.id)}
-                className={`w-full text-left px-3 py-2.5 rounded-xl border-2 transition-all ${
+                className={`w-full text-left px-4 py-3.5 rounded-xl border-2 transition-all ${
                   isSelected
-                    ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-                    : "border-transparent bg-white dark:bg-[#1c2030] hover:border-slate-200 dark:hover:border-[#2a3044]"
+                    ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 shadow-sm"
+                    : "border-transparent bg-white dark:bg-[#1c2030] hover:bg-slate-50 dark:hover:bg-[#232838] hover:border-slate-200 dark:hover:border-[#2a3044]"
                 }`}
               >
-                <div className="flex items-start gap-2">
-                  <div className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${PRIORITY_DOT[job.priority] || "bg-slate-400"}`} />
+                <div className="flex items-start gap-3">
+                  <div className={`mt-1.5 w-2.5 h-2.5 rounded-full flex-shrink-0 ${PRIORITY_DOT[job.priority] || "bg-slate-400"}`} />
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-slate-800 dark:text-slate-100 truncate">{job.title}</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">
-                      {job.department || "No dept"} · {count} candidate{count !== 1 ? "s" : ""}
+                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate leading-tight">{job.title}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 truncate">
+                      {job.department || "No department"} · {count} candidate{count !== 1 ? "s" : ""}
                     </p>
-                    <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                    <div className="flex items-center gap-2 mt-2 flex-wrap">
                       <Badge color={JOB_STATUS_COLORS[job.status] || "slate"}>{job.status}</Badge>
                       {task && (
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-indigo-50 dark:bg-indigo-900/20 text-indigo-500 dark:text-indigo-400">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-indigo-50 dark:bg-indigo-900/20 text-indigo-500 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-800">
                           <FaLink className="w-2 h-2" />{task.id}
                         </span>
                       )}
@@ -2533,22 +2540,22 @@ function InterviewTab() {
           </div>
         ) : (
           <>
-            <div className="flex items-center justify-between flex-shrink-0">
+            <div className="flex items-center justify-between flex-shrink-0 pb-2 border-b border-slate-200 dark:border-[#2a3044]">
               <div>
-                <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">{selectedJob.title}</h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  {[selectedJob.department, JOB_TYPES.find(t => t.value === selectedJob.type)?.label, selectedJob.location, selectedJob.headcount > 1 ? `${selectedJob.headcount} seats` : null].filter(Boolean).join(" · ")}
+                <h3 className="text-base font-bold text-slate-800 dark:text-slate-100">{selectedJob.title}</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  {[selectedJob.department, JOB_TYPES.find(t => t.value === selectedJob.type)?.label, selectedJob.location, selectedJob.headcount > 1 ? `${selectedJob.headcount} open seats` : null].filter(Boolean).join("  ·  ")}
                 </p>
               </div>
               <button onClick={() => setCandModal({ _new: true, jobReqId: selectedJobId })}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
               >
-                <FaUserPlus className="w-3 h-3" /> Add Candidate
+                <FaUserPlus className="w-3.5 h-3.5" /> Add Candidate
               </button>
             </div>
 
             <DragDropContext onDragEnd={handleDragEnd}>
-              <div className="flex gap-3 overflow-x-auto pb-4" style={{ minWidth: 0 }}>
+              <div className="flex gap-4 overflow-x-auto pb-6" style={{ minWidth: 0 }}>
                 {PIPELINE_STAGES.map(stage => (
                   <PipelineColumn
                     key={stage.id}
