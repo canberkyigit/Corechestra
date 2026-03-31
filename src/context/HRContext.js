@@ -41,7 +41,7 @@ export function HRProvider({ children }) {
     });
 
     // Shared absences (all users)
-    const sharedRef  = doc(db, "hrData", "__shared__");
+    const sharedRef  = doc(db, "hrData", "hr_shared");
     const unsubShared = onSnapshot(sharedRef, (snap) => {
       setAllAbsences(snap.exists() ? (snap.data().absences || []) : []);
     });
@@ -64,7 +64,7 @@ export function HRProvider({ children }) {
     await setDoc(userRef, { timeOffRequests: [...current, newReq] }, { merge: true });
 
     // Shared absence entry so other users can see who is away
-    const sharedRef  = doc(db, "hrData", "__shared__");
+    const sharedRef  = doc(db, "hrData", "hr_shared");
     const sharedSnap = await getDoc(sharedRef);
     const absences   = sharedSnap.exists() ? (sharedSnap.data().absences || []) : [];
     await setDoc(sharedRef, {
@@ -92,7 +92,7 @@ export function HRProvider({ children }) {
     const current = snap.exists() ? (snap.data().timeOffRequests || []) : [];
     await updateDoc(userRef, { timeOffRequests: current.filter(r => r.id !== requestId) });
 
-    const sharedRef  = doc(db, "hrData", "__shared__");
+    const sharedRef  = doc(db, "hrData", "hr_shared");
     const sharedSnap = await getDoc(sharedRef);
     if (sharedSnap.exists()) {
       const absences = sharedSnap.data().absences || [];
