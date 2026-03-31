@@ -2437,6 +2437,21 @@ function InterviewTab() {
   const [scorecardModal,  setScorecardModal]  = useState(null);
   const [hireModal,       setHireModal]       = useState(null);
   const [jobSearch,       setJobSearch]       = useState("");
+  const boardRef = useRef(null);
+
+  // Convert vertical mouse wheel → horizontal scroll (mouse users can't natively scroll horizontal)
+  useEffect(() => {
+    const el = boardRef.current;
+    if (!el) return;
+    const onWheel = (e) => {
+      if (Math.abs(e.deltaX) < Math.abs(e.deltaY)) {
+        e.preventDefault();
+        el.scrollLeft += e.deltaY;
+      }
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
 
   const { jobRequisitions, candidates, scorecards } = pipeline;
 
@@ -2555,7 +2570,7 @@ function InterviewTab() {
             </div>
 
             <DragDropContext onDragEnd={handleDragEnd}>
-              <div className="flex gap-4 overflow-x-auto pb-6" style={{ minWidth: 0 }}>
+              <div ref={boardRef} className="flex gap-4 overflow-x-auto pb-6" style={{ minWidth: 0 }}>
                 {PIPELINE_STAGES.map(stage => (
                   <PipelineColumn
                     key={stage.id}
