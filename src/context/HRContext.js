@@ -21,6 +21,9 @@ export function HRProvider({ children }) {
   const [documents,       setDocuments]       = useState(DEFAULT_HR_DOCUMENTS);
   const [allAbsences,     setAllAbsences]     = useState([]);
   const [pipeline,        setPipeline]        = useState(EMPTY_PIPELINE);
+  const [employeeProfile, setEmployeeProfile] = useState({});
+  const [expenses,        setExpenses]        = useState([]);
+  const [bankAccounts,    setBankAccounts]    = useState([]);
 
   // Keep a ref to latest pipeline so callbacks always see current state without stale closures
   const pipelineRef = useRef(EMPTY_PIPELINE);
@@ -37,12 +40,18 @@ export function HRProvider({ children }) {
         setTimeOffRequests(d.timeOffRequests || []);
         setTimeEntries(d.timeEntries     || []);
         setDocuments(d.documents?.length ? d.documents : DEFAULT_HR_DOCUMENTS);
+        setEmployeeProfile(d.employeeProfile || {});
+        setExpenses(d.expenses || []);
+        setBankAccounts(d.bankAccounts || []);
       } else {
         // First-time init
         await setDoc(userRef, {
           timeOffRequests: [],
           timeEntries:     [],
           documents:       DEFAULT_HR_DOCUMENTS,
+          employeeProfile: {},
+          expenses:        [],
+          bankAccounts:    [],
         });
       }
     });
@@ -60,6 +69,8 @@ export function HRProvider({ children }) {
         const d = snap.data();
         setPipeline({ ...EMPTY_PIPELINE, ...d });
       }
+    }, (err) => {
+      console.error("[HRContext] pipeline onSnapshot error:", err.code, err.message);
     });
 
     return () => { unsubUser(); unsubShared(); unsubPipeline(); };
@@ -141,6 +152,86 @@ export function HRProvider({ children }) {
     await setDoc(userDocRef, { documents: updated }, { merge: true });
   }, [user?.uid]);
 
+  const addDocument = useCallback(async (docData) => {
+    if (!user?.uid) return;
+    const userDocRef = doc(db, "hrData", user.uid);
+    const snap    = await getDoc(userDocRef);
+    const current = snap.exists() ? (snap.data().documents || DEFAULT_HR_DOCUMENTS) : DEFAULT_HR_DOCUMENTS;
+    const newDoc  = { ...docData, id: "doc-" + genId(), createdAt: new Date().toISOString() };
+    await setDoc(userDocRef, { documents: [...current, newDoc] }, { merge: true });
+    return newDoc;
+  }, [user?.uid]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const deleteDocument = useCallback(async (docId) => {
+    if (!user?.uid) return;
+    const userDocRef = doc(db, "hrData", user.uid);
+    const snap    = await getDoc(userDocRef);
+    const current = snap.exists() ? (snap.data().documents || []) : [];
+    await setDoc(userDocRef, { documents: current.filter(d => d.id !== docId) }, { merge: true });
+  }, [user?.uid]);
+
+  const assignDocumentToUser = useCallback(async (targetUserId, docData) => {
+    const targetRef = doc(db, "hrData", targetUserId);
+    const snap    = await getDoc(targetRef);
+    const current = snap.exists() ? (snap.data().documents || DEFAULT_HR_DOCUMENTS) : DEFAULT_HR_DOCUMENTS;
+    const newDoc  = { ...docData, id: "doc-" + genId(), createdAt: new Date().toISOString(), assignedBy: user?.uid || "" };
+    await setDoc(targetRef, { documents: [...current, newDoc] }, { merge: true });
+    return newDoc;
+  }, [user?.uid]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Employee profile ───────────────────────────────────────────────────────
+  const updateEmployeeProfile = useCallback(async (fields) => {
+    if (!user?.uid) return;
+    const userDocRef = doc(db, "hrData", user.uid);
+    const snap    = await getDoc(userDocRef);
+    const current = snap.exists() ? (snap.data().employeeProfile || {}) : {};
+    await setDoc(userDocRef, { employeeProfile: { ...current, ...fields } }, { merge: true });
+  }, [user?.uid]);
+
+  // ── Expenses ───────────────────────────────────────────────────────────────
+  const addExpense = useCallback(async (expense) => {
+    if (!user?.uid) return;
+    const userDocRef = doc(db, "hrData", user.uid);
+    const snap    = await getDoc(userDocRef);
+    const current = snap.exists() ? (snap.data().expenses || []) : [];
+    const newExp  = { ...expense, id: "exp-" + genId(), status: "pending", createdAt: new Date().toISOString() };
+    await setDoc(userDocRef, { expenses: [...current, newExp] }, { merge: true });
+    return newExp;
+  }, [user?.uid]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const deleteExpense = useCallback(async (expenseId) => {
+    if (!user?.uid) return;
+    const userDocRef = doc(db, "hrData", user.uid);
+    const snap    = await getDoc(userDocRef);
+    const current = snap.exists() ? (snap.data().expenses || []) : [];
+    await setDoc(userDocRef, { expenses: current.filter(e => e.id !== expenseId) }, { merge: true });
+  }, [user?.uid]);
+
+  // ── Bank accounts ──────────────────────────────────────────────────────────
+  const addBankAccount = useCallback(async (acct) => {
+    if (!user?.uid) return;
+    const userDocRef = doc(db, "hrData", user.uid);
+    const snap    = await getDoc(userDocRef);
+    const current = snap.exists() ? (snap.data().bankAccounts || []) : [];
+    const isPrimary = current.length === 0;
+    const newAcct = { ...acct, id: "bank-" + genId(), isPrimary, createdAt: new Date().toISOString() };
+    await setDoc(userDocRef, { bankAccounts: [...current, newAcct] }, { merge: true });
+    return newAcct;
+  }, [user?.uid]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const deleteBankAccount = useCallback(async (accountId) => {
+    if (!user?.uid) return;
+    const userDocRef = doc(db, "hrData", user.uid);
+    const snap    = await getDoc(userDocRef);
+    const current = snap.exists() ? (snap.data().bankAccounts || []) : [];
+    const updated = current.filter(a => a.id !== accountId);
+    // If we deleted the primary, make next one primary
+    if (updated.length > 0 && !updated.some(a => a.isPrimary)) {
+      updated[0] = { ...updated[0], isPrimary: true };
+    }
+    await setDoc(userDocRef, { bankAccounts: updated }, { merge: true });
+  }, [user?.uid]);
+
   // ── Hiring pipeline ────────────────────────────────────────────────────────
   const createJobReq = useCallback(async (data) => {
     const newReq = {
@@ -218,10 +309,21 @@ export function HRProvider({ children }) {
       timeEntries,
       documents,
       allAbsences,
+      employeeProfile,
+      expenses,
+      bankAccounts,
       addTimeOffRequest,
       deleteTimeOffRequest,
       submitHours,
       updateDocumentStatus,
+      addDocument,
+      deleteDocument,
+      assignDocumentToUser,
+      updateEmployeeProfile,
+      addExpense,
+      deleteExpense,
+      addBankAccount,
+      deleteBankAccount,
       // pipeline
       pipeline,
       createJobReq,
