@@ -17,7 +17,7 @@ import {
   FaLink, FaThumbsDown, FaArrowRight,
 } from "react-icons/fa";
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
+// ─── Static Config ────────────────────────────────────────────────────────────
 
 const PUBLIC_HOLIDAYS = [
   { date: "Thu Apr 23rd 2026", name: "National Sovereignty and Children's Day" },
@@ -27,99 +27,10 @@ const PUBLIC_HOLIDAYS = [
   { date: "Wed Dec 31st 2026", name: "New Year's Eve" },
 ];
 
-const TIME_ENTRIES = [
-  { date: "Sun Mar 1",  type: "weekend",   label: "Non-working day",  submittable: true },
-  { date: "Mon Mar 2",  type: "work",      label: "No hours worked",  submittable: true },
-  { date: "Tue Mar 3",  type: "work",      label: "No hours worked",  submittable: true },
-  { date: "Wed Mar 4",  type: "work",      label: "No hours worked",  submittable: true },
-  { date: "Thu Mar 5",  type: "work",      label: "No hours worked",  submittable: true },
-  { date: "Fri Mar 6",  type: "work",      label: "No hours worked",  submittable: true },
-  { date: "Sat Mar 7",  type: "weekend",   label: "Non-working day",  submittable: true },
-  { date: "Sun Mar 8",  type: "weekend",   label: "Non-working day",  submittable: true },
-  { date: "Mon Mar 9",  type: "sick",      label: "Sick leave",       submittable: false },
-  { date: "Tue Mar 10", type: "sick",      label: "Sick leave",       submittable: false },
-  { date: "Wed Mar 11", type: "work",      label: "No hours worked",  submittable: true },
-  { date: "Thu Mar 12", type: "work",      label: "No hours worked",  submittable: true },
-  { date: "Fri Mar 13", type: "work",      label: "No hours worked",  submittable: true },
-  { date: "Sat Mar 14", type: "weekend",   label: "Non-working day",  submittable: true },
-  { date: "Sun Mar 15", type: "weekend",   label: "Non-working day",  submittable: true },
-  { date: "Mon Mar 16", type: "work",      label: "No hours worked",  submittable: true },
-  { date: "Tue Mar 17", type: "work",      label: "No hours worked",  submittable: true },
-  { date: "Wed Mar 18", type: "work",      label: "No hours worked",  submittable: true },
-  { date: "Thu Mar 19", type: "work",      label: "No hours worked",  submittable: true },
-  { date: "Fri Mar 20", type: "work",      label: "No hours worked",  submittable: true },
-  { date: "Sat Mar 21", type: "weekend",   label: "Non-working day",  submittable: true },
-  { date: "Sun Mar 22", type: "weekend",   label: "Non-working day",  submittable: true },
-  { date: "Mon Mar 23", type: "vacation",  label: "Vacation",         submittable: false },
-  { date: "Tue Mar 24", type: "vacation",  label: "Vacation",         submittable: false },
-  { date: "Wed Mar 25", type: "vacation",  label: "Vacation",         submittable: false },
-  { date: "Thu Mar 26", type: "vacation",  label: "Vacation",         submittable: false },
-  { date: "Fri Mar 27", type: "vacation",  label: "Vacation",         submittable: false },
-  { date: "Sat Mar 28", type: "weekend",   label: "Non-working day",  submittable: true },
-  { date: "Sun Mar 29", type: "weekend",   label: "Non-working day",  submittable: true },
-  { date: "Mon Mar 30", type: "work",      label: "No hours worked",  submittable: true },
-  { date: "Tue Mar 31", type: "work",      label: "No hours worked",  submittable: true },
-];
-
-const WHO_IS_AWAY = [
-  { id: 1, name: "Jasmine Fleming",  role: "Director Content Marketing",        until: "Mar 31st 2026", color: "#dc2626", long: false },
-  { id: 2, name: "Ram Kanna",        role: "Senior Technical Product Manager",  until: "Mar 31st 2026", color: "#8b5cf6", long: false },
-  { id: 3, name: "Jan Dubrawski",    role: "Project Manager",                   until: "Apr 1st 2026",  color: "#3b82f6", long: true  },
-  { id: 4, name: "Lukasz Ostrowski", role: "Technical Lead",                    until: "Apr 1st 2026",  color: "#f59e0b", long: false },
-];
-
-const TIME_OFF_REQUESTS = [
-  { id: 1, type: "vacation", label: "Vacation Turkey 20 days", period: "Mar 23rd - 27th 2026", duration: "5 days", status: "used" },
-  { id: 2, type: "sick",     label: "Sick leave Turkey",       period: "Mar 9th - 10th 2026",  duration: "2 days", status: "used" },
-  { id: 3, type: "vacation", label: "Vacation Turkey 20 days", period: "Jan 5th - 9th 2026",   duration: "5 days", status: "used" },
-];
-
-const DOCUMENTS = [
-  { id: 1, name: "Company Handbook",           category: "company",   status: "not_submitted", icon: FaClipboardList,  actions: ["sign"]     },
-  { id: 2, name: "Worker Verification Letter", category: "company",   status: null,            icon: FaFileAlt,        actions: ["preview"]  },
-  { id: 3, name: "HR Administration",          category: "personal",  status: null,            icon: FaFolder,         actions: ["download"], subtitle: "1 file" },
-];
-
-// Org chart tree
-const ORG_TREE = {
-  name: "Kevin Chew", role: "CEO", dept: "Finance & Admin", color: "#7c3aed", reports: 97,
-  children: [
-    {
-      name: "Brigid Ling", role: "Chief Marketing Officer", dept: "Marketing", color: "#dc2626", reports: 10,
-      children: [],
-    },
-    {
-      name: "Jim Franzel", role: "VP Product Management", dept: "Product Management", color: "#2563eb", reports: 8,
-      children: [
-        { name: "Bastien Vogt", role: "Product Manager", dept: "Product", color: "#7c3aed", reports: 0, children: [] },
-        { name: "Eleni Katsiavou", role: "Head of Design", dept: "Design", color: "#db2777", reports: 4, children: [] },
-      ],
-    },
-    {
-      name: "Alek Lipski", role: "VP Engineering", dept: "Engineering", color: "#ec4899", reports: 14,
-      children: [
-        {
-          name: "Murat Ezgi Bingol", role: "Leader of Technical Products", dept: "Engineering", color: "#ea580c", reports: 26,
-          children: [
-            { name: "Basrican Sen",    role: "Technical Lead",  dept: "Engineering", color: "#0891b2", reports: 3, children: [] },
-            {
-              name: "Haroon Rashid", role: "Technical Lead",  dept: "Engineering", color: "#6366f1", reports: 2,
-              children: [
-                { name: "Canberk Yigit", role: "Software Engineer", dept: "Engineering", color: "#3b82f6", reports: 0, children: [], isMe: true },
-              ],
-            },
-            { name: "Lukasz Ostrowski", role: "Technical Lead", dept: "Engineering", color: "#f59e0b", reports: 5, children: [] },
-          ],
-        },
-        { name: "Rinat Shaipov", role: "QA Lead", dept: "Engineering", color: "#10b981", reports: 9, children: [] },
-      ],
-    },
-  ],
-};
 
 // ─── Shared UI helpers ────────────────────────────────────────────────────────
 
-function Avatar({ name, color, size = "md", img }) {
+function Avatar({ name, color, size = "md" }) {
   const s = { sm: "w-7 h-7 text-[10px]", md: "w-9 h-9 text-sm", lg: "w-12 h-12 text-base" }[size];
   const initials = name.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase();
   return (
@@ -165,13 +76,27 @@ function InfoRow({ label, value, valueClass = "" }) {
 
 // ─── Overview Tab ─────────────────────────────────────────────────────────────
 
-function OverviewTab({ userName }) {
+function OverviewTab({ userName, setActiveTab }) {
+  const { allAbsences, documents, employeeProfile } = useHR();
+  const { users } = useApp();
   const [timeOffTab, setTimeOffTab] = useState("upcoming");
+  const [dismiss2fa, setDismiss2fa] = useState(false);
+
+  const today = new Date().toISOString().slice(0, 10);
+  const awayToday = (allAbsences || []).filter(a => a.fromDate <= today && a.toDate >= today);
+
+  const pendingDocCount = (documents || []).filter(d => d.status === "not_submitted" || (!d.status && d.actions?.includes("sign"))).length;
+
+  const salaryDisplay = employeeProfile?.salary
+    ? `${employeeProfile.salaryCurrency || ""}${employeeProfile.salary}`
+    : "—";
+  const jobTitle = employeeProfile?.jobTitle || "Employee";
+
   const quickActions = [
-    { label: "Submit hours",      icon: FaClock,       bg: "bg-green-100 dark:bg-green-900/30",  ic: "text-green-600 dark:text-green-400" },
-    { label: "Request time off",  icon: FaCalendarAlt, bg: "bg-blue-100 dark:bg-blue-900/30",    ic: "text-blue-600 dark:text-blue-400"  },
-    { label: "Add expense",       icon: FaReceipt,     bg: "bg-amber-100 dark:bg-amber-900/30",  ic: "text-amber-600 dark:text-amber-400" },
-    { label: "Update profile",    icon: FaUserCircle,  bg: "bg-indigo-100 dark:bg-indigo-900/30", ic: "text-indigo-600 dark:text-indigo-400" },
+    { label: "Submit hours",     icon: FaClock,       bg: "bg-green-100 dark:bg-green-900/30",   ic: "text-green-600 dark:text-green-400",   tab: "timetracking" },
+    { label: "Request time off", icon: FaCalendarAlt, bg: "bg-blue-100 dark:bg-blue-900/30",     ic: "text-blue-600 dark:text-blue-400",     tab: "timeoff" },
+    { label: "Add expense",      icon: FaReceipt,     bg: "bg-amber-100 dark:bg-amber-900/30",   ic: "text-amber-600 dark:text-amber-400",   tab: "finance" },
+    { label: "Update profile",   icon: FaUserCircle,  bg: "bg-indigo-100 dark:bg-indigo-900/30", ic: "text-indigo-600 dark:text-indigo-400", tab: "profile" },
   ];
 
   return (
@@ -185,8 +110,8 @@ function OverviewTab({ userName }) {
             <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Quick actions</span>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {quickActions.map(({ label, icon: Icon, bg, ic }) => (
-              <button key={label}
+            {quickActions.map(({ label, icon: Icon, bg, ic, tab }) => (
+              <button key={label} onClick={() => setActiveTab(tab)}
                 className="flex flex-col items-center gap-2.5 p-4 rounded-xl border border-slate-200 dark:border-[#2a3044] hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-all group">
                 <div className={`w-10 h-10 rounded-xl ${bg} flex items-center justify-center`}>
                   <Icon className={`w-4 h-4 ${ic}`} />
@@ -204,7 +129,7 @@ function OverviewTab({ userName }) {
               <FaCalendarAlt className="text-slate-400 w-3.5 h-3.5" />
               <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Time off and public holidays</span>
             </div>
-            <button className="text-xs text-blue-500 hover:text-blue-400 transition-colors">View all</button>
+            <button className="text-xs text-blue-500 hover:text-blue-400 transition-colors" onClick={() => setActiveTab("timeoff")}>View all</button>
           </div>
           <div className="flex gap-4 mb-4 border-b border-slate-200 dark:border-[#2a3044]">
             {["upcoming", "balance"].map(t => (
@@ -231,15 +156,15 @@ function OverviewTab({ userName }) {
                   </div>
                 </div>
               ))}
-              <button className="w-full mt-2 py-2 text-xs text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">
+              <button onClick={() => setActiveTab("timeoff")} className="w-full mt-2 py-2 text-xs text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">
                 Request time off
               </button>
             </div>
           ) : (
             <div className="py-3">
               <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-[#232838]">
-                <span className="text-sm text-slate-700 dark:text-slate-200">Vacation Turkey 20 days</span>
-                <span className="text-sm font-semibold text-green-600 dark:text-green-400">26.70 days available</span>
+                <span className="text-sm text-slate-700 dark:text-slate-200">Annual leave</span>
+                <span className="text-sm font-semibold text-green-600 dark:text-green-400">{employeeProfile?.vacationDays ?? 20} days available</span>
               </div>
             </div>
           )}
@@ -252,26 +177,30 @@ function OverviewTab({ userName }) {
               <FaCalendarAlt className="text-slate-400 w-3.5 h-3.5" />
               <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Who is away today</span>
             </div>
-            <button className="text-xs text-blue-500 hover:text-blue-400 transition-colors">View all</button>
+            <button className="text-xs text-blue-500 hover:text-blue-400 transition-colors" onClick={() => setActiveTab("timeoff")}>View all</button>
           </div>
           <div className="space-y-1">
-            {WHO_IS_AWAY.map((p) => (
-              <div key={p.id} className="flex items-center gap-3 py-2.5 border-b border-slate-100 dark:border-[#2a3044] last:border-0">
-                <Avatar name={p.name} color={p.color} size="sm" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-blue-500 hover:text-blue-400 cursor-pointer truncate">{p.name}</p>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{p.role}</p>
+            {awayToday.length === 0 ? (
+              <p className="text-xs text-slate-400 dark:text-slate-500 py-3 text-center">No one is away today</p>
+            ) : awayToday.map((a, idx) => {
+              const u = (users || []).find(u => u.id === a.userId);
+              const name = a.userName || u?.name || "Unknown";
+              const role = a.userTitle || u?.role || "Team Member";
+              const color = a.userColor || u?.color || "#6366f1";
+              return (
+                <div key={idx} className="flex items-center gap-3 py-2.5 border-b border-slate-100 dark:border-[#2a3044] last:border-0">
+                  <Avatar name={name} color={color} size="sm" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-blue-500 hover:text-blue-400 cursor-pointer truncate">{name}</p>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{role}</p>
+                  </div>
+                  <span className="text-[10px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">
+                    OOO until {a.toDate}
+                  </span>
                 </div>
-                <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${
-                  p.long
-                    ? "bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400"
-                    : "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
-                }`}>
-                  {p.long ? "OOO (long) " : "OOO "}until {p.until}
-                </span>
-              </div>
-            ))}
-            <button className="w-full mt-2 py-2 text-xs text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors flex items-center justify-center gap-2">
+              );
+            })}
+            <button className="w-full mt-2 py-2 text-xs text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors flex items-center justify-center gap-2" onClick={() => setActiveTab("timeoff")}>
               <FaCalendarAlt className="w-3 h-3" /> View calendar
             </button>
           </div>
@@ -286,32 +215,34 @@ function OverviewTab({ userName }) {
             <FaBell className="text-slate-400 w-3.5 h-3.5" />
             <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">For you today</span>
           </div>
-          <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 flex items-start justify-between mb-3">
-            <div className="flex items-start gap-2">
-              <FaInfoCircle className="w-3.5 h-3.5 text-amber-500 mt-0.5 flex-shrink-0" />
-              <p className="text-xs text-amber-700 dark:text-amber-300">Boost your account security by setting up 2FA</p>
+          {!dismiss2fa && (
+            <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 flex items-start justify-between mb-3">
+              <div className="flex items-start gap-2">
+                <FaInfoCircle className="w-3.5 h-3.5 text-amber-500 mt-0.5 flex-shrink-0" />
+                <p className="text-xs text-amber-700 dark:text-amber-300">Boost your account security by setting up 2FA</p>
+              </div>
+              <FaTimes className="w-3 h-3 text-amber-400 flex-shrink-0 ml-2 mt-0.5 cursor-pointer" onClick={() => setDismiss2fa(true)} />
             </div>
-            <FaTimes className="w-3 h-3 text-amber-400 flex-shrink-0 ml-2 mt-0.5 cursor-pointer" />
-          </div>
-          {[
-            { icon: FaClipboardList, label: "Documents", count: 2, color: "bg-blue-100 dark:bg-blue-900/30 text-blue-500" },
-            { icon: FaCheckCircle, label: "Tasks", count: 1, color: "bg-amber-100 dark:bg-amber-900/30 text-amber-500" },
-          ].map(({ icon: Icon, label, count, color }) => (
-            <div key={label} className="flex items-center gap-3 py-2.5 border-b border-slate-100 dark:border-[#2a3044] last:border-0">
+          )}
+          {pendingDocCount > 0 && (
+            <div className="flex items-center gap-3 py-2.5 border-b border-slate-100 dark:border-[#2a3044] last:border-0">
               <div className="relative">
-                <div className={`w-9 h-9 rounded-xl ${color} flex items-center justify-center`}>
-                  <Icon className="w-4 h-4" />
+                <div className="w-9 h-9 rounded-xl bg-blue-100 dark:bg-blue-900/30 text-blue-500 flex items-center justify-center">
+                  <FaClipboardList className="w-4 h-4" />
                 </div>
                 <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] flex items-center justify-center font-bold">
-                  {count}
+                  {pendingDocCount}
                 </span>
               </div>
-              <span className="flex-1 text-sm text-slate-700 dark:text-slate-200">{label}</span>
-              <button className="text-xs text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-[#2a3044] px-2.5 py-1 rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">
+              <span className="flex-1 text-sm text-slate-700 dark:text-slate-200">Documents</span>
+              <button onClick={() => setActiveTab("documents")} className="text-xs text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-[#2a3044] px-2.5 py-1 rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">
                 View
               </button>
             </div>
-          ))}
+          )}
+          {pendingDocCount === 0 && dismiss2fa && (
+            <p className="text-xs text-slate-400 dark:text-slate-500 text-center py-3">Nothing to do today</p>
+          )}
         </Card>
 
         {/* Contracts */}
@@ -322,16 +253,16 @@ function OverviewTab({ userName }) {
           </div>
           <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 dark:bg-[#232838]">
             <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
-              <span className="text-xs font-bold text-blue-600 dark:text-blue-400">CY</span>
+              <FaBriefcase className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium text-blue-500 truncate">{userName} - Software Engineer</p>
+              <p className="text-xs font-medium text-blue-500 truncate">{userName} - {jobTitle}</p>
               <div className="flex items-center gap-1 mt-0.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
                 <span className="text-[11px] text-green-600 dark:text-green-400">Active</span>
               </div>
             </div>
-            <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 flex-shrink-0">Fr99,999.00</span>
+            <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 flex-shrink-0">{salaryDisplay}</span>
           </div>
         </Card>
       </div>
@@ -341,17 +272,108 @@ function OverviewTab({ userName }) {
 
 // ─── People Tab ───────────────────────────────────────────────────────────────
 
+function SetManagerModal({ open, onClose, employee, allUsers, onSave }) {
+  const [selected, setSelected] = useState(employee?.managerId || "");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (open) setSelected(employee?.managerId || "");
+  }, [open, employee]);
+
+  const options = [...new Map((allUsers || []).map(u => [u.id, u])).values()].filter(u => u.id !== employee?.id);
+
+  const handleSave = async () => {
+    setSaving(true);
+    await onSave(employee, selected || null);
+    setSaving(false);
+    onClose();
+  };
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <>
+          <motion.div key="backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+          <motion.div key="modal" initial={{ opacity: 0, scale: 0.95, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 16 }} transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+            <div className="pointer-events-auto w-full max-w-sm bg-white dark:bg-[#1a1f2e] rounded-2xl shadow-2xl border border-slate-200 dark:border-[#2a3044] overflow-hidden"
+              onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-[#2a3044]">
+                <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Set manager for {employee?.name}</h2>
+                <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#232838] transition-colors">
+                  <FaTimes className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <div className="px-5 py-4 space-y-3">
+                <select
+                  value={selected}
+                  onChange={e => setSelected(e.target.value)}
+                  className="w-full px-3 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#232838] text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">— No manager —</option>
+                  {options.map(u => (
+                    <option key={u.id} value={u.id}>{u.name || u.email}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="px-5 py-4 border-t border-slate-200 dark:border-[#2a3044] flex justify-end gap-2">
+                <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">Cancel</button>
+                <button onClick={handleSave} disabled={saving} className="px-5 py-2 text-sm bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg transition-colors font-medium">
+                  {saving ? "Saving..." : "Save"}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+}
+
 function PeopleTab({ employees, currentUserId }) {
+  const { isAdmin } = useAuth();
+  const { updateUser } = useApp();
   const [search, setSearch] = useState("");
+  const [managerModal, setManagerModal] = useState(null); // { employee }
+
+  const deduped = useMemo(() =>
+    [...new Map((employees || []).map(u => [u.id, u])).values()], [employees]
+  );
+
   const filtered = useMemo(() =>
-    employees.filter(e =>
+    deduped.filter(e =>
       (e.name || "").toLowerCase().includes(search.toLowerCase()) ||
       (e.role || "").toLowerCase().includes(search.toLowerCase())
-    ), [search, employees]
+    ), [search, deduped]
   );
+
+  const getManagerName = (managerId) => {
+    if (!managerId) return null;
+    const mgr = deduped.find(u => u.id === managerId);
+    return mgr?.name || null;
+  };
+
+  const getDirectReports = (userId) =>
+    deduped.filter(u => u.managerId === userId).length;
+
+  const handleSaveManager = async (emp, managerId) => {
+    await updateUser({ ...emp, managerId: managerId || null });
+  };
 
   return (
     <div>
+      {managerModal && (
+        <SetManagerModal
+          open={!!managerModal}
+          onClose={() => setManagerModal(null)}
+          employee={managerModal}
+          allUsers={deduped}
+          onSave={handleSaveManager}
+        />
+      )}
+
       <div className="flex items-center gap-3 mb-5">
         <div className="relative flex-1 max-w-xs">
           <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
@@ -361,11 +383,6 @@ function PeopleTab({ employees, currentUserId }) {
             className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#1c2030] text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
           />
         </div>
-        {["Job title", "Country", "Manager"].map(f => (
-          <button key={f} className="flex items-center gap-1.5 px-3 py-2 text-xs text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">
-            {f} <FaChevronDown className="w-2.5 h-2.5" />
-          </button>
-        ))}
         <button className="ml-auto p-2 text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
@@ -381,54 +398,68 @@ function PeopleTab({ employees, currentUserId }) {
           <table className="w-full">
             <thead>
               <tr className="border-b border-slate-200 dark:border-[#2a3044]">
-                {["Person", "Country", "Manager", "Report"].map(h => (
-                  <th key={h} className="text-left px-4 py-3 text-xs font-medium text-slate-500 dark:text-slate-400">{h}</th>
-                ))}
+                <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 dark:text-slate-400">Person</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 dark:text-slate-400">Country</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 dark:text-slate-400">Manager</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 dark:text-slate-400">Reports</th>
+                {isAdmin && <th className="px-4 py-3" />}
               </tr>
             </thead>
             <tbody>
-              {filtered.map((emp) => (
-                <tr key={emp.id}
-                  className={`border-b border-slate-100 dark:border-[#2a3044]/50 hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors last:border-0 ${emp.id === currentUserId ? "bg-blue-50/30 dark:bg-blue-900/10" : ""}`}>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <Avatar name={emp.name || "?"} color={emp.color} size="sm" />
-                      <div>
-                        <p className="text-xs font-medium text-blue-500 hover:text-blue-400 cursor-pointer">
-                          {emp.name} {emp.id === currentUserId && <span className="text-[10px] text-slate-400 dark:text-slate-500">(You)</span>}
-                        </p>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400">{emp.role || emp.status || "Team Member"}</p>
+              {filtered.map((emp) => {
+                const managerName = getManagerName(emp.managerId);
+                const reportsCount = getDirectReports(emp.id);
+                return (
+                  <tr key={emp.id}
+                    className={`border-b border-slate-100 dark:border-[#2a3044]/50 hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors last:border-0 ${emp.id === currentUserId ? "bg-blue-50/30 dark:bg-blue-900/10" : ""}`}>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <Avatar name={emp.name || "?"} color={emp.color} size="sm" />
+                        <div>
+                          <p className="text-xs font-medium text-blue-500 hover:text-blue-400 cursor-pointer">
+                            {emp.name} {emp.id === currentUserId && <span className="text-[10px] text-slate-400 dark:text-slate-500">(You)</span>}
+                          </p>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400">{emp.role || emp.status || "Team Member"}</p>
+                        </div>
                       </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    {emp.country ? (
-                      <div className="flex items-center gap-1.5">
-                        {emp.flag && <span className="text-base">{emp.flag}</span>}
-                        <span className="text-xs text-slate-600 dark:text-slate-400">{emp.country}</span>
-                      </div>
-                    ) : (
-                      <span className="text-xs text-slate-400">—</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      {emp.country ? (
+                        <div className="flex items-center gap-1.5">
+                          {emp.flag && <span className="text-base">{emp.flag}</span>}
+                          <span className="text-xs text-slate-600 dark:text-slate-400">{emp.country}</span>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-400">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      {managerName ? (
+                        <span className="text-xs text-blue-500">{managerName}</span>
+                      ) : (
+                        <span className="text-xs text-slate-400">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      {reportsCount > 0 ? (
+                        <span className="text-xs text-slate-600 dark:text-slate-300">{reportsCount} report{reportsCount !== 1 ? "s" : ""}</span>
+                      ) : (
+                        <span className="text-xs text-slate-400">—</span>
+                      )}
+                    </td>
+                    {isAdmin && (
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          onClick={() => setManagerModal(emp)}
+                          className="text-xs text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] px-2.5 py-1 rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors"
+                        >
+                          Set manager
+                        </button>
+                      </td>
                     )}
-                  </td>
-                  <td className="px-4 py-3">
-                    {emp.manager ? (
-                      <span className="text-xs text-blue-500 hover:text-blue-400 cursor-pointer">{emp.manager}</span>
-                    ) : (
-                      <span className="text-xs text-slate-400">—</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    {emp.reports > 0 ? (
-                      <span className="text-xs text-slate-600 dark:text-slate-300">{emp.reports} Reports</span>
-                    ) : emp.reportTo ? (
-                      <span className="text-xs text-blue-500">{emp.reportTo}</span>
-                    ) : (
-                      <span className="text-xs text-slate-400">—</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -438,6 +469,38 @@ function PeopleTab({ employees, currentUserId }) {
 }
 
 // ─── Org Chart Tab ────────────────────────────────────────────────────────────
+
+function buildTreeFromUsers(users, currentUserId) {
+  if (!users || users.length === 0) return null;
+  const userMap = {};
+  users.forEach(u => { userMap[u.id] = u; });
+  const hasAnyHierarchy = users.some(u => u.managerId && userMap[u.managerId]);
+  if (!hasAnyHierarchy) return null;
+
+  function buildNode(user) {
+    const children = users.filter(u => u.managerId === user.id);
+    return {
+      name:     user.name || user.email?.split("@")[0] || "Unknown",
+      role:     user.role || user.title || "Team Member",
+      dept:     user.department || "",
+      color:    user.color || "#6366f1",
+      reports:  children.length,
+      isMe:     user.id === currentUserId,
+      _userId:  user.id,
+      children: children.map(buildNode),
+    };
+  }
+
+  const roots = users.filter(u => !u.managerId || !userMap[u.managerId]);
+  if (roots.length === 1) return buildNode(roots[0]);
+
+  // Multiple roots — wrap in virtual node
+  return {
+    name: "Organization", role: "", dept: "", color: "#6366f1",
+    reports: roots.length, isMe: false, _userId: null,
+    children: roots.map(buildNode),
+  };
+}
 
 // ─── Org Chart Layout Engine ──────────────────────────────────────────────────
 
@@ -517,7 +580,7 @@ function findParent(node, name) {
 
 // ─── Org Chart Tab (Canvas) ───────────────────────────────────────────────────
 
-function OrgChartTab() {
+function OrgChartTab({ users, currentUserId }) {
   const { darkMode } = useApp();
   const canvasRef = useRef(null);
   const [zoom, setZoom]       = useState(0.55);
@@ -527,7 +590,9 @@ function OrgChartTab() {
   const [search, setSearch]   = useState("");
   const [fitted, setFitted]   = useState(false);
 
-  const { nodes, edges, bounds } = useMemo(() => buildOrgLayout(ORG_TREE), []);
+  const tree = useMemo(() => buildTreeFromUsers(users, currentUserId), [users, currentUserId]);
+  const layout = useMemo(() => tree ? buildOrgLayout(tree) : null, [tree]);
+  const { nodes, edges, bounds } = layout || { nodes: [], edges: [], bounds: { width: 0, height: 0, ox: 0, oy: 0 } };
 
   // Non-passive wheel → zoom toward cursor
   useEffect(() => {
@@ -583,7 +648,7 @@ function OrgChartTab() {
 
   const fitScreen = useCallback(() => {
     const el = canvasRef.current;
-    if (!el) return;
+    if (!el || !bounds.width) return;
     const r = el.getBoundingClientRect();
     const pad = 64;
     const z = Math.min((r.width - pad * 2) / bounds.width, (r.height - pad * 2) / bounds.height, 1);
@@ -624,6 +689,18 @@ function OrgChartTab() {
 
   const dotColor = darkMode ? "%231e293b" : "%23e2e8f0";
   const edgeColor = darkMode ? "#2a3044" : "#cbd5e1";
+
+  if (!tree) {
+    return (
+      <div className="flex flex-col items-center justify-center py-32 text-center">
+        <FaSitemap className="w-12 h-12 text-slate-300 dark:text-slate-600 mb-4" />
+        <h3 className="text-base font-semibold text-slate-700 dark:text-slate-200 mb-1">No org chart configured</h3>
+        <p className="text-sm text-slate-500 dark:text-slate-400 max-w-sm">
+          Ask an admin to set manager relationships in the People tab to build the org chart hierarchy.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col" style={{ height: "calc(100vh - 230px)", minHeight: 520 }}>
@@ -858,7 +935,7 @@ function OrgChartTab() {
 
                 {/* Reports to */}
                 {(() => {
-                  const mgr = findParent(ORG_TREE, selected.name);
+                  const mgr = findParent(tree, selected.name);
                   if (!mgr) return null;
                   return (
                     <div>
@@ -878,7 +955,7 @@ function OrgChartTab() {
 
                 {/* Direct reports list */}
                 {(() => {
-                  const found = findInTree(ORG_TREE, selected.name);
+                  const found = findInTree(tree, selected.name);
                   const children = found?.children ?? [];
                   if (!children.length) return null;
                   return (
@@ -914,22 +991,54 @@ function OrgChartTab() {
 // ─── My Profile Tab ───────────────────────────────────────────────────────────
 
 function MyProfileTab({ userName, userEmail }) {
+  const { employeeProfile, updateEmployeeProfile } = useHR();
+  const { user, updateProfile, isAdmin } = useAuth();
+  const { users } = useApp();
   const [subTab, setSubTab] = useState("overview");
+  const [editing, setEditing] = useState(false);
+  const [editFirst, setEditFirst] = useState("");
+  const [editLast,  setEditLast]  = useState("");
+  const [editCountry, setEditCountry] = useState("");
+  const [saving, setSaving] = useState(false);
+
   const subTabs = ["Overview", "Personal information", "Payslips", "History"];
+
   const nameParts = userName?.split(" ") || ["User", ""];
   const firstName = nameParts[0] || "User";
-  const lastName = nameParts.slice(1).join(" ") || "";
+  const lastName  = nameParts.slice(1).join(" ") || "";
+
+  const managerId   = employeeProfile?.managerId;
+  const managerUser = managerId ? (users || []).find(u => u.id === managerId) : null;
+
+  const jobTitle    = employeeProfile?.jobTitle    || "—";
+  const empType     = employeeProfile?.employmentType || "—";
+  const salary      = employeeProfile?.salary ? `${employeeProfile.salaryCurrency || ""}${employeeProfile.salary}` : "—";
+  const startDate   = employeeProfile?.startDate   || "—";
+  const seniority   = employeeProfile?.seniorityLevel  || "—";
+  const workLoc     = employeeProfile?.workLocation    || "Not specified";
+  const country     = employeeProfile?.country         || "—";
+
+  const startEditPersonal = () => {
+    setEditFirst(firstName);
+    setEditLast(lastName);
+    setEditCountry(country === "—" ? "" : country);
+    setEditing(true);
+  };
+
+  const handleSavePersonal = async () => {
+    setSaving(true);
+    try {
+      const fullName = [editFirst.trim(), editLast.trim()].filter(Boolean).join(" ");
+      if (fullName) await updateProfile({ fullName });
+      if (editCountry.trim()) await updateEmployeeProfile({ country: editCountry.trim() });
+      setEditing(false);
+    } finally { setSaving(false); }
+  };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
       <div className="lg:col-span-1">
         <Card className="p-3">
-          <div className="relative mb-1">
-            <input
-              placeholder="Search"
-              className="w-full pl-3 pr-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-[#2a3044] bg-slate-50 dark:bg-[#232838] text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:outline-none"
-            />
-          </div>
           {subTabs.map(t => (
             <button key={t} onClick={() => setSubTab(t.toLowerCase().replace(/ /g, "-"))}
               className={`w-full text-left px-3 py-2.5 text-xs rounded-lg transition-colors ${
@@ -953,11 +1062,11 @@ function MyProfileTab({ userName, userEmail }) {
             <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Contract details</h3>
           </div>
           <div className="mt-3">
-            <InfoRow label="Job title" value="Software Engineer" />
-            <InfoRow label="Employment type" value="Full-time" />
-            <InfoRow label="Base compensation" value="Fr99,999.00" valueClass="font-semibold" />
+            <InfoRow label="Job title"         value={jobTitle} />
+            <InfoRow label="Employment type"   value={empType} />
+            <InfoRow label="Base compensation" value={salary} valueClass="font-semibold" />
             <InfoRow label="Contract" value={
-              <span className="text-blue-500 cursor-pointer hover:underline">{userName} - Software Engineer</span>
+              <span className="text-blue-500 cursor-pointer hover:underline">{userName} - {jobTitle}</span>
             } />
           </div>
         </Card>
@@ -971,26 +1080,24 @@ function MyProfileTab({ userName, userEmail }) {
               </div>
               <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Worker relationship</h3>
             </div>
-            <button className="text-xs text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] px-3 py-1 rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">Edit</button>
           </div>
-          <div className="space-y-3">
-            <div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">Manager</p>
+          <div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">Manager</p>
+            {managerUser ? (
               <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 dark:bg-[#232838]">
-                <Avatar name="Haroon Rashid" color="#6366f1" size="sm" />
+                <Avatar name={managerUser.name || "?"} color={managerUser.color || "#6366f1"} size="sm" />
                 <div>
-                  <p className="text-xs font-medium text-blue-500">Haroon Rashid</p>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Technical Lead</p>
+                  <p className="text-xs font-medium text-blue-500">{managerUser.name}</p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">{managerUser.role || "Team Member"}</p>
                 </div>
               </div>
-            </div>
-            <div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">Report</p>
+            ) : (
               <div className="flex items-center gap-2 p-3 rounded-lg bg-slate-50 dark:bg-[#232838]">
                 <FaInfoCircle className="w-3.5 h-3.5 text-slate-400" />
                 <span className="text-xs text-slate-500 dark:text-slate-400">Not assigned</span>
+                {isAdmin && <span className="ml-auto text-[11px] text-slate-400">Set in People tab</span>}
               </div>
-            </div>
+            )}
           </div>
         </Card>
 
@@ -1003,12 +1110,48 @@ function MyProfileTab({ userName, userEmail }) {
               </div>
               <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Personal</h3>
             </div>
-            <button className="text-xs text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] px-3 py-1 rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">View</button>
+            {!editing && (
+              <button onClick={startEditPersonal}
+                className="text-xs text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] px-3 py-1 rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">
+                Edit
+              </button>
+            )}
           </div>
-          <InfoRow label="First name" value={firstName} />
-          <InfoRow label="Last name" value={lastName || "—"} />
-          <InfoRow label="Personal email" value={userEmail || "user@company.com"} />
-          <InfoRow label="Country" value={<span className="flex items-center gap-1.5 justify-end">🇹🇷 Turkey</span>} />
+          {editing ? (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">First name</label>
+                  <input value={editFirst} onChange={e => setEditFirst(e.target.value)}
+                    className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#232838] text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Last name</label>
+                  <input value={editLast} onChange={e => setEditLast(e.target.value)}
+                    className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#232838] text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Country</label>
+                <input value={editCountry} onChange={e => setEditCountry(e.target.value)} placeholder="e.g. Turkey"
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#232838] text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div className="flex gap-2 justify-end">
+                <button onClick={() => setEditing(false)} className="px-4 py-1.5 text-xs text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">Cancel</button>
+                <button onClick={handleSavePersonal} disabled={saving}
+                  className="px-4 py-1.5 text-xs bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg transition-colors font-medium">
+                  {saving ? "Saving..." : "Save"}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <InfoRow label="First name"     value={firstName} />
+              <InfoRow label="Last name"      value={lastName || "—"} />
+              <InfoRow label="Personal email" value={userEmail || user?.email || "—"} />
+              <InfoRow label="Country"        value={country} />
+            </>
+          )}
         </Card>
 
         {/* General */}
@@ -1019,29 +1162,166 @@ function MyProfileTab({ userName, userEmail }) {
             </div>
             <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">General</h3>
           </div>
-          <InfoRow label="Start date" value="Jun 14th 2021" />
-          <InfoRow label="Work email" value={userEmail || "user@company.com"} />
-          <InfoRow label="Seniority level" value="Mid (Individual Contributor Level 2)" />
-          <InfoRow label="Work location" value="Not specified" valueClass="text-slate-400 dark:text-slate-500" />
+          <InfoRow label="Start date"      value={startDate} />
+          <InfoRow label="Work email"      value={userEmail || user?.email || "—"} />
+          <InfoRow label="Seniority level" value={seniority} />
+          <InfoRow label="Work location"   value={workLoc} valueClass={workLoc === "Not specified" ? "text-slate-400 dark:text-slate-500" : ""} />
         </Card>
       </div>
     </div>
   );
 }
 
+// ─── Edit Contract Modal (admin) ──────────────────────────────────────────────
+
+function EditContractModal({ open, onClose, employeeProfile, onSave }) {
+  const [fields, setFields] = useState({});
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (open) setFields({
+      jobTitle:        employeeProfile?.jobTitle        || "",
+      employmentType:  employeeProfile?.employmentType  || "",
+      seniorityLevel:  employeeProfile?.seniorityLevel  || "",
+      workLocation:    employeeProfile?.workLocation    || "",
+      startDate:       employeeProfile?.startDate       || "",
+      contractStartDate: employeeProfile?.contractStartDate || "",
+      workerType:      employeeProfile?.workerType      || "",
+      workSchedule:    employeeProfile?.workSchedule    || "",
+      salary:          employeeProfile?.salary          || "",
+      salaryCurrency:  employeeProfile?.salaryCurrency  || "",
+      salaryType:      employeeProfile?.salaryType      || "Annual",
+      nationalId:      employeeProfile?.nationalId      || "",
+      employeeNumber:  employeeProfile?.employeeNumber  || "",
+    });
+  }, [open, employeeProfile]);
+
+  const set = (k, v) => setFields(f => ({ ...f, [k]: v }));
+
+  const handleSave = async () => {
+    setSaving(true);
+    try { await onSave(fields); onClose(); } finally { setSaving(false); }
+  };
+
+  const inputCls = "w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#232838] text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500";
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <>
+          <motion.div key="bd" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+          <motion.div key="md" initial={{ opacity: 0, scale: 0.95, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 16 }} transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+            <div className="pointer-events-auto w-full max-w-lg bg-white dark:bg-[#1a1f2e] rounded-2xl shadow-2xl border border-slate-200 dark:border-[#2a3044] max-h-[90vh] overflow-y-auto"
+              onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-[#2a3044] sticky top-0 bg-white dark:bg-[#1a1f2e] z-10">
+                <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Edit contract details</h2>
+                <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#232838] transition-colors">
+                  <FaTimes className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <div className="px-5 py-4 space-y-3">
+                {[
+                  ["Job title",        "jobTitle"],
+                  ["Employment type",  "employmentType"],
+                  ["Worker type",      "workerType"],
+                  ["Seniority level",  "seniorityLevel"],
+                  ["Work location",    "workLocation"],
+                  ["Work schedule",    "workSchedule"],
+                  ["Start date",       "startDate"],
+                  ["Contract start date", "contractStartDate"],
+                  ["National ID",      "nationalId"],
+                  ["Employee number",  "employeeNumber"],
+                ].map(([label, key]) => (
+                  <div key={key}>
+                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{label}</label>
+                    <input value={fields[key] || ""} onChange={e => set(key, e.target.value)} className={inputCls} />
+                  </div>
+                ))}
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Currency</label>
+                    <input value={fields.salaryCurrency || ""} onChange={e => set("salaryCurrency", e.target.value)} placeholder="USD" className={inputCls} />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Salary</label>
+                    <input type="number" value={fields.salary || ""} onChange={e => set("salary", e.target.value)} className={inputCls} />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Type</label>
+                    <select value={fields.salaryType || "Annual"} onChange={e => set("salaryType", e.target.value)} className={inputCls}>
+                      <option>Annual</option>
+                      <option>Monthly</option>
+                      <option>Hourly</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              <div className="px-5 py-4 border-t border-slate-200 dark:border-[#2a3044] flex justify-end gap-2">
+                <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">Cancel</button>
+                <button onClick={handleSave} disabled={saving}
+                  className="px-5 py-2 text-sm bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg transition-colors font-medium">
+                  {saving ? "Saving..." : "Save"}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+}
+
 // ─── Contract Tab ─────────────────────────────────────────────────────────────
 
 function ContractTab({ userName }) {
+  const { employeeProfile, updateEmployeeProfile } = useHR();
+  const { isAdmin } = useAuth();
+  const [editModal, setEditModal] = useState(false);
+
+  const ep = employeeProfile || {};
+  const jobTitle    = ep.jobTitle          || "—";
+  const empType     = ep.employmentType    || "—";
+  const workerType  = ep.workerType        || "Direct Employee";
+  const seniority   = ep.seniorityLevel    || "—";
+  const country     = ep.country           || "—";
+  const startDate   = ep.startDate         || "—";
+  const cStartDate  = ep.contractStartDate || "—";
+  const schedule    = ep.workSchedule      || "Not specified";
+  const nationalId  = ep.nationalId        || "—";
+  const empNumber   = ep.employeeNumber    || "—";
+  const salary      = ep.salary ? `${ep.salaryCurrency || ""}${ep.salary}` : "—";
+  const salaryType  = ep.salaryType        || "Annual";
+
   return (
     <div>
+      <EditContractModal
+        open={editModal}
+        onClose={() => setEditModal(false)}
+        employeeProfile={employeeProfile}
+        onSave={updateEmployeeProfile}
+      />
+
       <div className="mb-5">
-        <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">{userName} - Software Engineer</h2>
-        <div className="flex items-center gap-2 mt-1">
-          <span className="text-xs text-slate-500 dark:text-slate-400">Direct Employee</span>
-          <span className="text-slate-300 dark:text-slate-600">·</span>
-          <span className="text-xs text-slate-500 dark:text-slate-400">Software Engineer</span>
-          <span className="text-slate-300 dark:text-slate-600">·</span>
-          <Badge color="green"><span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" /> Active</Badge>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">{userName} - {jobTitle}</h2>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-xs text-slate-500 dark:text-slate-400">{workerType}</span>
+              <span className="text-slate-300 dark:text-slate-600">·</span>
+              <span className="text-xs text-slate-500 dark:text-slate-400">{jobTitle}</span>
+              <span className="text-slate-300 dark:text-slate-600">·</span>
+              <Badge color="green"><span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" /> Active</Badge>
+            </div>
+          </div>
+          {isAdmin && (
+            <button onClick={() => setEditModal(true)}
+              className="flex items-center gap-1.5 px-4 py-2 text-xs bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors">
+              <FaPen className="w-3 h-3" /> Edit contract
+            </button>
+          )}
         </div>
       </div>
 
@@ -1049,16 +1329,15 @@ function ContractTab({ userName }) {
         {/* Agreement details */}
         <Card className="p-5">
           <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-3">Agreement details</h3>
-          <InfoRow label="Contract start date" value={<span className="flex items-center gap-1.5">Jun 14th 2021 <FaInfoCircle className="w-3 h-3 text-slate-400" /></span>} />
-          <InfoRow label="Contract creation date" value={<span className="flex items-center gap-1.5">Oct 16th 2024 <FaInfoCircle className="w-3 h-3 text-slate-400" /></span>} />
-          <InfoRow label="Worker type" value="Direct Employee" />
-          <InfoRow label="Employment type" value="Full time" />
-          <InfoRow label="Work schedule" value={<span className="text-slate-400 dark:text-slate-500">Not specified</span>} />
-          <InfoRow label="Job title" value="Software Engineer" />
-          <InfoRow label="Seniority level" value="Mid (Individual Contributor Level 2)" />
-          <InfoRow label="Country" value={<span className="flex items-center gap-1.5 justify-end">🇹🇷 Turkey</span>} />
-          <InfoRow label="Scope of work" value={<span className="text-slate-400 dark:text-slate-500">Not specified</span>} />
-          <InfoRow label="Employee number" value={<span className="text-slate-400 dark:text-slate-500">Not specified</span>} />
+          <InfoRow label="Contract start date"   value={cStartDate} />
+          <InfoRow label="Worker type"           value={workerType} />
+          <InfoRow label="Employment type"       value={empType} />
+          <InfoRow label="Work schedule"         value={schedule === "Not specified" ? <span className="text-slate-400 dark:text-slate-500">{schedule}</span> : schedule} />
+          <InfoRow label="Job title"             value={jobTitle} />
+          <InfoRow label="Seniority level"       value={seniority} />
+          <InfoRow label="Country"               value={country} />
+          <InfoRow label="Start date"            value={startDate} />
+          <InfoRow label="Employee number"       value={empNumber} />
         </Card>
 
         <div className="space-y-5">
@@ -1074,18 +1353,14 @@ function ContractTab({ userName }) {
           {/* Compensation details */}
           <Card className="p-5">
             <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-3">Compensation details</h3>
-            <InfoRow label="Compensation type" value="Annual" />
-            <InfoRow label="Annual gross salary" value={<span className="font-semibold">Fr99,999.00</span>} />
+            <InfoRow label="Compensation type"  value={salaryType} />
+            <InfoRow label="Gross salary"       value={<span className="font-semibold">{salary}</span>} />
           </Card>
 
           {/* Additional details */}
           <Card className="p-5">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Additional details</h3>
-              <button className="text-xs text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] px-3 py-1 rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">Edit</button>
-            </div>
-            <InfoRow label="ID Number" value="1" />
-            <InfoRow label="National ID" value="—" />
+            <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-3">Additional details</h3>
+            <InfoRow label="National ID" value={nationalId} />
           </Card>
         </div>
       </div>
@@ -1093,52 +1368,196 @@ function ContractTab({ userName }) {
   );
 }
 
+// ─── Submit Hours Modal ───────────────────────────────────────────────────────
+
+function SubmitHoursModal({ open, onClose, prefillDate }) {
+  const { submitHours } = useHR();
+  const [date,        setDate]        = useState("");
+  const [type,        setType]        = useState("work");
+  const [startTime,   setStartTime]   = useState("09:00");
+  const [endTime,     setEndTime]     = useState("18:00");
+  const [breakMins,   setBreakMins]   = useState(60);
+  const [saving,      setSaving]      = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setDate(prefillDate || new Date().toISOString().slice(0, 10));
+      setType("work"); setStartTime("09:00"); setEndTime("18:00"); setBreakMins(60);
+    }
+  }, [open, prefillDate]);
+
+  const totalHours = useMemo(() => {
+    if (!startTime || !endTime) return 0;
+    const [sh, sm] = startTime.split(":").map(Number);
+    const [eh, em] = endTime.split(":").map(Number);
+    const diff = (eh * 60 + em) - (sh * 60 + sm) - Number(breakMins);
+    return Math.max(0, Math.round(diff / 6) / 10);
+  }, [startTime, endTime, breakMins]);
+
+  const handleSave = async () => {
+    if (!date || saving) return;
+    setSaving(true);
+    try {
+      await submitHours({ date, type, startTime, endTime, breakMinutes: Number(breakMins), hours: totalHours, status: "pending" });
+      onClose();
+    } finally { setSaving(false); }
+  };
+
+  const inputCls = "w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#232838] text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500";
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <>
+          <motion.div key="bd" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+          <motion.div key="md" initial={{ opacity: 0, scale: 0.95, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 16 }} transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+            <div className="pointer-events-auto w-full max-w-md bg-white dark:bg-[#1a1f2e] rounded-2xl shadow-2xl border border-slate-200 dark:border-[#2a3044]"
+              onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-[#2a3044]">
+                <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Submit hours</h2>
+                <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#232838] transition-colors">
+                  <FaTimes className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <div className="px-5 py-4 space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Date</label>
+                  <input type="date" value={date} onChange={e => setDate(e.target.value)}
+                    className={inputCls + " [color-scheme:light] dark:[color-scheme:dark]"} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Type</label>
+                  <select value={type} onChange={e => setType(e.target.value)} className={inputCls}>
+                    <option value="work">Work</option>
+                    <option value="sick">Sick leave</option>
+                    <option value="vacation">Vacation</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                {type === "work" && (
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Start time</label>
+                      <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className={inputCls} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">End time</label>
+                      <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className={inputCls} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Break (min)</label>
+                      <input type="number" min={0} max={480} value={breakMins} onChange={e => setBreakMins(e.target.value)} className={inputCls} />
+                    </div>
+                  </div>
+                )}
+                {type === "work" && (
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-[#232838]">
+                    <span className="text-xs text-slate-500 dark:text-slate-400">Total hours</span>
+                    <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">{totalHours}h</span>
+                  </div>
+                )}
+              </div>
+              <div className="px-5 py-4 border-t border-slate-200 dark:border-[#2a3044] flex justify-end gap-2">
+                <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">Cancel</button>
+                <button onClick={handleSave} disabled={!date || saving}
+                  className="px-5 py-2 text-sm bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg transition-colors font-medium">
+                  {saving ? "Saving..." : "Submit"}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+}
+
+const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const DAY_NAMES   = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+
 // ─── Time Tracking Tab ────────────────────────────────────────────────────────
 
 function TimeTrackingTab() {
-  const [filter] = useState("Mar 1st - Mar 31st 2026");
+  const { timeEntries } = useHR();
+  const [viewDate,    setViewDate]    = useState(new Date());
+  const [submitModal, setSubmitModal] = useState(null); // null | prefillDate string
+
+  const viewYear  = viewDate.getFullYear();
+  const viewMonth = viewDate.getMonth();
+
+  // Build all days for the viewed month
+  const monthEntries = useMemo(() => {
+    const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+    const entries = [];
+    for (let d = 1; d <= daysInMonth; d++) {
+      const date    = new Date(viewYear, viewMonth, d);
+      const dow     = date.getDay();
+      const dateStr = `${viewYear}-${String(viewMonth + 1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+      const saved   = (timeEntries || []).find(e => e.date === dateStr);
+      const isWeekend = dow === 0 || dow === 6;
+      const type = saved?.type || (isWeekend ? "weekend" : "work");
+      entries.push({
+        dateStr,
+        label: `${DAY_NAMES[dow]} ${MONTH_NAMES[viewMonth].slice(0,3)} ${d}`,
+        type,
+        hours:     saved?.hours     || null,
+        startTime: saved?.startTime || null,
+        endTime:   saved?.endTime   || null,
+        breakMins: saved?.breakMinutes || null,
+        status:    saved?.status    || null,
+        submittable: !isWeekend,
+      });
+    }
+    return entries;
+  }, [viewYear, viewMonth, timeEntries]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const approvedHours = (timeEntries || []).filter(e => e.status === "approved").reduce((s, e) => s + (e.hours || 0), 0);
+  const pendingHours  = (timeEntries || []).filter(e => e.status === "pending" ).reduce((s, e) => s + (e.hours || 0), 0);
 
   const typeStyle = {
-    weekend:  "text-slate-400 dark:text-slate-500",
-    work:     "text-slate-600 dark:text-slate-300",
-    sick:     "text-blue-500 dark:text-blue-400",
-    vacation: "text-amber-500 dark:text-amber-400",
+    weekend: "text-slate-400 dark:text-slate-500",
+    work:    "text-slate-600 dark:text-slate-300",
+    sick:    "text-blue-500 dark:text-blue-400",
+    vacation:"text-amber-500 dark:text-amber-400",
+    other:   "text-slate-600 dark:text-slate-300",
   };
-
-  const typeIcon = {
-    weekend:  "🚫",
-    work:     "⏰",
-    sick:     "💊",
-    vacation: "🏖️",
-  };
+  const typeIcon = { weekend: "🚫", work: "⏰", sick: "💊", vacation: "🏖️", other: "⏰" };
 
   return (
     <div>
+      <SubmitHoursModal open={submitModal !== null} onClose={() => setSubmitModal(null)} prefillDate={submitModal || ""} />
+
       <div className="flex items-center justify-between mb-5">
         <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">Time tracking</h2>
-        <button className="flex items-center gap-2 px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors">
-          Submit hours <FaChevronDown className="w-3 h-3" />
+        <button onClick={() => setSubmitModal(new Date().toISOString().slice(0, 10))}
+          className="flex items-center gap-2 px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors">
+          Submit hours
         </button>
       </div>
 
       <div className="flex items-center gap-3 mb-5">
-        <button className="flex items-center gap-1.5 px-3 py-2 text-xs text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg bg-white dark:bg-[#1c2030] hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">
-          <FaCalendarAlt className="w-3 h-3" /> {filter} <FaChevronDown className="w-2.5 h-2.5" />
+        <button onClick={() => setViewDate(new Date(viewYear, viewMonth - 1, 1))}
+          className="p-2 text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">
+          <FaChevronLeft className="w-3 h-3" />
         </button>
-        {["Type", "Approval Status"].map(f => (
-          <button key={f} className="flex items-center gap-1.5 px-3 py-2 text-xs text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg bg-white dark:bg-[#1c2030] hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">
-            {f} <FaChevronDown className="w-2.5 h-2.5" />
-          </button>
-        ))}
-        <button className="ml-auto p-2 text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">
-          <FaExternalLinkAlt className="w-3.5 h-3.5" />
+        <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{MONTH_NAMES[viewMonth]} {viewYear}</span>
+        <button onClick={() => setViewDate(new Date(viewYear, viewMonth + 1, 1))}
+          className="p-2 text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">
+          <FaChevronRight className="w-3 h-3" />
+        </button>
+        <button onClick={() => setViewDate(new Date())}
+          className="px-3 py-2 text-xs border border-slate-200 dark:border-[#2a3044] rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">
+          Today
         </button>
       </div>
 
       <div className="grid grid-cols-2 gap-4 mb-5">
         {[
-          { label: "Approved hours", value: "0", icon: FaCheckCircle, color: "text-green-500" },
-          { label: "Pending hours",  value: "0", icon: FaSyncAlt, color: "text-amber-500" },
+          { label: "Approved hours", value: approvedHours, icon: FaCheckCircle, color: "text-green-500" },
+          { label: "Pending hours",  value: pendingHours,  icon: FaSyncAlt,     color: "text-amber-500" },
         ].map(({ label, value, icon: Icon, color }) => (
           <Card key={label} className="p-4 flex items-center gap-4">
             <Icon className={`w-5 h-5 ${color} flex-shrink-0`} />
@@ -1152,36 +1571,52 @@ function TimeTrackingTab() {
 
       <Card className="overflow-hidden">
         <div className="px-4 py-3 border-b border-slate-200 dark:border-[#2a3044]">
-          <span className="text-xs text-slate-500 dark:text-slate-400">Total {TIME_ENTRIES.length} items</span>
+          <span className="text-xs text-slate-500 dark:text-slate-400">Total {monthEntries.length} days</span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-slate-200 dark:border-[#2a3044]">
-                {["Date", "Type", "Time period", "Total hours worked", "Break", "Status"].map(h => (
+                {["Date","Type","Time period","Total hours","Break","Status"].map(h => (
                   <th key={h} className="text-left px-4 py-3 text-xs font-medium text-slate-500 dark:text-slate-400">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {TIME_ENTRIES.map((entry, i) => (
+              {monthEntries.map((entry, i) => (
                 <tr key={i} className="border-b border-slate-100 dark:border-[#2a3044]/50 last:border-0 hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">
                   <td className="px-4 py-2.5">
                     <span className={`text-xs font-medium ${entry.type === "weekend" ? "text-slate-400 dark:text-slate-500" : "text-slate-700 dark:text-slate-200"}`}>
-                      {entry.date}
+                      {entry.label}
                     </span>
                   </td>
                   <td className="px-4 py-2.5">
-                    <span className={`flex items-center gap-1.5 text-xs ${typeStyle[entry.type]}`}>
-                      <span>{typeIcon[entry.type]}</span> {entry.label}
+                    <span className={`flex items-center gap-1.5 text-xs ${typeStyle[entry.type] || typeStyle.work}`}>
+                      <span>{typeIcon[entry.type] || "⏰"}</span>
+                      {entry.type === "weekend" ? "Non-working day" :
+                       entry.type === "sick"    ? "Sick leave" :
+                       entry.type === "vacation"? "Vacation" : "Work"}
                     </span>
                   </td>
-                  <td className="px-4 py-2.5"><span className="text-xs text-slate-400">—</span></td>
-                  <td className="px-4 py-2.5"><span className="text-xs text-slate-400">—</span></td>
-                  <td className="px-4 py-2.5"><span className="text-xs text-slate-400">—</span></td>
                   <td className="px-4 py-2.5">
-                    {entry.submittable ? (
-                      <button className="text-xs px-2.5 py-1 border border-slate-200 dark:border-[#2a3044] rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">
+                    <span className="text-xs text-slate-500 dark:text-slate-400">
+                      {entry.startTime && entry.endTime ? `${entry.startTime} – ${entry.endTime}` : "—"}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <span className="text-xs text-slate-500 dark:text-slate-400">{entry.hours ? `${entry.hours}h` : "—"}</span>
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <span className="text-xs text-slate-400">{entry.breakMins ? `${entry.breakMins}m` : "—"}</span>
+                  </td>
+                  <td className="px-4 py-2.5">
+                    {entry.status === "approved" ? (
+                      <Badge color="green">Approved</Badge>
+                    ) : entry.status === "pending" ? (
+                      <Badge color="amber">Pending</Badge>
+                    ) : entry.submittable ? (
+                      <button onClick={() => setSubmitModal(entry.dateStr)}
+                        className="text-xs px-2.5 py-1 border border-slate-200 dark:border-[#2a3044] rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">
                         Submit
                       </button>
                     ) : (
@@ -1200,30 +1635,17 @@ function TimeTrackingTab() {
 
 // ─── Time Off Tab ─────────────────────────────────────────────────────────────
 
-const MARCH_DAYS = [
-  // week 1
-  [1,2,3,4,5,6,7],
-  // week 2
-  [8,9,10,11,12,13,14],
-  // week 3
-  [15,16,17,18,19,20,21],
-  // week 4
-  [22,23,24,25,26,27,28],
-  // week 5
-  [29,30,31,null,null,null,null],
-];
-
 // ─── Request Time Off Modal ───────────────────────────────────────────────────
 
 const TIME_OFF_TYPES = [
-  "Vacation Turkey 20 days",
-  "Sick leave Turkey",
+  "Vacation",
+  "Sick leave",
   "Unpaid leave",
   "Parental leave",
   "Bereavement leave",
 ];
 
-function RequestTimeOffModal({ open, onClose }) {
+function RequestTimeOffModal({ open, onClose, onSubmit }) {
   const [type, setType]           = useState(TIME_OFF_TYPES[0]);
   const [typeOpen, setTypeOpen]   = useState(false);
   const [fromDate, setFromDate]   = useState("");
@@ -1254,7 +1676,21 @@ function RequestTimeOffModal({ open, onClose }) {
     return () => window.removeEventListener("keydown", handler);
   }, [open, onClose]);
 
+  const [submitting, setSubmitting] = useState(false);
   const canSubmit = fromDate && toDate && fromDate <= toDate;
+
+  const handleSubmit = async () => {
+    if (!canSubmit || submitting) return;
+    setSubmitting(true);
+    try {
+      if (onSubmit) {
+        await onSubmit({ type, typeName: type, fromDate, toDate, description: desc, fileName: file?.name });
+      }
+      onClose();
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const handleFile = (f) => {
     if (!f) return;
@@ -1434,15 +1870,15 @@ function RequestTimeOffModal({ open, onClose }) {
               <div className="px-6 py-4 border-t border-slate-200 dark:border-[#2a3044] flex justify-end">
                 <button
                   type="button"
-                  disabled={!canSubmit}
-                  onClick={() => { if (canSubmit) onClose(); }}
+                  disabled={!canSubmit || submitting}
+                  onClick={handleSubmit}
                   className={`px-8 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                    canSubmit
+                    canSubmit && !submitting
                       ? "bg-blue-600 hover:bg-blue-500 text-white shadow-md shadow-blue-600/25 hover:shadow-blue-500/30"
                       : "bg-slate-200 dark:bg-[#232838] text-slate-400 dark:text-slate-500 cursor-not-allowed"
                   }`}
                 >
-                  Submit
+                  {submitting ? "Submitting..." : "Submit"}
                 </button>
               </div>
             </div>
@@ -1453,14 +1889,53 @@ function RequestTimeOffModal({ open, onClose }) {
   );
 }
 
-// ─── Time Off Tab ─────────────────────────────────────────────────────────────
-
 function TimeOffTab() {
+  const { timeOffRequests, addTimeOffRequest, employeeProfile } = useHR();
+  const { user, profile } = useAuth();
+  const { users } = useApp();
   const [modalOpen, setModalOpen] = useState(false);
+  const [calDate, setCalDate] = useState(new Date());
+
+  const calYear  = calDate.getFullYear();
+  const calMonth = calDate.getMonth(); // 0-indexed
+
+  // Build weeks for the current month
+  const calWeeks = useMemo(() => {
+    const firstDay = new Date(calYear, calMonth, 1).getDay();
+    const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+    const cells = Array(firstDay).fill(null);
+    for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+    while (cells.length % 7 !== 0) cells.push(null);
+    const weeks = [];
+    for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+    return weeks;
+  }, [calYear, calMonth]);
+
+  const todayDay = new Date().getDate();
+  const isCurrentMonth = new Date().getFullYear() === calYear && new Date().getMonth() === calMonth;
+
+  // Determine day types from timeOffRequests
+  const getDayType = (day) => {
+    if (!day) return null;
+    const dateStr = `${calYear}-${String(calMonth + 1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+    const req = (timeOffRequests || []).find(r => r.fromDate <= dateStr && r.toDate >= dateStr);
+    return req?.type || null;
+  };
+
+  const handleSubmitTimeOff = async (req) => {
+    const currentUser = (users || []).find(u => u.id === user?.uid);
+    await addTimeOffRequest(req, {
+      name:  profile?.fullName || currentUser?.name || "Unknown",
+      color: currentUser?.color || "#6366f1",
+      title: currentUser?.role || currentUser?.title || "Team Member",
+    });
+  };
+
+  const vacationDays = employeeProfile?.vacationDays ?? 20;
 
   return (
     <div>
-      <RequestTimeOffModal open={modalOpen} onClose={() => setModalOpen(false)} />
+      <RequestTimeOffModal open={modalOpen} onClose={() => setModalOpen(false)} onSubmit={handleSubmitTimeOff} />
 
       <div className="flex items-center justify-between mb-5">
         <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">Time off</h2>
@@ -1468,8 +1943,7 @@ function TimeOffTab() {
           <button className="flex items-center gap-2 px-3 py-2 text-xs border border-slate-200 dark:border-[#2a3044] rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">
             <FaCalendarAlt className="w-3 h-3" /> Team calendar
           </button>
-          <button
-            onClick={() => setModalOpen(true)}
+          <button onClick={() => setModalOpen(true)}
             className="flex items-center gap-2 px-3 py-2 text-xs bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors">
             <FaPlus className="w-3 h-3" /> Request time off
           </button>
@@ -1484,43 +1958,36 @@ function TimeOffTab() {
             <div className="flex items-start justify-between p-3 rounded-lg bg-slate-50 dark:bg-[#232838] mb-2">
               <div>
                 <p className="text-xs font-medium text-slate-700 dark:text-slate-200 flex items-center gap-1">
-                  Vacation Turkey 20 days <FaInfoCircle className="w-3 h-3 text-slate-400" />
+                  Annual leave <FaInfoCircle className="w-3 h-3 text-slate-400" />
                 </p>
-                <button className="text-[11px] text-blue-500 hover:underline mt-0.5">View details ▼</button>
               </div>
-              <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">26.70 days available</span>
+              <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">{vacationDays} days available</span>
             </div>
-            <button className="w-full py-2 text-xs text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">
-              View all
-            </button>
           </Card>
 
           <Card className="p-4">
             <h3 className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-3">Time off requests</h3>
-            <div className="space-y-2">
-              {TIME_OFF_REQUESTS.map((req) => (
-                <div key={req.id} className="flex items-start gap-2.5 py-2 border-b border-slate-100 dark:border-[#2a3044] last:border-0">
-                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                    req.type === "sick"
-                      ? "bg-blue-100 dark:bg-blue-900/30"
-                      : "bg-amber-100 dark:bg-amber-900/30"
-                  }`}>
-                    {req.type === "sick"
-                      ? <span className="text-sm">💊</span>
-                      : <span className="text-sm">🏖️</span>
-                    }
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-blue-500">{req.period}</p>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400">{req.label} · {req.duration}</p>
-                  </div>
-                  <Badge color="purple">Used</Badge>
-                </div>
-              ))}
-            </div>
-            <button className="w-full mt-2 py-2 text-xs text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">
-              View all
-            </button>
+            {(!timeOffRequests || timeOffRequests.length === 0) ? (
+              <p className="text-xs text-slate-400 dark:text-slate-500 text-center py-3">No requests yet</p>
+            ) : (
+              <div className="space-y-2">
+                {timeOffRequests.map((req) => {
+                  const isSick = req.type?.toLowerCase().includes("sick");
+                  return (
+                    <div key={req.id} className="flex items-start gap-2.5 py-2 border-b border-slate-100 dark:border-[#2a3044] last:border-0">
+                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${isSick ? "bg-blue-100 dark:bg-blue-900/30" : "bg-amber-100 dark:bg-amber-900/30"}`}>
+                        <span className="text-sm">{isSick ? "💊" : "🏖️"}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-blue-500">{req.fromDate} – {req.toDate}</p>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">{req.typeName || req.type}</p>
+                      </div>
+                      <Badge color="purple">Submitted</Badge>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </Card>
 
           <Card className="p-4">
@@ -1531,11 +1998,8 @@ function TimeOffTab() {
               </div>
               <div>
                 <p className="text-xs font-medium text-slate-700 dark:text-slate-200">Turkey public holidays</p>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">14 holidays in 2026</p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">{PUBLIC_HOLIDAYS.length} holidays in {calYear}</p>
               </div>
-              <button className="ml-auto text-xs text-slate-400 border border-slate-200 dark:border-[#2a3044] px-2.5 py-1 rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">
-                View
-              </button>
             </div>
           </Card>
         </div>
@@ -1545,11 +2009,14 @@ function TimeOffTab() {
           <Card className="p-4">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <button className="p-1.5 rounded hover:bg-slate-100 dark:hover:bg-[#232838] text-slate-500 transition-colors"><FaChevronLeft className="w-3 h-3" /></button>
-                <button className="px-3 py-1 text-xs border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors text-slate-600 dark:text-slate-400">Today</button>
-                <button className="p-1.5 rounded hover:bg-slate-100 dark:hover:bg-[#232838] text-slate-500 transition-colors"><FaChevronRight className="w-3 h-3" /></button>
+                <button onClick={() => setCalDate(new Date(calYear, calMonth - 1, 1))}
+                  className="p-1.5 rounded hover:bg-slate-100 dark:hover:bg-[#232838] text-slate-500 transition-colors"><FaChevronLeft className="w-3 h-3" /></button>
+                <button onClick={() => setCalDate(new Date())}
+                  className="px-3 py-1 text-xs border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors text-slate-600 dark:text-slate-400">Today</button>
+                <button onClick={() => setCalDate(new Date(calYear, calMonth + 1, 1))}
+                  className="p-1.5 rounded hover:bg-slate-100 dark:hover:bg-[#232838] text-slate-500 transition-colors"><FaChevronRight className="w-3 h-3" /></button>
               </div>
-              <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">March 2026</span>
+              <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">{MONTH_NAMES[calMonth]} {calYear}</span>
             </div>
 
             <div className="grid grid-cols-7 gap-1 mb-1">
@@ -1558,34 +2025,31 @@ function TimeOffTab() {
               ))}
             </div>
 
-            {MARCH_DAYS.map((week, wi) => (
-              <div key={wi} className="grid grid-cols-7 gap-1 mb-1 relative">
+            {calWeeks.map((week, wi) => (
+              <div key={wi} className="grid grid-cols-7 gap-1 mb-1">
                 {week.map((day, di) => {
                   if (!day) return <div key={di} />;
-                  const isToday = day === 28;
-                  const isSick = day === 9 || day === 10;
-                  const isVacation = day >= 23 && day <= 27;
-                  const isHoliday = day === 20 || day === 21 || day === 22;
+                  const isToday = isCurrentMonth && day === todayDay;
+                  const dayType = getDayType(day);
+                  const dow = new Date(calYear, calMonth, day).getDay();
+                  const isWeekend = dow === 0 || dow === 6;
                   return (
-                    <div key={di}
-                      className={`min-h-[52px] p-1 rounded-lg relative ${
-                        isToday ? "ring-2 ring-blue-500 ring-offset-1 dark:ring-offset-[#1c2030]" : ""
-                      } ${
-                        isSick ? "bg-purple-50 dark:bg-purple-900/10" :
-                        isVacation ? "bg-amber-50 dark:bg-amber-900/10" :
-                        isHoliday ? "bg-purple-50/50 dark:bg-purple-900/5" : ""
-                      }`}>
+                    <div key={di} className={`min-h-[52px] p-1 rounded-lg relative ${
+                      isToday ? "ring-2 ring-blue-500 ring-offset-1 dark:ring-offset-[#1c2030]" : ""
+                    } ${
+                      dayType === "sick" || dayType?.includes("sick") ? "bg-purple-50 dark:bg-purple-900/10" :
+                      dayType === "vacation" || dayType?.includes("vacation") ? "bg-amber-50 dark:bg-amber-900/10" :
+                      ""
+                    }`}>
                       <span className={`text-xs font-medium block text-center ${
                         isToday ? "text-blue-600 dark:text-blue-400 font-bold" :
-                        day === 1 || day === 7 || day === 8 || day === 14 || day === 15 || day === 21 || day === 22 || day === 28 || day === 29
-                          ? "text-slate-400 dark:text-slate-500"
-                          : "text-slate-700 dark:text-slate-300"
+                        isWeekend ? "text-slate-400 dark:text-slate-500" :
+                        "text-slate-700 dark:text-slate-300"
                       }`}>
-                        {day === 1 ? "1 Mar" : day}
+                        {day === 1 ? `1 ${MONTH_NAMES[calMonth].slice(0,3)}` : day}
                       </span>
-                      {isSick && <div className="mt-0.5 px-1 py-0.5 rounded text-[9px] bg-purple-200 dark:bg-purple-800/40 text-purple-700 dark:text-purple-300 truncate">Sick leave</div>}
-                      {isVacation && <div className="mt-0.5 px-1 py-0.5 rounded text-[9px] bg-amber-200 dark:bg-amber-800/40 text-amber-700 dark:text-amber-300 truncate">Vacation</div>}
-                      {isHoliday && <div className="mt-0.5 px-1 py-0.5 rounded text-[9px] bg-purple-200 dark:bg-purple-800/40 text-purple-700 dark:text-purple-300 truncate">Public holiday</div>}
+                      {dayType?.includes("sick") && <div className="mt-0.5 px-1 py-0.5 rounded text-[9px] bg-purple-200 dark:bg-purple-800/40 text-purple-700 dark:text-purple-300 truncate">Sick leave</div>}
+                      {dayType?.includes("vacation") && <div className="mt-0.5 px-1 py-0.5 rounded text-[9px] bg-amber-200 dark:bg-amber-800/40 text-amber-700 dark:text-amber-300 truncate">Vacation</div>}
                     </div>
                   );
                 })}
@@ -1598,52 +2062,233 @@ function TimeOffTab() {
   );
 }
 
+// ─── Add Document Modal ───────────────────────────────────────────────────────
+
+function AddDocumentModal({ open, onClose, onAdd }) {
+  const [name,     setName]     = useState("");
+  const [category, setCategory] = useState("company");
+  const [saving,   setSaving]   = useState(false);
+
+  useEffect(() => { if (open) { setName(""); setCategory("company"); } }, [open]);
+
+  const handleSave = async () => {
+    if (!name.trim() || saving) return;
+    setSaving(true);
+    try { await onAdd({ name: name.trim(), category, status: null, actions: ["preview"] }); onClose(); }
+    finally { setSaving(false); }
+  };
+
+  const inputCls = "w-full px-3 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#232838] text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500";
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <>
+          <motion.div key="bd" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+          <motion.div key="md" initial={{ opacity: 0, scale: 0.95, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 16 }} transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+            <div className="pointer-events-auto w-full max-w-sm bg-white dark:bg-[#1a1f2e] rounded-2xl shadow-2xl border border-slate-200 dark:border-[#2a3044]"
+              onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-[#2a3044]">
+                <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Add document</h2>
+                <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#232838] transition-colors">
+                  <FaTimes className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <div className="px-5 py-4 space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Document name</label>
+                  <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Employment Contract"
+                    className={inputCls} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Category</label>
+                  <select value={category} onChange={e => setCategory(e.target.value)} className={inputCls}>
+                    <option value="company">Company</option>
+                    <option value="personal">Personal</option>
+                  </select>
+                </div>
+              </div>
+              <div className="px-5 py-4 border-t border-slate-200 dark:border-[#2a3044] flex justify-end gap-2">
+                <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">Cancel</button>
+                <button onClick={handleSave} disabled={!name.trim() || saving}
+                  className="px-5 py-2 text-sm bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg transition-colors font-medium">
+                  {saving ? "Adding..." : "Add"}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// ─── Assign Document To User Modal ────────────────────────────────────────────
+
+function AssignDocumentToUserModal({ open, onClose, onAssign, users }) {
+  const [targetUserId, setTargetUserId] = useState("");
+  const [name,         setName]         = useState("");
+  const [category,     setCategory]     = useState("company");
+  const [requiresSign, setRequiresSign] = useState(true);
+  const [saving,       setSaving]       = useState(false);
+
+  useEffect(() => {
+    if (open) { setTargetUserId(""); setName(""); setCategory("company"); setRequiresSign(true); }
+  }, [open]);
+
+  const handleSave = async () => {
+    if (!targetUserId || !name.trim() || saving) return;
+    setSaving(true);
+    try {
+      await onAssign(targetUserId, {
+        name:     name.trim(),
+        category,
+        status:   requiresSign ? "not_submitted" : null,
+        actions:  requiresSign ? ["sign", "preview"] : ["preview"],
+      });
+      onClose();
+    } finally { setSaving(false); }
+  };
+
+  const inputCls = "w-full px-3 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#232838] text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500";
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <>
+          <motion.div key="bd" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+          <motion.div key="md" initial={{ opacity: 0, scale: 0.95, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 16 }} transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+            <div className="pointer-events-auto w-full max-w-sm bg-white dark:bg-[#1a1f2e] rounded-2xl shadow-2xl border border-slate-200 dark:border-[#2a3044]"
+              onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-[#2a3044]">
+                <div>
+                  <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Assign document to user</h2>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">The document will appear in that user's Documents tab</p>
+                </div>
+                <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#232838] transition-colors">
+                  <FaTimes className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <div className="px-5 py-4 space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Assign to</label>
+                  <select value={targetUserId} onChange={e => setTargetUserId(e.target.value)} className={inputCls}>
+                    <option value="">Select employee…</option>
+                    {[...new Map((users || []).map(u => [u.id, u])).values()].map(u => (
+                      <option key={u.id} value={u.id}>{u.name || u.email || u.id}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Document name</label>
+                  <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. NDA Agreement"
+                    className={inputCls} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Category</label>
+                  <select value={category} onChange={e => setCategory(e.target.value)} className={inputCls}>
+                    <option value="company">Company</option>
+                    <option value="personal">Personal</option>
+                  </select>
+                </div>
+                <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                  <input type="checkbox" checked={requiresSign} onChange={e => setRequiresSign(e.target.checked)}
+                    className="w-4 h-4 accent-blue-600" />
+                  <span className="text-xs text-slate-700 dark:text-slate-300">Requires employee signature</span>
+                </label>
+              </div>
+              <div className="px-5 py-4 border-t border-slate-200 dark:border-[#2a3044] flex justify-end gap-2">
+                <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">Cancel</button>
+                <button onClick={handleSave} disabled={!targetUserId || !name.trim() || saving}
+                  className="px-5 py-2 text-sm bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg transition-colors font-medium">
+                  {saving ? "Assigning…" : "Assign"}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+}
+
 // ─── Documents Tab ────────────────────────────────────────────────────────────
 
 function DocumentsTab() {
-  const [docType] = useState("all");
-  const [reqStatus] = useState("all");
-  const [docStatus] = useState("all");
+  const { documents, updateDocumentStatus, addDocument, deleteDocument, assignDocumentToUser } = useHR();
+  const { isAdmin } = useAuth();
+  const { users }   = useApp();
+  const [addModal,    setAddModal]    = useState(false);
+  const [assignModal, setAssignModal] = useState(false);
+
+  const needsAttention = (documents || []).filter(d => d.status === "not_submitted" || (!d.status && (d.actions || []).includes("sign")));
+  const companyDocs  = (documents || []).filter(d => d.category === "company");
+  const personalDocs = (documents || []).filter(d => d.category === "personal");
 
   return (
     <div>
+      <AddDocumentModal open={addModal} onClose={() => setAddModal(false)} onAdd={addDocument} />
+      <AssignDocumentToUserModal open={assignModal} onClose={() => setAssignModal(false)} onAssign={assignDocumentToUser} users={users} />
+
       <div className="flex items-center justify-between mb-5">
         <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">Documents</h2>
-        <button className="flex items-center gap-2 px-4 py-2 text-xs border border-slate-200 dark:border-[#2a3044] rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">
-          Add <FaPlus className="w-3 h-3" />
-        </button>
+        <div className="flex items-center gap-2">
+          {isAdmin && (
+            <button onClick={() => setAssignModal(true)}
+              className="flex items-center gap-2 px-4 py-2 text-xs bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors font-medium">
+              <FaUserPlus className="w-3 h-3" /> Assign to user
+            </button>
+          )}
+          <button onClick={() => setAddModal(true)}
+            className="flex items-center gap-2 px-4 py-2 text-xs border border-slate-200 dark:border-[#2a3044] rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">
+            Add <FaPlus className="w-3 h-3" />
+          </button>
+        </div>
       </div>
 
       {/* Needs attention */}
-      <Card className="p-5 mb-5 relative overflow-hidden" style={{ background: "linear-gradient(135deg, #78350f 0%, #92400e 100%)" }}>
-        <div className="relative z-10">
-          <div className="flex items-center gap-2 mb-3">
-            <FaInfoCircle className="w-4 h-4 text-amber-300" />
-            <h3 className="text-sm font-semibold text-amber-100">Documents requiring attention</h3>
-          </div>
-          <div className="flex items-start gap-3">
-            <div className="p-3 bg-amber-700/40 rounded-xl">
-              <div className="w-10 h-10 rounded-lg bg-amber-500/30 flex items-center justify-center mb-2">
-                <FaClipboardList className="w-5 h-5 text-amber-200" />
-              </div>
-              <p className="text-xs font-medium text-amber-100">Company Handbook</p>
-              <button className="mt-2 flex items-center gap-1.5 text-[11px] text-amber-200 border border-amber-400/40 px-2 py-1 rounded-lg hover:bg-amber-600/20 transition-colors">
-                <FaPen className="w-2.5 h-2.5" /> Sign
-              </button>
+      {needsAttention.length > 0 && (
+        <Card className="p-5 mb-5 relative overflow-hidden" style={{ background: "linear-gradient(135deg, #78350f 0%, #92400e 100%)" }}>
+          <div className="relative z-10">
+            <div className="flex items-center gap-2 mb-3">
+              <FaInfoCircle className="w-4 h-4 text-amber-300" />
+              <h3 className="text-sm font-semibold text-amber-100">Documents requiring attention</h3>
+            </div>
+            <div className="flex items-start gap-3 flex-wrap">
+              {needsAttention.map(doc => (
+                <div key={doc.id} className="p-3 bg-amber-700/40 rounded-xl">
+                  <div className="w-10 h-10 rounded-lg bg-amber-500/30 flex items-center justify-center mb-2">
+                    <FaClipboardList className="w-5 h-5 text-amber-200" />
+                  </div>
+                  <p className="text-xs font-medium text-amber-100">{doc.name}</p>
+                  {(doc.actions || []).includes("sign") && doc.status !== "signed" && (
+                    <button onClick={() => updateDocumentStatus(doc.id, { status: "signed" })}
+                      className="mt-2 flex items-center gap-1.5 text-[11px] text-amber-200 border border-amber-400/40 px-2 py-1 rounded-lg hover:bg-amber-600/20 transition-colors">
+                      <FaPen className="w-2.5 h-2.5" /> Sign
+                    </button>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
-        </div>
-        <div className="absolute right-6 top-1/2 -translate-y-1/2 opacity-20">
-          <FaFolder className="w-24 h-24 text-amber-300" />
-        </div>
-      </Card>
+          <div className="absolute right-6 top-1/2 -translate-y-1/2 opacity-20">
+            <FaFolder className="w-24 h-24 text-amber-300" />
+          </div>
+        </Card>
+      )}
 
       {/* Summary counts */}
       <div className="grid grid-cols-3 gap-4 mb-5">
         {[
-          { label: "Compliance documents", count: 0, icon: FaCheckCircle },
-          { label: "From your company",    count: 2, icon: FaBuilding    },
-          { label: "Personal documents",   count: 1, icon: FaUserCircle  },
+          { label: "Compliance documents", count: 0,               icon: FaCheckCircle },
+          { label: "From your company",    count: companyDocs.length,  icon: FaBuilding    },
+          { label: "Personal documents",   count: personalDocs.length, icon: FaUserCircle  },
         ].map(({ label, count, icon: Icon }) => (
           <Card key={label} className="p-4 flex items-center gap-3">
             <Icon className="w-5 h-5 text-slate-400 flex-shrink-0" />
@@ -1655,96 +2300,262 @@ function DocumentsTab() {
         ))}
       </div>
 
-      {/* Filters + table */}
-      <div className="flex items-center gap-3 mb-4">
-        <button className="p-2 text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">
-          <FaSearch className="w-3.5 h-3.5" />
-        </button>
-        {["Document Type", "Requirement", "Document Status"].map(f => (
-          <button key={f} className="flex items-center gap-1.5 px-3 py-2 text-xs text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">
-            {f} <FaChevronDown className="w-2.5 h-2.5" />
-          </button>
-        ))}
-        <button className="ml-auto flex items-center gap-1.5 px-3 py-2 text-xs text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">
-          Bulk action <FaChevronDown className="w-2.5 h-2.5" />
-        </button>
-        <button className="p-2 text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">
-          <FaExternalLinkAlt className="w-3.5 h-3.5" />
-        </button>
-      </div>
-
       <Card className="overflow-hidden">
         <div className="px-4 py-3 border-b border-slate-200 dark:border-[#2a3044]">
-          <span className="text-xs text-slate-500 dark:text-slate-400">Total {DOCUMENTS.length} items</span>
+          <span className="text-xs text-slate-500 dark:text-slate-400">Total {(documents || []).length} items</span>
         </div>
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-slate-200 dark:border-[#2a3044]">
-              <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 dark:text-slate-400">Document</th>
-              <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 dark:text-slate-400">Status</th>
-              <th className="px-4 py-3" />
-            </tr>
-          </thead>
-          <tbody>
-            {DOCUMENTS.map((doc) => (
-              <tr key={doc.id} className="border-b border-slate-100 dark:border-[#2a3044]/50 last:border-0 hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
-                      <doc.icon className="w-3.5 h-3.5 text-blue-500" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-medium text-slate-700 dark:text-slate-200">{doc.name}</p>
-                      {doc.subtitle && <p className="text-[11px] text-slate-500 dark:text-slate-400">{doc.subtitle}</p>}
-                      {doc.type === "mandatory" && <Badge color="red">Mandatory</Badge>}
-                    </div>
-                  </div>
-                </td>
-                <td className="px-4 py-3">
-                  {doc.status === "not_submitted" && (
-                    <Badge color="slate">Not Submitted</Badge>
-                  )}
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2 justify-end">
-                    {doc.actions.includes("sign") && (
-                      <button className="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-slate-200 dark:border-[#2a3044] rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">
-                        <FaPen className="w-2.5 h-2.5" /> Sign
-                      </button>
-                    )}
-                    {doc.actions.includes("preview") && (
-                      <button className="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-slate-200 dark:border-[#2a3044] rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">
-                        <FaEye className="w-2.5 h-2.5" /> Preview
-                      </button>
-                    )}
-                    {doc.actions.includes("download") && (
-                      <button className="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-slate-200 dark:border-[#2a3044] rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">
-                        <FaDownload className="w-2.5 h-2.5" /> Download
-                      </button>
-                    )}
-                  </div>
-                </td>
+        {(!documents || documents.length === 0) ? (
+          <div className="py-12 text-center">
+            <FaFolder className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+            <p className="text-sm text-slate-500 dark:text-slate-400">No documents yet</p>
+          </div>
+        ) : (
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-slate-200 dark:border-[#2a3044]">
+                <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 dark:text-slate-400">Document</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 dark:text-slate-400">Status</th>
+                <th className="px-4 py-3" />
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {documents.map((doc) => (
+                <tr key={doc.id} className="border-b border-slate-100 dark:border-[#2a3044]/50 last:border-0 hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
+                        <FaFileAlt className="w-3.5 h-3.5 text-blue-500" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-xs font-medium text-slate-700 dark:text-slate-200">{doc.name}</p>
+                          {doc.assignedBy && (
+                            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 whitespace-nowrap">From admin</span>
+                          )}
+                        </div>
+                        {doc.subtitle && <p className="text-[11px] text-slate-500 dark:text-slate-400">{doc.subtitle}</p>}
+                        <span className="text-[10px] text-slate-400 capitalize">{doc.category}</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    {doc.status === "signed"         && <Badge color="green">Signed</Badge>}
+                    {doc.status === "not_submitted"  && <Badge color="slate">Not Submitted</Badge>}
+                    {!doc.status                     && <span className="text-xs text-slate-400">—</span>}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2 justify-end">
+                      {(doc.actions || []).includes("sign") && doc.status !== "signed" && (
+                        <button onClick={() => updateDocumentStatus(doc.id, { status: "signed" })}
+                          className="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-slate-200 dark:border-[#2a3044] rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">
+                          <FaPen className="w-2.5 h-2.5" /> Sign
+                        </button>
+                      )}
+                      {(doc.actions || []).includes("preview") && (
+                        <button onClick={() => alert("No file attached to this document.")}
+                          className="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-slate-200 dark:border-[#2a3044] rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">
+                          <FaEye className="w-2.5 h-2.5" /> Preview
+                        </button>
+                      )}
+                      {(doc.actions || []).includes("download") && (
+                        <button onClick={() => alert("No file attached to this document.")}
+                          className="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-slate-200 dark:border-[#2a3044] rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">
+                          <FaDownload className="w-2.5 h-2.5" /> Download
+                        </button>
+                      )}
+                      <button onClick={() => deleteDocument(doc.id)}
+                        className="p-1.5 text-slate-300 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 transition-colors rounded">
+                        <FaTimes className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </Card>
     </div>
+  );
+}
+
+// ─── Add Expense Modal ────────────────────────────────────────────────────────
+
+function AddExpenseModal({ open, onClose, onAdd }) {
+  const [desc,     setDesc]     = useState("");
+  const [amount,   setAmount]   = useState("");
+  const [currency, setCurrency] = useState("USD");
+  const [category, setCategory] = useState("Travel");
+  const [date,     setDate]     = useState("");
+  const [saving,   setSaving]   = useState(false);
+
+  useEffect(() => {
+    if (open) { setDesc(""); setAmount(""); setCurrency("USD"); setCategory("Travel"); setDate(new Date().toISOString().slice(0,10)); }
+  }, [open]);
+
+  const handleSave = async () => {
+    if (!desc.trim() || !amount || saving) return;
+    setSaving(true);
+    try { await onAdd({ description: desc.trim(), amount: Number(amount), currency, category, date }); onClose(); }
+    finally { setSaving(false); }
+  };
+
+  const inputCls = "w-full px-3 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#232838] text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500";
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <>
+          <motion.div key="bd" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+          <motion.div key="md" initial={{ opacity: 0, scale: 0.95, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 16 }} transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+            <div className="pointer-events-auto w-full max-w-sm bg-white dark:bg-[#1a1f2e] rounded-2xl shadow-2xl border border-slate-200 dark:border-[#2a3044]"
+              onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-[#2a3044]">
+                <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Add expense</h2>
+                <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#232838] transition-colors">
+                  <FaTimes className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <div className="px-5 py-4 space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Description</label>
+                  <input value={desc} onChange={e => setDesc(e.target.value)} placeholder="e.g. Flight to London" className={inputCls} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Amount</label>
+                    <input type="number" min={0} value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" className={inputCls} />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Currency</label>
+                    <select value={currency} onChange={e => setCurrency(e.target.value)} className={inputCls}>
+                      {["USD","EUR","GBP","TRY","CHF"].map(c => <option key={c}>{c}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Category</label>
+                  <select value={category} onChange={e => setCategory(e.target.value)} className={inputCls}>
+                    {["Travel","Meals","Equipment","Software","Other"].map(c => <option key={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Date</label>
+                  <input type="date" value={date} onChange={e => setDate(e.target.value)}
+                    className={inputCls + " [color-scheme:light] dark:[color-scheme:dark]"} />
+                </div>
+              </div>
+              <div className="px-5 py-4 border-t border-slate-200 dark:border-[#2a3044] flex justify-end gap-2">
+                <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">Cancel</button>
+                <button onClick={handleSave} disabled={!desc.trim() || !amount || saving}
+                  className="px-5 py-2 text-sm bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg transition-colors font-medium">
+                  {saving ? "Adding..." : "Add"}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// ─── Add Bank Account Modal ───────────────────────────────────────────────────
+
+function AddBankAccountModal({ open, onClose, onAdd }) {
+  const [bankName,   setBankName]   = useState("");
+  const [holder,     setHolder]     = useState("");
+  const [accountNum, setAccountNum] = useState("");
+  const [routing,    setRouting]    = useState("");
+  const [saving,     setSaving]     = useState(false);
+
+  useEffect(() => { if (open) { setBankName(""); setHolder(""); setAccountNum(""); setRouting(""); } }, [open]);
+
+  const handleSave = async () => {
+    if (!bankName.trim() || !accountNum.trim() || saving) return;
+    setSaving(true);
+    try {
+      await onAdd({ bankName: bankName.trim(), accountHolder: holder.trim(), accountNumber: accountNum.trim(), routingNumber: routing.trim() });
+      onClose();
+    } finally { setSaving(false); }
+  };
+
+  const inputCls = "w-full px-3 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#232838] text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500";
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <>
+          <motion.div key="bd" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+          <motion.div key="md" initial={{ opacity: 0, scale: 0.95, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 16 }} transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+            <div className="pointer-events-auto w-full max-w-sm bg-white dark:bg-[#1a1f2e] rounded-2xl shadow-2xl border border-slate-200 dark:border-[#2a3044]"
+              onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-[#2a3044]">
+                <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Add bank account</h2>
+                <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#232838] transition-colors">
+                  <FaTimes className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <div className="px-5 py-4 space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Bank name</label>
+                  <input value={bankName} onChange={e => setBankName(e.target.value)} placeholder="e.g. Chase" className={inputCls} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Account holder name</label>
+                  <input value={holder} onChange={e => setHolder(e.target.value)} placeholder="Full name on account" className={inputCls} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Account number / IBAN</label>
+                  <input value={accountNum} onChange={e => setAccountNum(e.target.value)} placeholder="Account number" className={inputCls} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Routing / BIC / SWIFT (optional)</label>
+                  <input value={routing} onChange={e => setRouting(e.target.value)} placeholder="Routing number" className={inputCls} />
+                </div>
+              </div>
+              <div className="px-5 py-4 border-t border-slate-200 dark:border-[#2a3044] flex justify-end gap-2">
+                <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">Cancel</button>
+                <button onClick={handleSave} disabled={!bankName.trim() || !accountNum.trim() || saving}
+                  className="px-5 py-2 text-sm bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg transition-colors font-medium">
+                  {saving ? "Adding..." : "Add"}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
   );
 }
 
 // ─── Finance Tab ──────────────────────────────────────────────────────────────
 
 function FinanceTab() {
-  const [subTab, setSubTab] = useState("payslips");
+  const { expenses, bankAccounts, addExpense, deleteExpense, addBankAccount, deleteBankAccount } = useHR();
+  const [subTab,       setSubTab]       = useState("payslips");
+  const [expenseModal, setExpenseModal] = useState(false);
+  const [bankModal,    setBankModal]    = useState(false);
+
   const subTabs = [
-    { id: "payslips",  label: "Payslips and payments", icon: FaReceipt    },
-    { id: "expenses",  label: "Expenses",               icon: FaDollarSign },
-    { id: "bank",      label: "Bank accounts",          icon: FaUniversity },
+    { id: "payslips", label: "Payslips and payments", icon: FaReceipt    },
+    { id: "expenses", label: "Expenses",               icon: FaDollarSign },
+    { id: "bank",     label: "Bank accounts",          icon: FaUniversity },
   ];
+
+  const STATUS_COLOR = { pending: "amber", approved: "green", rejected: "red" };
 
   return (
     <div>
+      <AddExpenseModal    open={expenseModal} onClose={() => setExpenseModal(false)} onAdd={addExpense} />
+      <AddBankAccountModal open={bankModal}   onClose={() => setBankModal(false)}    onAdd={addBankAccount} />
+
       <div className="flex items-center border-b border-slate-200 dark:border-[#2a3044] mb-5 gap-1">
         {subTabs.map(({ id, label, icon: Icon }) => (
           <button key={id} onClick={() => setSubTab(id)}
@@ -1758,6 +2569,7 @@ function FinanceTab() {
         ))}
       </div>
 
+      {/* Payslips */}
       {subTab === "payslips" && (
         <Card className="flex flex-col items-center justify-center py-20 text-center">
           <div className="w-20 h-20 mb-4 opacity-40">
@@ -1773,26 +2585,99 @@ function FinanceTab() {
         </Card>
       )}
 
+      {/* Expenses */}
       {subTab === "expenses" && (
-        <Card className="flex flex-col items-center justify-center py-20 text-center">
-          <FaReceipt className="w-12 h-12 text-slate-300 dark:text-slate-600 mb-4" />
-          <h3 className="text-base font-semibold text-slate-700 dark:text-slate-200 mb-1">No expenses submitted</h3>
-          <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs">Submit expense reports for reimbursement</p>
-          <button className="mt-4 flex items-center gap-2 px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors">
-            <FaPlus className="w-3 h-3" /> Add expense
-          </button>
-        </Card>
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{(expenses || []).length} expense{(expenses || []).length !== 1 ? "s" : ""}</span>
+            <button onClick={() => setExpenseModal(true)}
+              className="flex items-center gap-2 px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors">
+              <FaPlus className="w-3 h-3" /> Add expense
+            </button>
+          </div>
+          {(!expenses || expenses.length === 0) ? (
+            <Card className="flex flex-col items-center justify-center py-20 text-center">
+              <FaReceipt className="w-12 h-12 text-slate-300 dark:text-slate-600 mb-4" />
+              <h3 className="text-base font-semibold text-slate-700 dark:text-slate-200 mb-1">No expenses yet</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs">Submit expense reports for reimbursement</p>
+            </Card>
+          ) : (
+            <Card className="overflow-hidden">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-[#2a3044]">
+                    {["Date","Description","Category","Amount","Status",""].map(h => (
+                      <th key={h} className="text-left px-4 py-3 text-xs font-medium text-slate-500 dark:text-slate-400">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {expenses.map(exp => (
+                    <tr key={exp.id} className="border-b border-slate-100 dark:border-[#2a3044]/50 last:border-0 hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">
+                      <td className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400">{exp.date}</td>
+                      <td className="px-4 py-3 text-xs font-medium text-slate-700 dark:text-slate-200">{exp.description}</td>
+                      <td className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400">{exp.category}</td>
+                      <td className="px-4 py-3 text-xs font-semibold text-slate-700 dark:text-slate-200">{exp.currency} {exp.amount}</td>
+                      <td className="px-4 py-3"><Badge color={STATUS_COLOR[exp.status] || "slate"}>{exp.status}</Badge></td>
+                      <td className="px-4 py-3 text-right">
+                        <button onClick={() => deleteExpense(exp.id)}
+                          className="p-1.5 text-slate-300 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 transition-colors rounded">
+                          <FaTimes className="w-3 h-3" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </Card>
+          )}
+        </div>
       )}
 
+      {/* Bank accounts */}
       {subTab === "bank" && (
-        <Card className="flex flex-col items-center justify-center py-20 text-center">
-          <FaUniversity className="w-12 h-12 text-slate-300 dark:text-slate-600 mb-4" />
-          <h3 className="text-base font-semibold text-slate-700 dark:text-slate-200 mb-1">No bank accounts added</h3>
-          <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs">Add your bank account to receive payments</p>
-          <button className="mt-4 flex items-center gap-2 px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors">
-            <FaPlus className="w-3 h-3" /> Add bank account
-          </button>
-        </Card>
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{(bankAccounts || []).length} account{(bankAccounts || []).length !== 1 ? "s" : ""}</span>
+            <button onClick={() => setBankModal(true)}
+              className="flex items-center gap-2 px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors">
+              <FaPlus className="w-3 h-3" /> Add bank account
+            </button>
+          </div>
+          {(!bankAccounts || bankAccounts.length === 0) ? (
+            <Card className="flex flex-col items-center justify-center py-20 text-center">
+              <FaUniversity className="w-12 h-12 text-slate-300 dark:text-slate-600 mb-4" />
+              <h3 className="text-base font-semibold text-slate-700 dark:text-slate-200 mb-1">No bank accounts added</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs">Add your bank account to receive payments</p>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {bankAccounts.map(acct => (
+                <Card key={acct.id} className="p-5">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
+                        <FaUniversity className="w-4 h-4 text-blue-500" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{acct.bankName}</p>
+                        {acct.isPrimary && <Badge color="blue">Primary</Badge>}
+                      </div>
+                    </div>
+                    <button onClick={() => deleteBankAccount(acct.id)}
+                      className="p-1.5 text-slate-300 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 transition-colors rounded">
+                      <FaTimes className="w-3 h-3" />
+                    </button>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">{acct.accountHolder}</p>
+                  <p className="text-xs font-mono text-slate-600 dark:text-slate-300 mt-1">
+                    ···· {acct.accountNumber?.slice(-4) || "····"}
+                  </p>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
@@ -2688,9 +3573,9 @@ export default function HRPage() {
       {/* Content */}
       <div className="flex-1 overflow-auto">
         <div className="px-6 py-6 max-w-7xl mx-auto">
-          {activeTab === "overview"     && <OverviewTab userName={userName} />}
+          {activeTab === "overview"     && <OverviewTab userName={userName} setActiveTab={setActiveTab} />}
           {activeTab === "people"       && <PeopleTab employees={users || []} currentUserId={user?.uid} />}
-          {activeTab === "orgchart"     && <OrgChartTab />}
+          {activeTab === "orgchart"     && <OrgChartTab users={users || []} currentUserId={user?.uid} />}
           {activeTab === "profile"      && <MyProfileTab userName={userName} userEmail={userEmail} />}
           {activeTab === "contract"     && <ContractTab userName={userName} />}
           {activeTab === "timetracking" && <TimeTrackingTab />}
