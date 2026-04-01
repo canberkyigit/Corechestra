@@ -1,5 +1,6 @@
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { initializeApp } = require("firebase-admin/app");
 const { getAuth } = require("firebase-admin/auth");
 const { getFirestore } = require("firebase-admin/firestore");
@@ -20,6 +21,14 @@ async function requireAdmin(context) {
   if (snap.data()?.role !== "admin") {
     throw new HttpsError("permission-denied", "Admins only.");
   }
+}
+
+async function writeAuditEvent(type, payload = {}) {
+  await getFirestore().collection("auditLogs").add({
+    type,
+    payload,
+    createdAt: new Date().toISOString(),
+  });
 }
 
 // ─── inviteUser ───────────────────────────────────────────────────────────────
@@ -60,6 +69,13 @@ exports.inviteUser = onCall(async (request) => {
     createdAt: new Date().toISOString(),
   });
 
+  await writeAuditEvent("user.invited", {
+    actorUid: request.auth.uid,
+    invitedUid: userRecord.uid,
+    email,
+    role,
+  });
+
   return { uid: userRecord.uid };
 });
 
@@ -82,6 +98,11 @@ exports.deleteUser = onCall(async (request) => {
   await getFirestore().collection("users").doc(uid).update({
     deleted: true,
     deletedAt: new Date().toISOString(),
+  });
+
+  await writeAuditEvent("user.deleted", {
+    actorUid: request.auth.uid,
+    deletedUid: uid,
   });
 
   return { success: true };
@@ -108,6 +129,12 @@ exports.updateUserRole = onCall(async (request) => {
   // Also persist in Firestore (source of truth for the People tab)
   await getFirestore().collection("users").doc(uid).update({ role });
 
+  await writeAuditEvent("user.role_updated", {
+    actorUid: request.auth.uid,
+    targetUid: uid,
+    role,
+  });
+
   return { success: true };
 });
 
@@ -129,4 +156,146 @@ exports.onUserCreated = onDocumentCreated("users/{uid}", async (event) => {
   } catch (err) {
     console.error("onUserCreated: failed to set custom claim for", uid, err);
   }
+});
+
+exports.submitApprovalRequest = onCall(async (request) => {
+  requireAuth(request);
+
+  const {
+    type,
+    title,
+    description = "",
+    entityType = null,
+    entityId = null,
+    approverIds = [],
+    metadata = {},
+  } = request.data || {};
+
+  if (!type || !title || !Array.isArray(approverIds) || approverIds.length === 0) {
+    throw new HttpsError("invalid-argument", "type, title and approverIds are required.");
+  }
+
+  const ref = await getFirestore().collection("approvalRequests").add({
+    type,
+    title,
+    description,
+    entityType,
+    entityId,
+    approverIds,
+    metadata,
+    status: "pending",
+    requestedBy: request.auth.uid,
+    decisions: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
+
+  await writeAuditEvent("approval.requested", {
+    actorUid: request.auth.uid,
+    approvalRequestId: ref.id,
+    type,
+    entityType,
+    entityId,
+  });
+
+  return { id: ref.id };
+});
+
+exports.resolveApprovalRequest = onCall(async (request) => {
+  requireAuth(request);
+
+  const { id, decision, note = "" } = request.data || {};
+  if (!id || !["approved", "rejected"].includes(decision)) {
+    throw new HttpsError("invalid-argument", "id and a valid decision are required.");
+  }
+
+  const ref = getFirestore().collection("approvalRequests").doc(id);
+  const snap = await ref.get();
+  if (!snap.exists) {
+    throw new HttpsError("not-found", "Approval request not found.");
+  }
+
+  const data = snap.data();
+  if (data.status !== "pending") {
+    throw new HttpsError("failed-precondition", "Approval request is already resolved.");
+  }
+  if (!Array.isArray(data.approverIds) || !data.approverIds.includes(request.auth.uid)) {
+    throw new HttpsError("permission-denied", "You are not an approver for this request.");
+  }
+
+  const decisions = [
+    ...(data.decisions || []),
+    {
+      by: request.auth.uid,
+      decision,
+      note,
+      at: new Date().toISOString(),
+    },
+  ];
+
+  await ref.update({
+    status: decision,
+    decisions,
+    updatedAt: new Date().toISOString(),
+  });
+
+  await writeAuditEvent("approval.resolved", {
+    actorUid: request.auth.uid,
+    approvalRequestId: id,
+    decision,
+  });
+
+  return { success: true };
+});
+
+exports.dueSoonReminderSweep = onSchedule("every day 08:00", async () => {
+  const tasksSnap = await getFirestore().collection("appData").doc("tasks").get();
+  if (!tasksSnap.exists) return;
+
+  const activeTasks = tasksSnap.data()?.activeTasks || [];
+  const now = new Date();
+  const inThreeDays = new Date(now);
+  inThreeDays.setDate(now.getDate() + 3);
+
+  const dueSoon = activeTasks.filter((task) => {
+    if (!task.dueDate || task.status === "done") return false;
+    const dueDate = new Date(task.dueDate);
+    return dueDate >= now && dueDate <= inThreeDays;
+  });
+
+  await Promise.all(dueSoon.map((task) =>
+    getFirestore().collection("scheduledReminders").add({
+      type: "task.due_soon",
+      entityType: "task",
+      entityId: task.id,
+      assignedTo: task.assignedTo || null,
+      title: task.title,
+      dueDate: task.dueDate,
+      createdAt: new Date().toISOString(),
+    })
+  ));
+});
+
+exports.pendingApprovalSweep = onSchedule("every 60 minutes", async () => {
+  const snap = await getFirestore()
+    .collection("approvalRequests")
+    .where("status", "==", "pending")
+    .get();
+
+  const now = Date.now();
+  const stale = snap.docs.filter((docSnap) => {
+    const createdAt = Date.parse(docSnap.data().createdAt || "");
+    return !Number.isNaN(createdAt) && now - createdAt >= 24 * 60 * 60 * 1000;
+  });
+
+  await Promise.all(stale.map((docSnap) =>
+    getFirestore().collection("scheduledReminders").add({
+      type: "approval.overdue",
+      entityType: "approval",
+      entityId: docSnap.id,
+      approverIds: docSnap.data().approverIds || [],
+      title: docSnap.data().title,
+      createdAt: new Date().toISOString(),
+    })
+  ));
 });
