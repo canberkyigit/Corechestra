@@ -113,7 +113,7 @@ AuthProvider          ← Firebase Auth state; role from Firestore `users/{uid}`
 
 ### Write path
 
-All writes go through `saveDomain(domain, data)` in `src/services/storage.js`. Writes are debounced 1500 ms. Never write to Firestore directly from components.
+All writes go through `saveDomain(domain, data)` in `src/shared/services/storage.js`. Writes are debounced 1500 ms. Never write to Firestore directly from components.
 
 ### Per-project state pattern
 
@@ -201,42 +201,39 @@ npm install
 
 ```
 src/
-├── App.js                    # Routes, PageTransition wrapper
-├── context/
-│   ├── AppContext.js          # All project state + Firestore sync
-│   ├── AppSeeds.js            # SEED_* and DEFAULT_* constants
-│   ├── AuthContext.js         # Firebase Auth state + role
-│   ├── HRContext.js           # HR state + Firestore hrData/*
-│   └── ToastContext.js        # Toast notifications
-├── services/
-│   ├── firebase.js            # Firebase app init (reads from .env)
-│   └── storage.js             # saveDomain(), subscribeToAll(), load
-├── components/
-│   ├── Layout.js              # Sidebar nav, notification panel, search
-│   ├── KanbanBoard.js         # Drag-and-drop board
-│   ├── TaskDetailModal.js     # Full task detail panel
-│   ├── PlanningPoker.js       # Estimation sessions
-│   ├── CommandPalette.js      # Global ⌘K command palette
-│   └── common/                # Shared UI primitives
-├── pages/
-│   ├── BoardPage.js           # Kanban board
-│   ├── DashboardPage.js       # Overview + metrics
-│   ├── TimelinePage.js        # Roadmap / timeline
-│   ├── CalendarPage.js        # Calendar view
-│   ├── ReportsPage.js         # Burndown + analytics
-│   ├── DocsPage.js            # Spaces and pages editor
-│   ├── ReleasesPage.js        # Releases and versions
-│   ├── TestsPage.js           # Test management
-│   ├── ProjectsPage.js        # Project switcher / settings
-│   ├── HRPage.js              # Full HR platform (10 tabs)
-│   ├── ForYouPage.js          # Personal feed
-│   ├── ArchivePage.js         # Archived work
-│   ├── ProfilePage.js         # User profile
-│   ├── AdminPage.js           # Admin panel
-│   └── LoginPage.js           # Auth page
-└── constants/
-    └── taskOptions.js         # TYPE_OPTIONS, STATUS_OPTIONS, PRIORITY_OPTIONS
+├── app/
+│   ├── App.js                 # Router, providers, top-level composition
+│   └── styles/                # App-wide CSS entrypoints
+├── features/
+│   ├── board/                 # Board pages, tabs, task UI, planning poker
+│   ├── roadmap/               # Roadmap page and related UI
+│   ├── dashboard/             # Dashboard page
+│   ├── calendar/              # Calendar page
+│   ├── reports/               # Reports page
+│   ├── docs/                  # Docs experience
+│   ├── projects/              # Project switcher and settings
+│   ├── releases/              # Releases module
+│   ├── tests/                 # Test management module
+│   ├── hr/                    # HR module
+│   ├── admin/                 # Admin area
+│   ├── archive/               # Archive page
+│   ├── for-you/               # Personal feed
+│   ├── profile/               # Profile page
+│   └── auth/                  # Login/auth pages
+├── shared/
+│   ├── components/            # Cross-feature UI only
+│   ├── context/               # Shared providers and current domain-state layer
+│   ├── schemas/               # Zod schemas
+│   ├── services/              # Firebase and storage services
+│   └── test-utils/            # Shared test wrappers and helpers
+├── assets/
+│   └── logo.svg               # Brand asset
+├── index.js                   # React entrypoint
+├── reportWebVitals.js
+└── setupTests.js
 ```
+
+`landing/` and `functions/` intentionally remain at the repo root for now. If the repo grows into a multi-app workspace later, `apps/web`, `apps/landing`, and `apps/functions` would be a natural next step.
 
 ---
 
