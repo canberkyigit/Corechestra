@@ -397,31 +397,6 @@
   border-color: rgba(59, 130, 246, 0.24);
 }
 
-html[data-density="compact"] .app-btn--md {
-  padding: 7px 12px;
-}
-
-html[data-density="compact"] .app-surface {
-  border-radius: 18px;
-}
-
-html[data-density="compact"] .app-surface-muted {
-  border-radius: 14px;
-}
-
-html[data-density="compact"] .app-badge {
-  padding: 4px 8px;
-  font-size: 10px;
-}
-
-html[data-density="compact"] .app-detail-title {
-  font-size: 24px;
-}
-
-html[data-density="compact"] .docs-tree-node-surface {
-  border-radius: 10px;
-}
-
 @keyframes toast-enter {
   from { transform: translateX(120%) scale(0.9); opacity: 0; }
   to   { transform: translateX(0)   scale(1);   opacity: 1; }

@@ -138,7 +138,7 @@ function mergeConflictArray(baseArray, remoteArray, localArray) {
 
 export const DOMAIN_FIELDS = {
   config:    ["currentUser", "currentProjectId", "sprintDefaults",
-              "darkMode", "sidebarCollapsed", "projectsViewMode", "densityMode", "perProjectBoardFilters", "templateRegistry",
+              "darkMode", "sidebarCollapsed", "projectsViewMode", "perProjectBoardFilters", "templateRegistry",
               "savedViews", "recentItems", "favoriteItems", "pinnedItems", "notificationPreferences",
               "permissionMatrix", "workspaceSettings", "sensitiveActionPolicy"],
   entities:  ["projects", "teams", "users", "epics", "labels", "deletedUserIds"],

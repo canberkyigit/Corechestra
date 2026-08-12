@@ -126,8 +126,6 @@ function AppInner() {
     backlogSections,
     darkMode,
     setDarkMode,
-    densityMode,
-    setDensityMode,
     users,
     createUser,
     updateUser,
@@ -225,12 +223,6 @@ function AppInner() {
     setTimeout(() => document.documentElement.classList.remove("dark-transitioning"), 300);
   };
 
-  const toggleDensity = useCallback(() => {
-    const next = densityMode === "comfortable" ? "compact" : "comfortable";
-    setDensityMode(next);
-    trackEvent("density_mode_changed", { densityMode: next });
-  }, [densityMode, setDensityMode]);
-
   const handleSettingsClick = useCallback(() => {
     navigate("/board");
     setForcedBoardTab("settings");
@@ -316,7 +308,6 @@ function AppInner() {
             onNavigate={(page) => navigate(`/${page}`)}
             onCreateTask={handleCreateClick}
             onToggleDark={toggleDark}
-            onToggleDensity={toggleDensity}
           />
         </Suspense>
       )}

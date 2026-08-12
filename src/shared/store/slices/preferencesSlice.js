@@ -29,7 +29,6 @@ export const preferencesInitialState = {
   darkMode: false,
   sidebarCollapsed: false,
   projectsViewMode: "grid",
-  densityMode: "comfortable",
   perProjectBoardFilters: {},
   templateRegistry: DEFAULT_TEMPLATE_REGISTRY,
   savedViews: {
@@ -78,7 +77,6 @@ export function createPreferencesSlice(set) {
     setDarkMode: createFieldSetter("darkMode", set),
     setSidebarCollapsed: createFieldSetter("sidebarCollapsed", set),
     setProjectsViewMode: createFieldSetter("projectsViewMode", set),
-    setDensityMode: createFieldSetter("densityMode", set),
     setPerProjectBoardFilters: createFieldSetter("perProjectBoardFilters", set),
     setTemplateRegistry: createFieldSetter("templateRegistry", set),
     setSavedViews: createFieldSetter("savedViews", set),

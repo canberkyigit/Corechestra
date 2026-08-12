@@ -9,7 +9,7 @@ import {
   FaShieldAlt, FaLayerGroup, FaBook, FaTag, FaFlask,
   FaCheckSquare, FaBug, FaPlusSquare, FaExclamationCircle,
   FaUser, FaFlag, FaPlay, FaRegDotCircle, FaTimes, FaArchive, FaUndo, FaBolt,
-  FaSignOutAlt, FaBars, FaBuilding, FaStream, FaCompressAlt,
+  FaSignOutAlt, FaBars, FaBuilding, FaStream,
 } from "react-icons/fa";
 import { useApp } from "../context/AppContext";
 import { useToast } from "../context/ToastContext";
@@ -118,7 +118,6 @@ export default function Layout({
   const {
     sidebarCollapsed: collapsed, setSidebarCollapsed: setCollapsed,
     notifications, markNotifRead, markAllNotifsRead, activeTasks, backlogSections, epics, projects, currentProjectId,
-    densityMode, setDensityMode,
   } = useApp();
   const { user, role, profile, logout } = useAuth();
   const { canAccessPage, canPerform } = usePermissions();
@@ -411,17 +410,6 @@ export default function Layout({
               {(isMobile || !collapsed) && <span>Settings</span>}
             </button>
           )}
-
-          <button
-            onClick={() => setDensityMode(densityMode === "comfortable" ? "compact" : "comfortable")}
-            title={(!isMobile && collapsed) ? "Toggle density" : undefined}
-            className={`w-full flex items-center rounded-lg text-sm transition-colors ${
-              (!isMobile && collapsed) ? "justify-center p-2.5" : "gap-3 px-3 py-2"
-            } ${bottomRowClass}`}
-          >
-            <FaCompressAlt className="w-4 h-4 flex-shrink-0" />
-            {(isMobile || !collapsed) && <span>{densityMode === "compact" ? "Compact UI" : "Comfort UI"}</span>}
-          </button>
 
           {/* User + collapse toggle */}
           {!isMobile && collapsed ? (
