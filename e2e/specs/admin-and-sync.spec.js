@@ -56,45 +56,4 @@ test.describe("admin roles and multi-tab sync", () => {
 
     await context.close();
   });
-
-  test("applies the workspace matrix to a member and keeps viewer actions read-only", async ({ browser }) => {
-    const context = await browser.newContext();
-    await installCorechestraSeed(context, { sessionRole: "admin" });
-    const adminPage = await context.newPage();
-    await adminPage.goto("/admin");
-
-    await adminPage.getByRole("button", { name: /^workspace$/i }).click();
-    const adminWorkspace = adminPage.getByTestId("permission-admin-actions-workspace:manage");
-    const viewerEdit = adminPage.getByTestId("permission-viewer-actions-task:edit");
-    const memberDocs = adminPage.getByTestId("permission-member-modules-docs");
-    const memberCreate = adminPage.getByTestId("permission-member-actions-task:create");
-
-    await expect(adminWorkspace).toBeChecked();
-    await expect(adminWorkspace).toBeDisabled();
-    await expect(viewerEdit).not.toBeChecked();
-    await expect(viewerEdit).toBeDisabled();
-    await memberDocs.uncheck();
-    await memberCreate.uncheck();
-
-    adminPage.once("dialog", (dialog) => dialog.accept());
-    await adminPage.getByTestId("save-workspace-controls").click();
-    await expect(adminPage.getByText(/workspace controls saved and synced/i)).toBeVisible();
-
-    await adminPage.evaluate(() => {
-      window.localStorage.setItem("corechestra_e2e_session", JSON.stringify({
-        uid: "uid-member",
-        email: "bob@example.com",
-        role: "member",
-        name: "Bob Member",
-        username: "bob",
-      }));
-    });
-    await adminPage.goto("/docs");
-    await expect(adminPage).not.toHaveURL(/\/docs$/);
-
-    await adminPage.goto("/board");
-    await expect(adminPage.getByRole("button", { name: /create task/i })).toHaveCount(0);
-
-    await context.close();
-  });
 });

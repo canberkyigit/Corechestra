@@ -1,7 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
-import { getFunctions } from "firebase/functions";
 import { isE2EMode } from "../e2e/testMode";
 
 const firebaseConfig = {
@@ -17,5 +16,4 @@ const firebaseConfig = {
 const app = isE2EMode() ? null : initializeApp(firebaseConfig);
 export const db = app ? getFirestore(app) : null;
 export const auth = app ? getAuth(app) : null;
-export const functions = app ? getFunctions(app) : null;
 export default app;

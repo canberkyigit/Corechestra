@@ -40,7 +40,16 @@ export function useSystemActions({
   setArchivedTasks,
   setArchivedProjects,
   setArchivedEpics,
+  setDarkMode,
+  setSidebarCollapsed,
+  setProjectsViewMode,
+  setPerProjectBoardFilters,
   setTemplateRegistry,
+  setSavedViews,
+  setRecentItems,
+  setFavoriteItems,
+  setPinnedItems,
+  setNotificationPreferences,
   setPermissionMatrix,
   setWorkspaceSettings,
   setSensitiveActionPolicy,
@@ -83,7 +92,36 @@ export function useSystemActions({
     setArchivedProjects([]);
     setArchivedEpics([]);
     useAppStore.getState().setDbReady(false);
+    setDarkMode(false);
+    setSidebarCollapsed(false);
+    setProjectsViewMode("grid");
+    setPerProjectBoardFilters({});
     setTemplateRegistry(DEFAULT_TEMPLATE_REGISTRY);
+    setSavedViews({ board: [], docs: [], releases: [], tests: [] });
+    setRecentItems([]);
+    setFavoriteItems([]);
+    setPinnedItems([]);
+    setNotificationPreferences({
+      inApp: {
+        assignments: true,
+        mentions: true,
+        comments: true,
+        workflow: true,
+        releases: true,
+        reminders: true,
+        system: true,
+      },
+      email: {
+        assignments: false,
+        mentions: false,
+        comments: false,
+        workflow: false,
+        releases: false,
+        reminders: false,
+        system: false,
+      },
+      digest: "daily",
+    });
     setPermissionMatrix(DEFAULT_PERMISSION_MATRIX);
     setWorkspaceSettings(preferencesInitialState.workspaceSettings);
     setSensitiveActionPolicy(preferencesInitialState.sensitiveActionPolicy);
@@ -95,6 +133,7 @@ export function useSystemActions({
     setArchivedTasks,
     setCurrentProjectId,
     setCurrentUser,
+    setDarkMode,
     setDeletedUserIds,
     setDocPages,
     setEpics,
@@ -102,6 +141,7 @@ export function useSystemActions({
     setLabels,
     setNotifications,
     setPerProjectBacklog,
+    setPerProjectBoardFilters,
     setPerProjectBoardSettings,
     setPerProjectBurndownSnapshots,
     setPerProjectCompletedSprints,
@@ -112,9 +152,16 @@ export function useSystemActions({
     setPerProjectSprint,
     setProjectColumns,
     setProjects,
+    setProjectsViewMode,
+    setRecentItems,
     setReleases,
     setTestPlans,
+    setFavoriteItems,
+    setPinnedItems,
     setPermissionMatrix,
+    setNotificationPreferences,
+    setSavedViews,
+    setSidebarCollapsed,
     setSpaces,
     setSprint,
     setSprintDefaults,

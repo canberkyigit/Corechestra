@@ -15,7 +15,7 @@ import {
   FaCloudUploadAlt, FaFileAlt,
 } from "react-icons/fa";
 import { useApp } from "../../../shared/context/AppContext";
-import { usePermissions } from "../../../shared/context/hooks/usePermissions";
+import { useAuth } from "../../../shared/context/AuthContext";
 import { useToast } from "../../../shared/context/ToastContext";
 import { taskSchema } from "../../../shared/schemas";
 import { AppButton } from "../../../shared/components/AppPrimitives";
@@ -60,11 +60,8 @@ export default function TaskDetailModal({
     testCases,
     testRuns,
   } = useApp();
-  const { canPerform } = usePermissions();
-  const canEditTask = canPerform("task:edit");
-  const canCreateTask = canPerform("task:create");
-  const canArchiveTask = canPerform("task:archive");
-  const isViewer = isCreate ? !canCreateTask : !canEditTask;
+  const { role } = useAuth();
+  const isViewer = role === "viewer";
 
   const currentProject = projects.find((p) => p.id === currentProjectId);
   const projectMemberSet = new Set(currentProject?.memberUsernames || []);
@@ -226,7 +223,6 @@ export default function TaskDetailModal({
   };
 
   const handleDelete = () => {
-    if (!canArchiveTask) return;
     if (task.id) deleteTask(task.id);
     addToast("Task deleted", "error");
     onClose();
@@ -390,7 +386,6 @@ export default function TaskDetailModal({
             placeholder={titleError ? "Title is required!" : "Task title..."}
             value={title}
             onChange={(e) => { setTitle(e.target.value); setTitleError(false); changed(); }}
-            disabled={isViewer}
           />
           <div className="flex items-center gap-1 ml-auto">
             {!isCreate && onOpenPanel && (
@@ -402,7 +397,7 @@ export default function TaskDetailModal({
                 <FaCompress className="w-3.5 h-3.5" />
               </button>
             )}
-            {!isCreate && canArchiveTask && (
+            {!isCreate && (
               <button
                 className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                 onClick={() => setConfirmDelete(true)}

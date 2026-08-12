@@ -1,10 +1,7 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { collection, limit, onSnapshot, orderBy, query as firestoreQuery } from "firebase/firestore";
+import React, { useMemo, useState } from "react";
 import { FaShieldAlt, FaStream } from "react-icons/fa";
 import { useApp } from "../../../shared/context/AppContext";
 import { AppBadge, AppDataCard, AppEmptyState, AppInput, AppSelect } from "../../../shared/components/AppPrimitives";
-import { db } from "../../../shared/services/firebase";
-import { isE2EMode } from "../../../shared/e2e/testMode";
 
 function formatActionLabel(action) {
   return String(action || "event")
@@ -12,65 +9,14 @@ function formatActionLabel(action) {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-function normalizeServerEvent(snapshot) {
-  const data = snapshot.data();
-  const type = data.type || "event";
-  const payload = data.payload || {};
-  const timestamp = typeof data.createdAt?.toDate === "function"
-    ? data.createdAt.toDate().toISOString()
-    : data.createdAt;
-  const scope = type.startsWith("user.") || type.startsWith("approval.")
-    ? "security"
-    : "workspace";
-
-  return {
-    id: snapshot.id,
-    action: type.replace(/\./g, "_"),
-    user: payload.actorEmail || payload.actorUid || "System",
-    timestamp: timestamp || new Date(0).toISOString(),
-    details: {
-      ...payload,
-      name: payload.targetName || payload.name,
-      email: payload.targetEmail || payload.email,
-      entityType: type.startsWith("user.") ? "user" : payload.entityType,
-    },
-    severity: scope === "security" ? "warning" : "info",
-    scope,
-  };
-}
-
 export function AuditTab() {
   const { globalActivityLog } = useApp();
   const [scope, setScope] = useState("all");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [serverEntries, setServerEntries] = useState([]);
-  const [auditError, setAuditError] = useState("");
-  const e2eMode = isE2EMode();
-
-  useEffect(() => {
-    if (e2eMode) return undefined;
-    const auditQuery = firestoreQuery(
-      collection(db, "auditLogs"),
-      orderBy("createdAt", "desc"),
-      limit(100)
-    );
-    return onSnapshot(auditQuery, (snapshot) => {
-      setServerEntries(snapshot.docs.map(normalizeServerEvent));
-      setAuditError("");
-    }, (error) => {
-      console.warn("[AuditTab] Audit stream failed:", error.code || error.message);
-      setAuditError("The server audit stream could not be loaded.");
-    });
-  }, [e2eMode]);
-
-  const sourceEntries = useMemo(
-    () => (e2eMode ? (globalActivityLog || []) : serverEntries),
-    [e2eMode, globalActivityLog, serverEntries]
-  );
+  const [query, setQuery] = useState("");
 
   const entries = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    return sourceEntries
+    const q = query.trim().toLowerCase();
+    return (globalActivityLog || [])
       .filter((entry) => scope === "all" || (entry.scope || "task") === scope)
       .filter((entry) => {
         if (!q) return true;
@@ -83,10 +29,10 @@ export function AuditTab() {
         ].filter(Boolean).some((value) => String(value).toLowerCase().includes(q));
       })
       .slice(0, 80);
-  }, [searchQuery, scope, sourceEntries]);
+  }, [globalActivityLog, query, scope]);
 
-  const securityCount = sourceEntries.filter((entry) => entry.scope === "security").length;
-  const workspaceCount = sourceEntries.filter((entry) => entry.scope === "workspace").length;
+  const securityCount = (globalActivityLog || []).filter((entry) => entry.scope === "security").length;
+  const workspaceCount = (globalActivityLog || []).filter((entry) => entry.scope === "workspace").length;
 
   return (
     <div className="space-y-5">
@@ -94,12 +40,12 @@ export function AuditTab() {
         <AppDataCard className="p-5">
           <div className="app-kicker mb-2">Security Visibility</div>
           <div className="text-2xl font-bold text-slate-800 dark:text-slate-100">{securityCount}</div>
-          <div className="mt-1 text-sm app-subtle-copy">Server-recorded role and account events that clients cannot alter.</div>
+          <div className="mt-1 text-sm app-subtle-copy">Security and role-sensitive events captured in the current audit stream.</div>
         </AppDataCard>
         <AppDataCard className="p-5">
           <div className="app-kicker mb-2">Workspace Changes</div>
           <div className="text-2xl font-bold text-slate-800 dark:text-slate-100">{workspaceCount}</div>
-          <div className="mt-1 text-sm app-subtle-copy">Server-recorded workspace resets and protected operations.</div>
+          <div className="mt-1 text-sm app-subtle-copy">Template, project and workspace configuration changes available for review.</div>
         </AppDataCard>
       </div>
 
@@ -122,17 +68,12 @@ export function AuditTab() {
             </div>
             <div className="min-w-[240px]">
               <label className="mb-1.5 block text-xs font-medium text-slate-500 dark:text-slate-400">Search</label>
-              <AppInput value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Filter by action, user, email..." />
+              <AppInput value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Filter by action, user, email..." />
             </div>
           </div>
         </div>
 
         <div className="mt-5 space-y-3">
-          {auditError && (
-            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-900/50 dark:bg-red-900/10 dark:text-red-300">
-              {auditError}
-            </div>
-          )}
           {entries.length === 0 ? (
             <AppEmptyState
               icon={<FaStream className="w-6 h-6" />}

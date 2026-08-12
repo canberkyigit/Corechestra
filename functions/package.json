@@ -2,7 +2,6 @@
   "name": "corechestra-functions",
   "description": "Firebase Cloud Functions for Corechestra",
   "scripts": {
-    "test": "node --test permissions.test.cjs",
     "serve": "firebase emulators:start --only functions",
     "shell": "firebase functions:shell",
     "start": "npm run shell",

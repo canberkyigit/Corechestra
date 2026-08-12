@@ -4,20 +4,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useAppStoreSync } from "./useAppStoreSync";
 import { resetAppStore, useAppStore } from "../../store/useAppStore";
 
-jest.mock("../AuthContext", () => ({
-  useAuth: () => ({
-    user: { uid: "uid-1", email: "alice@example.com" },
-    role: "admin",
-  }),
-}));
-
 jest.mock("../../services/storage", () => ({
   loadAllDomains: jest.fn(),
   saveDomain: jest.fn(),
-  saveUserPreferences: jest.fn(),
   setStorageActor: jest.fn(),
   subscribeToAll: jest.fn(),
-  subscribeToUserPreferences: jest.fn(),
 }));
 
 const storage = jest.requireMock("../../services/storage");
@@ -37,7 +28,6 @@ describe("useAppStoreSync", () => {
     resetAppStore();
     jest.clearAllMocks();
     storage.subscribeToAll.mockReturnValue(() => {});
-    storage.subscribeToUserPreferences.mockReturnValue(() => {});
     storage.loadAllDomains.mockResolvedValue(null);
   });
 

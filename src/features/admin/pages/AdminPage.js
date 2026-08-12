@@ -4,7 +4,7 @@ import { useAuth } from "../../../shared/context/AuthContext";
 import {
   FaShieldAlt, FaUsers, FaPlus, FaEdit, FaTrash, FaCheck, FaTimes,
   FaProjectDiagram, FaUserPlus, FaFolder, FaPalette,
-  FaUserFriends, FaKey, FaCog, FaStream, FaSpinner,
+  FaUserFriends, FaKey, FaCog, FaStream,
 } from "react-icons/fa";
 import { AccessTab } from "../tabs/AccessTab";
 import { AuditTab } from "../tabs/AuditTab";
@@ -367,7 +367,7 @@ function TeamCard({ team, projects, users, onEdit, onDelete, onUpdateTeam }) {
 
 // ─── User Management ──────────────────────────────────────────────────────────
 
-function UserForm({ initial, onSave, onCancel, busy = false, lockRole = false }) {
+function UserForm({ initial, onSave, onCancel }) {
   const [name,  setName]  = useState(initial?.name  || "");
   const [email, setEmail] = useState(initial?.email || "");
   const [user,  setUser]  = useState(initial?.username || "");
@@ -389,17 +389,15 @@ function UserForm({ initial, onSave, onCancel, busy = false, lockRole = false })
         </div>
         <div>
           <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Email *</label>
-          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="jane@company.io" disabled={busy || !!initial}
-            className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-[#2a3044] bg-slate-50 dark:bg-[#232838] text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:cursor-not-allowed disabled:opacity-60" />
-          {initial && <p className="mt-1 text-[10px] text-slate-400">Authentication email cannot be changed from this form.</p>}
+          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="jane@company.io"
+            className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-[#2a3044] bg-slate-50 dark:bg-[#232838] text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-400" />
         </div>
         <div>
           <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Role</label>
           <div className="flex gap-2">
             {ROLES.map((r) => (
-              <button key={r.value} onClick={() => setRole(r.value)} disabled={busy || lockRole}
-                title={lockRole ? "Use another admin account to change your role" : undefined}
-                className={`flex-1 px-2 py-1.5 rounded-lg border text-xs font-medium transition-all disabled:cursor-not-allowed disabled:opacity-50 ${role === r.value ? "border-blue-400 bg-blue-50 dark:bg-blue-900/20 text-blue-600" : "border-slate-200 dark:border-[#2a3044] text-slate-500 dark:text-slate-400"}`}>
+              <button key={r.value} onClick={() => setRole(r.value)}
+                className={`flex-1 px-2 py-1.5 rounded-lg border text-xs font-medium transition-all ${role === r.value ? "border-blue-400 bg-blue-50 dark:bg-blue-900/20 text-blue-600" : "border-slate-200 dark:border-[#2a3044] text-slate-500 dark:text-slate-400"}`}>
                 {r.label}
               </button>
             ))}
@@ -416,9 +414,9 @@ function UserForm({ initial, onSave, onCancel, busy = false, lockRole = false })
         </div>
       </div>
       <div className="flex gap-2 pt-1">
-        <AppButton onClick={() => { if(!name.trim()||!email.trim()) return; onSave({ name:name.trim(), email:email.trim(), username:user||name.toLowerCase().replace(/\s/g,""), role, color, status:initial?.status||"active" }); }}
-          disabled={busy || !name.trim() || !email.trim()}>
-          {busy ? <FaSpinner className="w-3 h-3 animate-spin" /> : <FaCheck className="w-3 h-3" />} {initial?.id ? "Save Changes" : "Invite User"}
+        <AppButton onClick={() => { if(!name.trim()||!email.trim()) return; onSave({ name:name.trim(), email:email.trim(), username:user||name.toLowerCase().replace(/\s/g,""), role, color, status:"active" }); }}
+          disabled={!name.trim() || !email.trim()}>
+          <FaCheck className="w-3 h-3" /> {initial?.id ? "Save Changes" : "Invite User"}
         </AppButton>
         <AppButton variant="secondary" onClick={onCancel}>Cancel</AppButton>
       </div>
@@ -434,13 +432,12 @@ export default function AdminPage() {
     setActiveTasks, setBacklogSections,
   } = useApp();
 
-  const { user: authUser, isAdmin } = useAuth();
+  const { user: authUser } = useAuth();
   const { canPerform } = usePermissions();
   const [activeTab, setActiveTab] = useState("people");
 
   // On mount: clean up all seed data remnants
   useEffect(() => {
-    if (!isAdmin) return;
     const SEED_NAMES = new Set(["alice", "bob", "carol", "dave"]);
 
     // Unassign tasks still assigned to seed usernames
@@ -466,7 +463,7 @@ export default function AdminPage() {
       }
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAdmin]);
+  }, []);
 
   // Teams
   const [showTeamForm, setShowTeamForm] = useState(false);
@@ -476,27 +473,14 @@ export default function AdminPage() {
   const [editingProj,  setEditingProj]  = useState(null);
   const activeUsers  = dedupUsers(users, deletedUserIds).filter((u) => u.status === "active").length;
 
-  const canOpenPeople = ["user:invite", "user:manage", "team:manage", "project:manage", "task:edit"]
-    .some((permission) => canPerform(permission));
-  const canManageProjects = canPerform("project:manage");
-  const canManageTeams = canPerform("team:manage");
-  const canManageRoles = canPerform("role:manage");
-  const canViewAudit = canPerform("audit:view");
-  const canOpenWorkspace = isAdmin || canPerform("workspace:manage") || canPerform("templates:manage");
-  const TABS = useMemo(() => [
-    ...(canOpenPeople ? [{ id: "people", label: "People", icon: FaUserFriends }] : []),
-    ...(canManageProjects ? [{ id: "projects", label: "Projects", icon: FaProjectDiagram }] : []),
-    ...(canManageTeams ? [{ id: "teams", label: "Teams", icon: FaUsers }] : []),
-    ...(canManageRoles ? [{ id: "access", label: "Access", icon: FaKey }] : []),
-    ...(canOpenWorkspace ? [{ id: "workspace", label: "Workspace", icon: FaCog }] : []),
-    ...(canViewAudit ? [{ id: "audit", label: "Audit", icon: FaStream }] : []),
-  ], [canManageProjects, canManageRoles, canManageTeams, canOpenPeople, canOpenWorkspace, canViewAudit]);
-
-  useEffect(() => {
-    if (TABS.length > 0 && !TABS.some((tab) => tab.id === activeTab)) {
-      setActiveTab(TABS[0].id);
-    }
-  }, [activeTab, TABS]);
+  const TABS = [
+    { id: "people",   label: "People",          icon: FaUserFriends },
+    { id: "projects", label: "Projects",         icon: FaProjectDiagram },
+    { id: "teams",    label: "Teams",            icon: FaUsers },
+    { id: "access",   label: "Access",           icon: FaKey },
+    ...(canPerform("workspace:manage") ? [{ id: "workspace", label: "Workspace", icon: FaCog }] : []),
+    ...(canPerform("audit:view") ? [{ id: "audit", label: "Audit", icon: FaStream }] : []),
+  ];
 
   return (
     <div className="h-full overflow-y-auto p-4 md:p-6 max-w-6xl mx-auto">
@@ -543,7 +527,7 @@ export default function AdminPage() {
       </div>
 
       {/* People */}
-      {activeTab === "people" && canOpenPeople && (
+      {activeTab === "people" && (
         <PeopleTab
           users={users}
           teams={teams}
@@ -557,25 +541,24 @@ export default function AdminPage() {
           DeleteConfirm={DeleteConfirm}
           UserForm={UserForm}
           roles={ROLES}
-          currentUid={authUser?.uid}
         />
       )}
 
       {/* Access */}
-      {activeTab === "access" && canManageRoles && (
+      {activeTab === "access" && (
         <AccessTab currentUid={authUser?.uid} />
       )}
 
-      {activeTab === "workspace" && canOpenWorkspace && (
+      {activeTab === "workspace" && canPerform("workspace:manage") && (
         <WorkspaceTab />
       )}
 
-      {activeTab === "audit" && canViewAudit && (
+      {activeTab === "audit" && canPerform("audit:view") && (
         <AuditTab />
       )}
 
       {/* Projects */}
-      {activeTab === "projects" && canManageProjects && (
+      {activeTab === "projects" && (
         <div className="space-y-4">
           {showProjForm && !editingProj && <ProjectForm onSave={(d) => { createProject(d); setShowProjForm(false); }} onCancel={() => setShowProjForm(false)} />}
           {editingProj && <ProjectForm initial={editingProj} onSave={(d) => { updateProject({...editingProj,...d}); setEditingProj(null); }} onCancel={() => setEditingProj(null)} />}
@@ -594,7 +577,7 @@ export default function AdminPage() {
       )}
 
       {/* Teams */}
-      {activeTab === "teams" && canManageTeams && (
+      {activeTab === "teams" && (
         <div className="space-y-4">
           {showTeamForm && !editingTeam && <TeamForm projects={projects} onSave={(d) => { createTeam(d); setShowTeamForm(false); }} onCancel={() => setShowTeamForm(false)} />}
           {editingTeam && <TeamForm initial={editingTeam} projects={projects} onSave={(d) => { updateTeam({...editingTeam,...d}); setEditingTeam(null); }} onCancel={() => setEditingTeam(null)} />}

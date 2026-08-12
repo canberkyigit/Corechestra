@@ -17,13 +17,6 @@ import {
 } from "../e2e/testMode";
 
 const AuthContext = createContext(null);
-const PROFILE_FIELDS = new Set(["name", "fullName", "title", "timezone", "bio", "color", "notifPrefs"]);
-
-export function sanitizeProfileFields(fields) {
-  return Object.fromEntries(
-    Object.entries(fields || {}).filter(([key]) => PROFILE_FIELDS.has(key))
-  );
-}
 
 export function AuthProvider({ children }) {
   const e2eMode = isE2EMode();
@@ -81,10 +74,6 @@ export function AuthProvider({ children }) {
             setProfile(initial);
           } else {
             const data = snap.data();
-            if (data.deleted === true || data.status === "inactive") {
-              await signOut(auth);
-              return;
-            }
             setRole(data.role || "member");
             setProfile(data);
           }
@@ -101,10 +90,6 @@ export function AuthProvider({ children }) {
         unsubFirestore = onSnapshot(userRef, (snap) => {
           if (snap.exists()) {
             const data = snap.data();
-            if (data.deleted === true || data.status === "inactive") {
-              signOut(auth);
-              return;
-            }
             setRole(data.role || "member");
             setProfile(data);
           }
@@ -126,22 +111,19 @@ export function AuthProvider({ children }) {
 
   // Persist profile fields to Firestore and update local state
   const updateProfile = async (fields) => {
-    const safeFields = sanitizeProfileFields(fields);
-    if (Object.keys(safeFields).length === 0) return;
-
     if (e2eMode) {
       const session = readE2ESession();
       if (!session) return;
-      const nextSession = { ...session, ...safeFields };
+      const nextSession = { ...session, ...fields };
       writeE2ESession(nextSession);
       upsertE2EAuthUser(session.uid, nextSession);
-      setProfile((prev) => ({ ...prev, ...safeFields }));
+      setProfile((prev) => ({ ...prev, ...fields }));
       return;
     }
     if (!user) return;
     const userRef = doc(db, "users", user.uid);
-    await updateDoc(userRef, safeFields);
-    setProfile((prev) => ({ ...prev, ...safeFields }));
+    await updateDoc(userRef, fields);
+    setProfile((prev) => ({ ...prev, ...fields }));
   };
 
   const login = async (email, password) => {
