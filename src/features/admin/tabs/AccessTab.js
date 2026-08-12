@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { collection, doc, getDocs, updateDoc } from "firebase/firestore";
+import { collection, getDocs } from "firebase/firestore";
 import { FaKey, FaLock, FaSpinner, FaShieldAlt } from "react-icons/fa";
 import { useApp } from "../../../shared/context/AppContext";
 import { useToast } from "../../../shared/context/ToastContext";
 import { db } from "../../../shared/services/firebase";
+import { changeWorkspaceUserRole, getAdminActionMessage } from "../../../shared/services/adminFunctions";
 import { usePermissions } from "../../../shared/context/hooks/usePermissions";
 import {
   E2E_AUTH_USERS_KEY,
@@ -52,7 +53,9 @@ export function AccessTab({ currentUid }) {
       try {
         const snap = await getDocs(collection(db, "users"));
         if (!cancelled) {
-          setFirebaseUsers(snap.docs.map((snapshot) => ({ uid: snapshot.id, ...snapshot.data() })));
+          setFirebaseUsers(snap.docs
+            .map((snapshot) => ({ uid: snapshot.id, ...snapshot.data() }))
+            .filter((user) => !user.deleted));
           setLoading(false);
         }
       } catch (err) {
@@ -83,28 +86,36 @@ export function AccessTab({ currentUid }) {
     }
     setUpdating(uid);
     const targetUser = firebaseUsers.find((entry) => entry.uid === uid);
-    if (e2eMode) {
-      updateE2EAuthUserRole(uid, newRole);
-    } else {
-      await updateDoc(doc(db, "users", uid), { role: newRole });
+    try {
+      if (e2eMode) {
+        updateE2EAuthUserRole(uid, newRole);
+      } else {
+        await changeWorkspaceUserRole(uid, newRole);
+      }
+      setFirebaseUsers((prev) => prev.map((user) => (
+        user.uid === uid ? { ...user, role: newRole } : user
+      )));
+      const appUser = users.find((user) => user.id === uid);
+      if (appUser) {
+        updateUser({ ...appUser, role: newRole });
+      }
+      if (e2eMode) {
+        logAuditEvent?.("role_changed", {
+          entityType: "user",
+          entityId: uid,
+          name: appUser?.name || targetUser?.email,
+          email: targetUser?.email,
+          nextRole: newRole,
+          severity: "warning",
+          scope: "security",
+        });
+      }
+      addToast(`${targetUser?.email || "User"} is now ${ROLE_META[newRole].label}.`, "success");
+    } catch (error) {
+      addToast(getAdminActionMessage(error, "Could not update the user's role."), "error");
+    } finally {
+      setUpdating(null);
     }
-    setFirebaseUsers((prev) => prev.map((user) => (
-      user.uid === uid ? { ...user, role: newRole } : user
-    )));
-    const appUser = users.find((user) => user.id === uid);
-    if (appUser) {
-      updateUser({ ...appUser, role: newRole });
-    }
-    logAuditEvent?.("role_changed", {
-      entityType: "user",
-      entityId: uid,
-      name: appUser?.name || targetUser?.email,
-      email: targetUser?.email,
-      nextRole: newRole,
-      severity: "warning",
-      scope: "security",
-    });
-    setUpdating(null);
   };
 
   if (loading) {

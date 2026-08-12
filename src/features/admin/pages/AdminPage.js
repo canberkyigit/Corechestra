@@ -4,7 +4,7 @@ import { useAuth } from "../../../shared/context/AuthContext";
 import {
   FaShieldAlt, FaUsers, FaPlus, FaEdit, FaTrash, FaCheck, FaTimes,
   FaProjectDiagram, FaUserPlus, FaFolder, FaPalette,
-  FaUserFriends, FaKey, FaCog, FaStream,
+  FaUserFriends, FaKey, FaCog, FaStream, FaSpinner,
 } from "react-icons/fa";
 import { AccessTab } from "../tabs/AccessTab";
 import { AuditTab } from "../tabs/AuditTab";
@@ -367,7 +367,7 @@ function TeamCard({ team, projects, users, onEdit, onDelete, onUpdateTeam }) {
 
 // ─── User Management ──────────────────────────────────────────────────────────
 
-function UserForm({ initial, onSave, onCancel }) {
+function UserForm({ initial, onSave, onCancel, busy = false, lockRole = false }) {
   const [name,  setName]  = useState(initial?.name  || "");
   const [email, setEmail] = useState(initial?.email || "");
   const [user,  setUser]  = useState(initial?.username || "");
@@ -389,15 +389,17 @@ function UserForm({ initial, onSave, onCancel }) {
         </div>
         <div>
           <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Email *</label>
-          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="jane@company.io"
-            className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-[#2a3044] bg-slate-50 dark:bg-[#232838] text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-400" />
+          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="jane@company.io" disabled={busy || !!initial}
+            className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-[#2a3044] bg-slate-50 dark:bg-[#232838] text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:cursor-not-allowed disabled:opacity-60" />
+          {initial && <p className="mt-1 text-[10px] text-slate-400">Authentication email cannot be changed from this form.</p>}
         </div>
         <div>
           <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Role</label>
           <div className="flex gap-2">
             {ROLES.map((r) => (
-              <button key={r.value} onClick={() => setRole(r.value)}
-                className={`flex-1 px-2 py-1.5 rounded-lg border text-xs font-medium transition-all ${role === r.value ? "border-blue-400 bg-blue-50 dark:bg-blue-900/20 text-blue-600" : "border-slate-200 dark:border-[#2a3044] text-slate-500 dark:text-slate-400"}`}>
+              <button key={r.value} onClick={() => setRole(r.value)} disabled={busy || lockRole}
+                title={lockRole ? "Use another admin account to change your role" : undefined}
+                className={`flex-1 px-2 py-1.5 rounded-lg border text-xs font-medium transition-all disabled:cursor-not-allowed disabled:opacity-50 ${role === r.value ? "border-blue-400 bg-blue-50 dark:bg-blue-900/20 text-blue-600" : "border-slate-200 dark:border-[#2a3044] text-slate-500 dark:text-slate-400"}`}>
                 {r.label}
               </button>
             ))}
@@ -414,9 +416,9 @@ function UserForm({ initial, onSave, onCancel }) {
         </div>
       </div>
       <div className="flex gap-2 pt-1">
-        <AppButton onClick={() => { if(!name.trim()||!email.trim()) return; onSave({ name:name.trim(), email:email.trim(), username:user||name.toLowerCase().replace(/\s/g,""), role, color, status:"active" }); }}
-          disabled={!name.trim() || !email.trim()}>
-          <FaCheck className="w-3 h-3" /> {initial?.id ? "Save Changes" : "Invite User"}
+        <AppButton onClick={() => { if(!name.trim()||!email.trim()) return; onSave({ name:name.trim(), email:email.trim(), username:user||name.toLowerCase().replace(/\s/g,""), role, color, status:initial?.status||"active" }); }}
+          disabled={busy || !name.trim() || !email.trim()}>
+          {busy ? <FaSpinner className="w-3 h-3 animate-spin" /> : <FaCheck className="w-3 h-3" />} {initial?.id ? "Save Changes" : "Invite User"}
         </AppButton>
         <AppButton variant="secondary" onClick={onCancel}>Cancel</AppButton>
       </div>
@@ -541,6 +543,7 @@ export default function AdminPage() {
           DeleteConfirm={DeleteConfirm}
           UserForm={UserForm}
           roles={ROLES}
+          currentUid={authUser?.uid}
         />
       )}
 

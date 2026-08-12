@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { collection, deleteDoc, doc, getDoc, getDocs, updateDoc } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs } from "firebase/firestore";
 import {
   FaBriefcase,
   FaChevronDown,
@@ -16,8 +16,21 @@ import {
 } from "react-icons/fa";
 import { taskKey } from "../../../shared/utils/helpers";
 import { useApp } from "../../../shared/context/AppContext";
+import { useToast } from "../../../shared/context/ToastContext";
 import { db } from "../../../shared/services/firebase";
-import { isE2EMode, readE2EAuthUsers } from "../../../shared/e2e/testMode";
+import {
+  getAdminActionMessage,
+  inviteWorkspaceUser,
+  changeWorkspaceUserRole,
+  changeWorkspaceUserStatus,
+  removeWorkspaceUser,
+} from "../../../shared/services/adminFunctions";
+import {
+  isE2EMode,
+  readE2EAuthUsers,
+  updateE2EAuthUserRole,
+  upsertE2EAuthUser,
+} from "../../../shared/e2e/testMode";
 
 const TASK_STATUS_STYLES = {
   todo: "bg-slate-100 text-slate-500 dark:bg-[#2a3044] dark:text-slate-400",
@@ -209,8 +222,10 @@ export function PeopleTab({
   DeleteConfirm,
   UserForm,
   roles,
+  currentUid,
 }) {
   const { allTasks, setActiveTasks, setBacklogSections, deletedUserIds } = useApp();
+  const { addToast } = useToast();
   const e2eMode = isE2EMode();
   const [search, setSearch] = useState("");
   const [filterRole, setFilterRole] = useState("all");
@@ -223,6 +238,7 @@ export function PeopleTab({
   const [editingUser, setEditingUser] = useState(null);
   const [selectedProfileUser, setSelectedProfileUser] = useState(null);
   const [deletingUserId, setDeletingUserId] = useState(null);
+  const [userAction, setUserAction] = useState(null);
   const [refreshTick, setRefreshTick] = useState(0);
   const [mergedUsers, setMergedUsers] = useState(() => dedupUsers(users, deletedUserIds));
 
@@ -356,6 +372,88 @@ export function PeopleTab({
 
   const unassignTask = (taskId) => assignTask(taskId, "unassigned");
 
+  const handleInviteUser = async (data) => {
+    setUserAction("invite");
+    try {
+      let uid;
+      if (e2eMode) {
+        uid = `e2e-user-${Date.now()}`;
+        upsertE2EAuthUser(uid, data);
+      } else {
+        const result = await inviteWorkspaceUser(data);
+        uid = result.uid;
+      }
+      createUser({ ...data, id: uid });
+      setShowUserForm(false);
+      setRefreshTick((tick) => tick + 1);
+      addToast(`Invitation account created for ${data.email}.`, "success");
+    } catch (error) {
+      addToast(getAdminActionMessage(error, "Could not invite this user."), "error");
+    } finally {
+      setUserAction(null);
+    }
+  };
+
+  const handleEditUser = async (data) => {
+    if (!editingUser) return;
+    setUserAction(editingUser.id);
+    try {
+      if (data.role !== editingUser.role) {
+        if (editingUser.id === currentUid) {
+          throw new Error("You cannot change your own role.");
+        }
+        if (e2eMode) updateE2EAuthUserRole(editingUser.id, data.role);
+        else await changeWorkspaceUserRole(editingUser.id, data.role);
+      }
+      updateUser({ ...editingUser, ...data });
+      setEditingUser(null);
+      setRefreshTick((tick) => tick + 1);
+      addToast(`${data.name} was updated.`, "success");
+    } catch (error) {
+      addToast(getAdminActionMessage(error, "Could not update this user."), "error");
+    } finally {
+      setUserAction(null);
+    }
+  };
+
+  const handleDeleteUser = async (user) => {
+    if (user.id === currentUid) {
+      addToast("You cannot delete your own account.", "error");
+      setDeletingUserId(null);
+      return;
+    }
+    setUserAction(user.id);
+    try {
+      if (!e2eMode) await removeWorkspaceUser(user.id);
+      deleteUser(user.id);
+      setDeletingUserId(null);
+      addToast(`${user.name} was removed from the workspace.`, "success");
+    } catch (error) {
+      addToast(getAdminActionMessage(error, "Could not remove this user."), "error");
+    } finally {
+      setUserAction(null);
+    }
+  };
+
+  const handleStatusChange = async (user) => {
+    if (user.id === currentUid) {
+      addToast("You cannot deactivate your own account.", "error");
+      return;
+    }
+    const status = user.status === "active" ? "inactive" : "active";
+    setUserAction(user.id);
+    try {
+      if (e2eMode) upsertE2EAuthUser(user.id, { status });
+      else await changeWorkspaceUserStatus(user.id, status);
+      updateUser({ ...user, status });
+      addToast(`${user.name} is now ${status}.`, "success");
+    } catch (error) {
+      addToast(getAdminActionMessage(error, "Could not update this account's status."), "error");
+    } finally {
+      setUserAction(null);
+    }
+  };
+
   const toggleExpand = (userId) => {
     setExpandedUserId((prev) => (prev === userId ? null : userId));
     setTaskSearch("");
@@ -408,8 +506,8 @@ export function PeopleTab({
         </button>
       </div>
 
-      {showUserForm && !editingUser && <UserForm onSave={(data) => { createUser(data); setShowUserForm(false); }} onCancel={() => setShowUserForm(false)} />}
-      {editingUser && <UserForm initial={editingUser} onSave={(data) => { updateUser({ ...editingUser, ...data }); setEditingUser(null); }} onCancel={() => setEditingUser(null)} />}
+      {showUserForm && !editingUser && <UserForm busy={userAction === "invite"} onSave={handleInviteUser} onCancel={() => setShowUserForm(false)} />}
+      {editingUser && <UserForm initial={editingUser} busy={userAction === editingUser.id} lockRole={editingUser.id === currentUid} onSave={handleEditUser} onCancel={() => setEditingUser(null)} />}
 
       {!showUserForm && !editingUser && (
         <button
@@ -555,15 +653,11 @@ export function PeopleTab({
                     {deletingUserId === user.id ? (
                       <DeleteConfirm
                         label="Remove?"
-                        onConfirm={() => {
-                          deleteUser(user.id);
-                          updateDoc(doc(db, "users", user.id), { deleted: true }).catch(() => deleteDoc(doc(db, "users", user.id)).catch(() => {}));
-                          setDeletingUserId(null);
-                        }}
+                        onConfirm={() => handleDeleteUser(user)}
                         onCancel={() => setDeletingUserId(null)}
                       />
                     ) : (
-                      <button onClick={() => setDeletingUserId(user.id)} className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Delete user">
+                      <button disabled={user.id === currentUid || userAction === user.id} onClick={() => setDeletingUserId(user.id)} className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:cursor-not-allowed disabled:opacity-30" title={user.id === currentUid ? "Cannot delete your own account" : "Delete user"}>
                         <FaTrash className="w-3.5 h-3.5" />
                       </button>
                     )}
@@ -576,7 +670,7 @@ export function PeopleTab({
                       Tasks
                       <FaChevronDown className={`w-2.5 h-2.5 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
                     </button>
-                    <button onClick={() => updateUser({ ...user, status: user.status === "active" ? "inactive" : "active" })} className={`text-xs px-2.5 py-1 rounded-lg border font-medium transition-all ${
+                    <button disabled={user.id === currentUid || userAction === user.id} onClick={() => handleStatusChange(user)} className={`text-xs px-2.5 py-1 rounded-lg border font-medium transition-all disabled:cursor-not-allowed disabled:opacity-40 ${
                       user.status === "active"
                         ? "border-slate-200 dark:border-[#2a3044] text-slate-400 hover:border-red-300 hover:text-red-500 dark:hover:border-red-700 dark:hover:text-red-400"
                         : "border-green-300 dark:border-green-700 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20"

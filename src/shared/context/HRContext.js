@@ -22,7 +22,7 @@ const EMPTY_SHARED_DATA = {
 };
 
 export function HRProvider({ children }) {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const e2eMode = isE2EMode();
 
   const [timeOffRequests, setTimeOffRequests] = useState([]);
@@ -88,19 +88,24 @@ export function HRProvider({ children }) {
       console.warn("[HRContext] shared data listener failed:", err.code || err.message);
     });
 
-    // Shared hiring pipeline (all users)
-    const plRef      = doc(db, "hrData", "pipeline");
-    const unsubPipeline = onSnapshot(plRef, (snap) => {
-      if (snap.exists()) {
-        const d = snap.data();
-        setPipeline({ ...EMPTY_PIPELINE, ...d });
-      }
-    }, (err) => {
-      console.error("[HRContext] pipeline onSnapshot error:", err.code, err.message);
-    });
+    // Hiring data is sensitive and is only subscribed to for admins.
+    let unsubPipeline = () => {};
+    if (isAdmin) {
+      const plRef = doc(db, "hrData", "pipeline");
+      unsubPipeline = onSnapshot(plRef, (snap) => {
+        if (snap.exists()) {
+          const d = snap.data();
+          setPipeline({ ...EMPTY_PIPELINE, ...d });
+        }
+      }, (err) => {
+        console.error("[HRContext] pipeline onSnapshot error:", err.code, err.message);
+      });
+    } else {
+      setPipeline(EMPTY_PIPELINE);
+    }
 
     return () => { unsubUser(); unsubShared(); unsubPipeline(); };
-  }, [e2eMode, user?.uid]);
+  }, [e2eMode, isAdmin, user?.uid]);
 
   // ── Helpers ────────────────────────────────────────────────────────────────
   const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);

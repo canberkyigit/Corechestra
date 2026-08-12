@@ -2,19 +2,22 @@ import { act } from "@testing-library/react";
 
 const mockGetDoc = jest.fn();
 const mockSetDoc = jest.fn();
-const mockDeleteDoc = jest.fn();
 const mockOnSnapshot = jest.fn();
 const mockDoc = jest.fn((db, collection, id) => ({ collection, id }));
+const mockResetWorkspaceData = jest.fn();
 
 jest.mock("./firebase", () => ({
   db: { mocked: true },
+}));
+
+jest.mock("./adminFunctions", () => ({
+  resetWorkspaceData: (...args) => mockResetWorkspaceData(...args),
 }));
 
 jest.mock("firebase/firestore", () => ({
   doc: (...args) => mockDoc(...args),
   getDoc: (...args) => mockGetDoc(...args),
   setDoc: (...args) => mockSetDoc(...args),
-  deleteDoc: (...args) => mockDeleteDoc(...args),
   onSnapshot: (...args) => mockOnSnapshot(...args),
 }));
 
@@ -24,6 +27,7 @@ describe("storage service", () => {
     jest.clearAllMocks();
     jest.useRealTimers();
     localStorage.clear();
+    mockResetWorkspaceData.mockResolvedValue({ success: true });
     mockDoc.mockImplementation((db, collection, id) => ({ collection, id }));
   });
 
@@ -82,8 +86,8 @@ describe("storage service", () => {
     jest.useFakeTimers();
     const { saveDomain } = await import("./storage");
 
-    saveDomain("config", { currentUser: "alice" });
-    saveDomain("config", { darkMode: true });
+    saveDomain("config", { sprintDefaults: { duration: 14 } });
+    saveDomain("config", { workspaceSettings: { name: "Corechestra" } });
 
     await act(async () => {
       jest.advanceTimersByTime(1500);
@@ -92,8 +96,8 @@ describe("storage service", () => {
 
     expect(mockSetDoc).toHaveBeenCalledTimes(1);
     expect(mockSetDoc.mock.calls[0][1]).toEqual(expect.objectContaining({
-      currentUser: "alice",
-      darkMode: true,
+      sprintDefaults: { duration: 14 },
+      workspaceSettings: { name: "Corechestra" },
       _updatedAt: expect.any(Number),
     }));
     expect(mockSetDoc.mock.calls[0][2]).toEqual({ merge: true });
@@ -103,7 +107,7 @@ describe("storage service", () => {
     jest.useFakeTimers();
     const { saveDomain } = await import("./storage");
 
-    saveDomain("config", { currentUser: "alice" });
+    saveDomain("config", { sprintDefaults: { duration: 14 } });
     await act(async () => {
       jest.advanceTimersByTime(1500);
       await Promise.resolve();
@@ -111,11 +115,40 @@ describe("storage service", () => {
 
     mockSetDoc.mockClear();
 
-    saveDomain("config", { currentUser: "alice" });
+    saveDomain("config", { sprintDefaults: { duration: 14 } });
     await act(async () => {
       jest.advanceTimersByTime(1500);
       await Promise.resolve();
     });
+
+    expect(mockSetDoc).not.toHaveBeenCalled();
+  });
+
+  it("stores personal preferences in a user-scoped document", async () => {
+    jest.useFakeTimers();
+    const { saveUserPreferences } = await import("./storage");
+
+    saveUserPreferences("uid-1", { darkMode: true, projectsViewMode: "list" });
+
+    await act(async () => {
+      jest.advanceTimersByTime(1000);
+      await Promise.resolve();
+    });
+
+    expect(mockSetDoc).toHaveBeenCalledWith(
+      { collection: "userPreferences", id: "uid-1" },
+      expect.objectContaining({ darkMode: true, projectsViewMode: "list", _updatedAt: expect.any(Number) }),
+      { merge: true }
+    );
+  });
+
+  it("does not persist shared workspace mutations for viewers", async () => {
+    jest.useFakeTimers();
+    const { saveDomain, setStorageActor } = await import("./storage");
+
+    setStorageActor("viewer@example.com", "viewer");
+    saveDomain("tasks", { activeTasks: [{ id: "blocked" }] });
+    jest.advanceTimersByTime(1500);
 
     expect(mockSetDoc).not.toHaveBeenCalled();
   });
@@ -175,7 +208,6 @@ describe("storage service", () => {
 
   it("clears all domains and cancels pending writes before reporting success", async () => {
     jest.useFakeTimers();
-    mockDeleteDoc.mockResolvedValue();
     const { clearAllDomains, saveDomain } = await import("./storage");
 
     saveDomain("tasks", { activeTasks: [{ id: "pending-task" }] });
@@ -183,12 +215,12 @@ describe("storage service", () => {
 
     jest.advanceTimersByTime(1500);
     expect(cleared).toBe(true);
-    expect(mockDeleteDoc).toHaveBeenCalled();
+    expect(mockResetWorkspaceData).toHaveBeenCalledTimes(1);
     expect(mockSetDoc).not.toHaveBeenCalled();
   });
 
   it("reports failure when persisted domains cannot be cleared", async () => {
-    mockDeleteDoc.mockRejectedValue(new Error("delete failed"));
+    mockResetWorkspaceData.mockRejectedValue(new Error("delete failed"));
     const dispatchSpy = jest.spyOn(window, "dispatchEvent");
     const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
     const { clearAllDomains } = await import("./storage");

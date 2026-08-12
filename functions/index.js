@@ -4,6 +4,7 @@ const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { initializeApp } = require("firebase-admin/app");
 const { getAuth } = require("firebase-admin/auth");
 const { getFirestore } = require("firebase-admin/firestore");
+const { randomBytes } = require("node:crypto");
 
 initializeApp();
 
@@ -18,9 +19,19 @@ async function requireAdmin(context) {
     .collection("users")
     .doc(context.auth.uid)
     .get();
-  if (snap.data()?.role !== "admin") {
+  const profile = snap.data();
+  if (!profile || profile.role !== "admin" || profile.deleted === true || profile.status === "inactive") {
     throw new HttpsError("permission-denied", "Admins only.");
   }
+}
+
+const VALID_ROLES = ["admin", "member", "viewer"];
+
+function auditActor(request) {
+  return {
+    actorUid: request.auth.uid,
+    actorEmail: request.auth.token?.email || null,
+  };
 }
 
 async function writeAuditEvent(type, payload = {}) {
@@ -40,37 +51,56 @@ async function writeAuditEvent(type, payload = {}) {
 exports.inviteUser = onCall(async (request) => {
   await requireAdmin(request);
 
-  const { email, name, role = "member" } = request.data;
+  const email = String(request.data?.email || "").trim().toLowerCase();
+  const name = String(request.data?.name || "").trim();
+  const role = request.data?.role || "member";
   if (!email || !name) {
     throw new HttpsError("invalid-argument", "email and name are required.");
   }
+  if (!VALID_ROLES.includes(role)) {
+    throw new HttpsError("invalid-argument", "A valid role is required.");
+  }
 
-  // Create the Auth account with a temporary password (user must reset)
-  const userRecord = await getAuth().createUser({
-    email,
-    displayName: name,
-    // Random 16-char temp password — user will use "Forgot Password" to set their own
-    password: Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8),
-  });
+  let userRecord = null;
+  try {
+    // Create the Auth account with a temporary password (user must reset).
+    userRecord = await getAuth().createUser({
+      email,
+      displayName: name,
+      password: `${randomBytes(18).toString("base64url")}Aa1!`,
+    });
 
-  // Store the user profile in Firestore so it shows up in People tab immediately
-  const username = email.split("@")[0];
-  const COLORS = ["#6366f1", "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
-  const color = COLORS[userRecord.uid.charCodeAt(0) % COLORS.length];
+    const username = email.split("@")[0];
+    const COLORS = ["#6366f1", "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
+    const color = COLORS[userRecord.uid.charCodeAt(0) % COLORS.length];
 
-  await getFirestore().collection("users").doc(userRecord.uid).set({
-    id: userRecord.uid,
-    name,
-    username,
-    email,
-    color,
-    role,
-    status: "active",
-    createdAt: new Date().toISOString(),
-  });
+    await getFirestore().collection("users").doc(userRecord.uid).set({
+      id: userRecord.uid,
+      name,
+      username,
+      email,
+      color,
+      role,
+      status: "active",
+      createdAt: new Date().toISOString(),
+    });
+    await getAuth().setCustomUserClaims(userRecord.uid, { role });
+  } catch (error) {
+    if (userRecord) {
+      await getFirestore().collection("users").doc(userRecord.uid).delete().catch(() => {});
+      await getAuth().deleteUser(userRecord.uid).catch(() => {});
+    }
+    if (error.code === "auth/email-already-exists") {
+      throw new HttpsError("already-exists", "An account with this email already exists.");
+    }
+    if (error.code === "auth/invalid-email") {
+      throw new HttpsError("invalid-argument", "A valid email address is required.");
+    }
+    throw error;
+  }
 
   await writeAuditEvent("user.invited", {
-    actorUid: request.auth.uid,
+    ...auditActor(request),
     invitedUid: userRecord.uid,
     email,
     role,
@@ -88,21 +118,37 @@ exports.inviteUser = onCall(async (request) => {
 exports.deleteUser = onCall(async (request) => {
   await requireAdmin(request);
 
-  const { uid } = request.data;
+  const uid = String(request.data?.uid || "").trim();
   if (!uid) throw new HttpsError("invalid-argument", "uid is required.");
   if (uid === request.auth.uid) {
     throw new HttpsError("failed-precondition", "Cannot delete your own account.");
   }
 
-  await getAuth().deleteUser(uid);
-  await getFirestore().collection("users").doc(uid).update({
-    deleted: true,
-    deletedAt: new Date().toISOString(),
-  });
+  const targetRef = getFirestore().collection("users").doc(uid);
+  const target = await targetRef.get();
+  if (!target.exists) {
+    throw new HttpsError("not-found", "User not found.");
+  }
+
+  if (target.data()?.deleted !== true) {
+    await targetRef.set({
+      deleted: true,
+      status: "inactive",
+      deletedAt: new Date().toISOString(),
+    }, { merge: true });
+  }
+
+  try {
+    await getAuth().deleteUser(uid);
+  } catch (error) {
+    if (error.code !== "auth/user-not-found") throw error;
+  }
 
   await writeAuditEvent("user.deleted", {
-    actorUid: request.auth.uid,
+    ...auditActor(request),
     deletedUid: uid,
+    targetEmail: target.data()?.email || null,
+    targetName: target.data()?.name || target.data()?.fullName || null,
   });
 
   return { success: true };
@@ -117,25 +163,101 @@ exports.deleteUser = onCall(async (request) => {
 exports.updateUserRole = onCall(async (request) => {
   await requireAdmin(request);
 
-  const { uid, role } = request.data;
-  const validRoles = ["admin", "member", "viewer"];
-  if (!uid || !validRoles.includes(role)) {
+  const uid = String(request.data?.uid || "").trim();
+  const role = request.data?.role;
+  if (!uid || !VALID_ROLES.includes(role)) {
     throw new HttpsError("invalid-argument", "uid and a valid role are required.");
   }
+  if (uid === request.auth.uid) {
+    throw new HttpsError("failed-precondition", "Cannot change your own role.");
+  }
 
-  // Set custom claim so AuthContext.js can read it without a Firestore round-trip
-  await getAuth().setCustomUserClaims(uid, { role });
+  const targetRef = getFirestore().collection("users").doc(uid);
+  const target = await targetRef.get();
+  if (!target.exists || target.data()?.deleted === true) {
+    throw new HttpsError("not-found", "User not found.");
+  }
 
-  // Also persist in Firestore (source of truth for the People tab)
-  await getFirestore().collection("users").doc(uid).update({ role });
+  // Firestore is the authorization source of truth.
+  await targetRef.update({ role });
+  try {
+    await getAuth().setCustomUserClaims(uid, { role });
+  } catch (error) {
+    console.warn("updateUserRole: custom claim sync failed for", uid, error);
+  }
 
   await writeAuditEvent("user.role_updated", {
-    actorUid: request.auth.uid,
+    ...auditActor(request),
     targetUid: uid,
+    targetEmail: target.data()?.email || null,
+    targetName: target.data()?.name || target.data()?.fullName || null,
     role,
   });
 
   return { success: true };
+});
+
+// ─── updateUserStatus ────────────────────────────────────────────────────────
+// Deactivates/reactivates a login through one audited server-side path.
+exports.updateUserStatus = onCall(async (request) => {
+  await requireAdmin(request);
+
+  const uid = String(request.data?.uid || "").trim();
+  const status = request.data?.status;
+  if (!uid || !["active", "inactive"].includes(status)) {
+    throw new HttpsError("invalid-argument", "uid and a valid status are required.");
+  }
+  if (uid === request.auth.uid) {
+    throw new HttpsError("failed-precondition", "Cannot change your own account status.");
+  }
+
+  const targetRef = getFirestore().collection("users").doc(uid);
+  const target = await targetRef.get();
+  if (!target.exists || target.data()?.deleted === true) {
+    throw new HttpsError("not-found", "User not found.");
+  }
+
+  await targetRef.update({ status });
+  try {
+    await getAuth().updateUser(uid, { disabled: status === "inactive" });
+    if (status === "inactive") await getAuth().revokeRefreshTokens(uid);
+  } catch (error) {
+    console.warn("updateUserStatus: Auth sync failed for", uid, error);
+  }
+
+  await writeAuditEvent("user.status_updated", {
+    ...auditActor(request),
+    targetUid: uid,
+    targetEmail: target.data()?.email || null,
+    targetName: target.data()?.name || target.data()?.fullName || null,
+    status,
+  });
+
+  return { success: true };
+});
+
+// ─── resetWorkspace ──────────────────────────────────────────────────────────
+// Deletes shared workspace domain documents without exposing broad client-side
+// delete permissions. Audit events are intentionally retained.
+exports.resetWorkspace = onCall(async (request) => {
+  await requireAdmin(request);
+
+  const firestore = getFirestore();
+  const snapshot = await firestore.collection("appData").get();
+  const batch = firestore.batch();
+  snapshot.docs.forEach((documentSnapshot) => batch.delete(documentSnapshot.ref));
+  batch.delete(firestore.collection("appState").doc("default"));
+  batch.set(firestore.collection("auditLogs").doc(), {
+    type: "workspace.reset",
+    payload: {
+      ...auditActor(request),
+      deletedDomainCount: snapshot.size,
+    },
+    createdAt: new Date().toISOString(),
+  });
+  await batch.commit();
+
+  return { success: true, deletedDomainCount: snapshot.size };
 });
 
 // ─── onUserCreated (trigger) ──────────────────────────────────────────────────
@@ -191,7 +313,7 @@ exports.submitApprovalRequest = onCall(async (request) => {
   });
 
   await writeAuditEvent("approval.requested", {
-    actorUid: request.auth.uid,
+    ...auditActor(request),
     approvalRequestId: ref.id,
     type,
     entityType,
@@ -240,7 +362,7 @@ exports.resolveApprovalRequest = onCall(async (request) => {
   });
 
   await writeAuditEvent("approval.resolved", {
-    actorUid: request.auth.uid,
+    ...auditActor(request),
     approvalRequestId: id,
     decision,
   });

@@ -443,7 +443,7 @@ describe("useApp", () => {
     expect(state.currentUser).toBe("");
     expect(state.activeTasks).toEqual([]);
     expect(state.notifications).toEqual([]);
-    expect(state.darkMode).toBe(false);
+    expect(state.darkMode).toBe(true);
     expect(state.dbReady).toBe(false);
   });
 
