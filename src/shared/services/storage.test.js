@@ -172,4 +172,33 @@ describe("storage service", () => {
 
     unsubscribe();
   });
+
+  it("clears all domains and cancels pending writes before reporting success", async () => {
+    jest.useFakeTimers();
+    mockDeleteDoc.mockResolvedValue();
+    const { clearAllDomains, saveDomain } = await import("./storage");
+
+    saveDomain("tasks", { activeTasks: [{ id: "pending-task" }] });
+    const cleared = await clearAllDomains();
+
+    jest.advanceTimersByTime(1500);
+    expect(cleared).toBe(true);
+    expect(mockDeleteDoc).toHaveBeenCalled();
+    expect(mockSetDoc).not.toHaveBeenCalled();
+  });
+
+  it("reports failure when persisted domains cannot be cleared", async () => {
+    mockDeleteDoc.mockRejectedValue(new Error("delete failed"));
+    const dispatchSpy = jest.spyOn(window, "dispatchEvent");
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const { clearAllDomains } = await import("./storage");
+
+    const cleared = await clearAllDomains();
+
+    expect(cleared).toBe(false);
+    expect(dispatchSpy).toHaveBeenCalledWith(expect.objectContaining({
+      type: "corechestra:storage-error",
+    }));
+    warnSpy.mockRestore();
+  });
 });

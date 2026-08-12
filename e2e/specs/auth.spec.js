@@ -14,8 +14,8 @@ test.describe("auth and route guards", () => {
   test("redirects a non-admin away from the admin route", async ({ page }) => {
     await gotoSeeded(page, "/admin", { sessionRole: "member" });
 
-    await expect(page).toHaveURL(/\/board$/);
-    await expectBoardLoaded(page);
+    await expect(page).toHaveURL(/\/dashboard$/);
+    await expect(page.getByRole("button", { name: /total tasks/i })).toBeVisible();
     await expect(page.getByText(/^Admin$/)).toHaveCount(0);
   });
 });

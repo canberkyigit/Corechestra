@@ -55,8 +55,10 @@ export function useSystemActions({
   setWorkspaceSettings,
   setSensitiveActionPolicy,
 }) {
-  const resetAllData = useCallback(() => {
-    clearAllDomains();
+  const resetAllData = useCallback(async () => {
+    const cleared = await clearAllDomains();
+    if (!cleared) return false;
+
     setProjects([]);
     setCurrentProjectId("");
     setCurrentUser("");
@@ -125,6 +127,7 @@ export function useSystemActions({
     setPermissionMatrix(DEFAULT_PERMISSION_MATRIX);
     setWorkspaceSettings(preferencesInitialState.workspaceSettings);
     setSensitiveActionPolicy(preferencesInitialState.sensitiveActionPolicy);
+    return true;
   }, [
     setActiveTasks,
     setArchivedEpics,

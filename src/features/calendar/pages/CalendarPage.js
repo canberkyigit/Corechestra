@@ -66,7 +66,7 @@ function TaskPill({ task, onClick }) {
 
 
 export default function CalendarPage() {
-  const { activeTasks, backlogSections, currentProjectId, updateActiveTask, dbReady } = useApp();
+  const { activeTasks, backlogSections, currentProjectId, updateTask, dbReady } = useApp();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState(null);
   const [selectedTask, setSelectedTask] = useState(null);
@@ -594,7 +594,7 @@ export default function CalendarPage() {
             open={!!selectedTask}
             onClose={() => setSelectedTask(null)}
             onTaskUpdate={(updated) => {
-              updateActiveTask(updated);
+              updateTask(updated);
               setSelectedTask(updated);
             }}
           />

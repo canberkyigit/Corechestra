@@ -1,24 +1,50 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { FaPlay, FaEye, FaRedo, FaCheck, FaTimes } from 'react-icons/fa';
 
 const FIBONACCI_CARDS = [0, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, '?'];
 const TSHIRT_CARDS = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '?'];
+
+export function getPokerConsensus(votes = {}) {
+  const voteCounts = new Map();
+  Object.values(votes).forEach((vote) => {
+    voteCounts.set(vote, (voteCounts.get(vote) || 0) + 1);
+  });
+
+  if (voteCounts.size === 0) return null;
+
+  const maxVotes = Math.max(...voteCounts.values());
+  const mostVoted = [...voteCounts.entries()]
+    .filter(([, count]) => count === maxVotes)
+    .map(([vote]) => vote);
+
+  return mostVoted.length === 1 ? mostVoted[0] : null;
+}
 
 const PlanningPoker = ({ 
   isOpen, 
   onClose, 
   currentTask, 
   onEstimationComplete,
-  teamMembers = ['Alice', 'Bob', 'Carol', 'Dave']
+  teamMembers = ['Alice', 'Bob', 'Carol', 'Dave'],
+  currentPlayer = teamMembers[0] || 'You',
 }) => {
   const [selectedCard, setSelectedCard] = useState(null);
   const [cardSet, setCardSet] = useState('fibonacci'); // 'fibonacci' or 'tshirt'
   const [votes, setVotes] = useState({});
   const [revealed, setRevealed] = useState(false);
   const [gamePhase, setGamePhase] = useState('waiting'); // 'waiting', 'voting', 'revealed', 'complete'
-  const [currentPlayer] = useState('Alice'); // Demo için sabit
   const [discussion, setDiscussion] = useState('');
   const [consensus, setConsensus] = useState(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setSelectedCard(null);
+    setVotes({});
+    setRevealed(false);
+    setGamePhase('waiting');
+    setConsensus(null);
+    setDiscussion('');
+  }, [isOpen, currentTask?.id]);
 
   const cards = cardSet === 'fibonacci' ? FIBONACCI_CARDS : TSHIRT_CARDS;
 
@@ -43,23 +69,11 @@ const PlanningPoker = ({
   const handleRevealVotes = () => {
     setRevealed(true);
     setGamePhase('revealed');
-    
-    // Consensus hesaplama
-    const voteCounts = {};
-    Object.values(votes).forEach(vote => {
-      voteCounts[vote] = (voteCounts[vote] || 0) + 1;
-    });
-    
-    const maxVotes = Math.max(...Object.values(voteCounts));
-    const mostVoted = Object.keys(voteCounts).filter(key => voteCounts[key] === maxVotes);
-    
-    if (mostVoted.length === 1) {
-      setConsensus(mostVoted[0]);
-    }
+    setConsensus(getPokerConsensus(votes));
   };
 
   const handleCompleteEstimation = () => {
-    if (consensus) {
+    if (consensus !== null && consensus !== undefined) {
       onEstimationComplete({
         taskId: currentTask?.id,
         estimation: consensus,
@@ -87,20 +101,11 @@ const PlanningPoker = ({
 
   const getConsensusStatus = () => {
     if (!revealed) return null;
-    
-    const voteCounts = {};
-    Object.values(votes).forEach(vote => {
-      voteCounts[vote] = (voteCounts[vote] || 0) + 1;
-    });
-    
-    const maxVotes = Math.max(...Object.values(voteCounts));
-    const mostVoted = Object.keys(voteCounts).filter(key => voteCounts[key] === maxVotes);
-    
-    if (mostVoted.length === 1) {
-      return `Consensus: ${mostVoted[0]}`;
-    } else {
-      return 'No consensus - re-voting required';
-    }
+
+    const result = getPokerConsensus(votes);
+    return result !== null
+      ? `Consensus: ${result}`
+      : 'No consensus - re-voting required';
   };
 
   if (!isOpen) return null;
@@ -221,7 +226,8 @@ const PlanningPoker = ({
               <>
                 <button
                   onClick={handleRevealVotes}
-                  className="flex items-center space-x-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  disabled={Object.keys(votes).length === 0}
+                  className="flex items-center space-x-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:text-gray-200 disabled:cursor-not-allowed"
                 >
                   <FaEye size={16} />
                   <span>Reveal Votes</span>
@@ -240,9 +246,9 @@ const PlanningPoker = ({
               <>
                 <button
                   onClick={handleCompleteEstimation}
-                  disabled={!consensus}
+                  disabled={consensus === null || consensus === undefined}
                   className={`flex items-center space-x-2 px-6 py-3 rounded-lg transition-colors ${
-                    consensus
+                    consensus !== null && consensus !== undefined
                       ? 'bg-green-600 text-white hover:bg-green-700'
                       : 'bg-gray-400 text-gray-200 cursor-not-allowed'
                   }`}
@@ -271,7 +277,7 @@ const PlanningPoker = ({
                 <div key={member} className="bg-white p-4 rounded-lg border">
                   <div className="text-sm font-medium text-gray-600">{member}</div>
                   <div className="text-lg font-bold text-gray-800 mt-1">
-                    {votes[member] || 'No vote'}
+                    {votes[member] ?? 'No vote'}
                   </div>
                 </div>
               ))}
@@ -295,4 +301,4 @@ const PlanningPoker = ({
   );
 };
 
-export default PlanningPoker; 
+export default PlanningPoker;

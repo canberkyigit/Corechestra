@@ -20,7 +20,7 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
     updateBoardSettings,
     currentProjectId,
     perProjectBoardFilters, setPerProjectBoardFilters,
-    teamMembers, dbReady,
+    teamMembers, currentUser, dbReady,
   } = useApp();
 
   // Only show members who are in this project (via memberUsernames or task assignment)
@@ -285,6 +285,7 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
         setPokerTask={setPokerTask}
         handleEstimationComplete={handleEstimationComplete}
         teamMembers={teamMembers}
+        currentUser={currentUser}
         sprintModalOpen={sprintModalOpen}
         setSprintModalOpen={setSprintModalOpen}
         sprintModalMode={sprintModalMode}

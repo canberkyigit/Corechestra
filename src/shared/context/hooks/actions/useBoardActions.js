@@ -34,49 +34,66 @@ export function useBoardActions({
   setNotesList,
   setPokerHistory,
   setBoardSettings,
-  setPerProjectBacklog: setPerProjectBacklogMap,
   setPerProjectCompletedSprints: setCompletedSprintMap,
   logActivity,
   addNotification,
 }) {
-  const updateActiveTask = useCallback((updatedTask, logMsg) => {
-    setActiveTasks((prev) => {
-      const prevTask = prev.find((task) => task.id === updatedTask.id);
-      if (prevTask) {
-        if (prevTask.status !== updatedTask.status) {
-          const statusLabels = {
-            todo: "To Do",
-            inprogress: "In Progress",
-            review: "Review",
-            awaiting: "Awaiting",
-            blocked: "Blocked",
-            done: "Done",
-          };
-          const label = statusLabels[updatedTask.status] || updatedTask.status;
-          addNotification({
-            type: updatedTask.status === "done"
-              ? "status_done"
-              : updatedTask.status === "blocked"
-                ? "status_blocked"
-                : "status_change",
-            taskId: updatedTask.id,
-            taskTitle: updatedTask.title,
-            text: `"${updatedTask.title}" moved to ${label}`,
-          });
-        }
-        if (prevTask.assignedTo !== updatedTask.assignedTo && updatedTask.assignedTo) {
-          addNotification({
-            type: "assignment",
-            taskId: updatedTask.id,
-            taskTitle: updatedTask.title,
-            text: `You were assigned to "${updatedTask.title}"`,
-          });
-        }
+  const updateTask = useCallback((updatedTask, logMsg) => {
+    const previousTask = activeTasks.find((task) => task.id === updatedTask.id)
+      || Object.values(perProjectBacklog)
+        .flatMap((sections) => sections.flatMap((section) => section.tasks || []))
+        .find((task) => task.id === updatedTask.id);
+
+    if (previousTask) {
+      if (previousTask.status !== updatedTask.status) {
+        const statusLabels = {
+          todo: "To Do",
+          inprogress: "In Progress",
+          review: "Review",
+          awaiting: "Awaiting",
+          blocked: "Blocked",
+          done: "Done",
+        };
+        const label = statusLabels[updatedTask.status] || updatedTask.status;
+        addNotification({
+          type: updatedTask.status === "done"
+            ? "status_done"
+            : updatedTask.status === "blocked"
+              ? "status_blocked"
+              : "status_change",
+          taskId: updatedTask.id,
+          taskTitle: updatedTask.title,
+          text: `"${updatedTask.title}" moved to ${label}`,
+        });
       }
-      return prev.map((task) => (task.id === updatedTask.id ? updatedTask : task));
-    });
+      if (previousTask.assignedTo !== updatedTask.assignedTo && updatedTask.assignedTo) {
+        addNotification({
+          type: "assignment",
+          taskId: updatedTask.id,
+          taskTitle: updatedTask.title,
+          text: `You were assigned to "${updatedTask.title}"`,
+        });
+      }
+    }
+
+    setActiveTasks((prev) => prev.map((task) => (
+      task.id === updatedTask.id ? updatedTask : task
+    )));
+    setPerProjectBacklog((prev) => Object.fromEntries(
+      Object.entries(prev).map(([projectId, sections]) => [
+        projectId,
+        sections.map((section) => ({
+          ...section,
+          tasks: (section.tasks || []).map((task) => (
+            task.id === updatedTask.id ? updatedTask : task
+          )),
+        })),
+      ])
+    ));
     if (logMsg) logActivity(updatedTask.id, logMsg);
-  }, [addNotification, logActivity, setActiveTasks]);
+  }, [activeTasks, addNotification, logActivity, perProjectBacklog, setActiveTasks, setPerProjectBacklog]);
+
+  const updateActiveTask = updateTask;
 
   const createTask = useCallback((taskData, sprintValue) => {
     const newTask = {
@@ -178,23 +195,7 @@ export function useBoardActions({
     addNotification({ type: "archive_emptied", text: `Archive emptied (${count} items removed)` });
   }, [addNotification, archivedEpics.length, archivedProjects.length, archivedTasks.length, setArchivedEpics, setArchivedProjects, setArchivedTasks]);
 
-  const updateBacklogTask = useCallback((updatedTask) => {
-    setPerProjectBacklog((prev) => {
-      const next = {};
-      for (const [projectId, sections] of Object.entries(prev)) {
-        next[projectId] = sections.map((section) => ({
-          ...section,
-          tasks: section.tasks.map((task) => (
-            task.id === updatedTask.id ? updatedTask : task
-          )),
-        }));
-      }
-      return next;
-    });
-    setActiveTasks((prev) => prev.map((task) => (
-      task.id === updatedTask.id ? updatedTask : task
-    )));
-  }, [setActiveTasks, setPerProjectBacklog]);
+  const updateBacklogTask = updateTask;
 
   const startSprint = useCallback((sprintData) => {
     setSprint({ ...sprintData, status: "active" });
@@ -238,6 +239,7 @@ export function useBoardActions({
         id: `cs-${Date.now()}`,
         name: currentSprint.name || "Sprint",
         goal: currentSprint.goal || "",
+        reviewNotes: currentSprint.reviewNotes || "",
         startDate: currentSprint.startDate || "",
         endDate: currentSprint.endDate || "",
         completedAt: new Date().toISOString(),
@@ -583,16 +585,23 @@ export function useBoardActions({
   }, [setNotesList]);
 
   const savePokerResult = useCallback((result) => {
+    const numericEstimation = (
+      typeof result.estimation === "number"
+        ? result.estimation
+        : typeof result.estimation === "string" && result.estimation.trim() !== "" && Number.isFinite(Number(result.estimation))
+          ? Number(result.estimation)
+          : null
+    );
     setPokerHistory((prev) => [
       { ...result, id: Date.now(), date: new Date().toISOString() },
       ...prev,
     ]);
-    if (result.taskId && typeof result.estimation === "number") {
+    if (result.taskId && numericEstimation !== null) {
       const updateTaskPoints = (tasks) => tasks.map((task) => (
-        task.id === result.taskId ? { ...task, storyPoint: result.estimation } : task
+        task.id === result.taskId ? { ...task, storyPoint: numericEstimation } : task
       ));
       setActiveTasks((prev) => updateTaskPoints(prev));
-      setPerProjectBacklogMap((prev) => {
+      setPerProjectBacklog((prev) => {
         const next = {};
         for (const [projectId, sections] of Object.entries(prev)) {
           next[projectId] = sections.map((section) => ({
@@ -603,7 +612,7 @@ export function useBoardActions({
         return next;
       });
     }
-  }, [setActiveTasks, setPerProjectBacklogMap, setPokerHistory]);
+  }, [setActiveTasks, setPerProjectBacklog, setPokerHistory]);
 
   const updateBoardSettings = useCallback((patch) => {
     setBoardSettings((prev) => ({ ...prev, ...patch }));
@@ -620,6 +629,7 @@ export function useBoardActions({
   }, [currentProjectId, setBoardSettings, setProjects]);
 
   return {
+    updateTask,
     updateActiveTask,
     createTask,
     deleteTask,

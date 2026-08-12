@@ -6,12 +6,13 @@ test.describe("admin roles and multi-tab sync", () => {
     await gotoSeeded(page, "/admin", { sessionRole: "admin" });
 
     await page.getByRole("button", { name: /access/i }).click();
-    await expect(page.getByText(/manage firebase auth user roles/i)).toBeVisible();
+    await expect(page.getByText(/role changes are security-sensitive/i)).toBeVisible();
 
     const bobToggle = page.getByTestId("access-role-toggle-uid-member");
-    await expect(bobToggle).toHaveText(/make admin/i);
-    await bobToggle.click();
-    await expect(bobToggle).toHaveText(/make member/i);
+    await expect(bobToggle).toHaveValue("member");
+    page.once("dialog", (dialog) => dialog.accept());
+    await bobToggle.selectOption("admin");
+    await expect(bobToggle).toHaveValue("admin");
 
     await page.evaluate(() => {
       window.localStorage.removeItem("corechestra_e2e_session");

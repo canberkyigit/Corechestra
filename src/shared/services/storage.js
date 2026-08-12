@@ -483,6 +483,7 @@ export async function clearAllDomains() {
     try {
       writeE2EDomains({});
       Object.keys(DOMAIN_FIELDS).forEach((domain) => {
+        clearTimeout(_timers[domain]);
         delete _timers[domain];
         delete _lastWriteTs[domain];
         delete _lastRemoteTs[domain];
@@ -491,15 +492,16 @@ export async function clearAllDomains() {
         delete _pendingDomainData[domain];
         delete _pendingBaseData[domain];
       });
-      return;
+      return true;
     } catch (e) {
       logStorageDiagnostic("warn", "[E2E Storage] clearAllDomains failed:", e.message);
       emitStorageError("Failed to clear local E2E workspace data.");
-      return;
+      return false;
     }
   }
 
   try {
+    Object.keys(DOMAIN_FIELDS).forEach((domain) => clearTimeout(_timers[domain]));
     await Promise.all(
       Object.keys(DOMAIN_FIELDS).map((d) => deleteDoc(doc(db, COLLECTION, d)))
     );
@@ -512,8 +514,10 @@ export async function clearAllDomains() {
       delete _pendingDomainData[domain];
       delete _pendingBaseData[domain];
     });
+    return true;
   } catch (e) {
     logStorageDiagnostic("warn", "[Firestore] clearAllDomains failed:", e.message);
     emitStorageError("Failed to clear workspace data.");
+    return false;
   }
 }

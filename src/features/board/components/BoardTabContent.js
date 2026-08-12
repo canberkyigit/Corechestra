@@ -63,6 +63,7 @@ export function BoardTabContent({
   setPokerTask,
   handleEstimationComplete,
   teamMembers,
+  currentUser,
   sprintModalOpen,
   setSprintModalOpen,
   sprintModalMode,
@@ -161,6 +162,7 @@ export function BoardTabContent({
         currentTask={pokerTask}
         onEstimationComplete={handleEstimationComplete}
         teamMembers={teamMembers.filter((memberOption) => memberOption.value && memberOption.value !== "unassigned").map((memberOption) => memberOption.label)}
+        currentPlayer={teamMembers.find((memberOption) => memberOption.value === currentUser)?.label || currentUser || "You"}
       />
 
       <SprintModal open={sprintModalOpen} onClose={() => setSprintModalOpen(false)} mode={sprintModalMode} />
