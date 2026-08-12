@@ -64,4 +64,27 @@ describe("useAppStoreSync", () => {
       expect(useAppStore.getState().notifications).toEqual([{ id: 1, text: "Remote notification" }]);
     });
   });
+
+  it("creates burndown snapshots from only the current project's tasks", async () => {
+    storage.loadAllDomains.mockResolvedValue({
+      currentProjectId: "proj-1",
+      activeTasks: [
+        { id: "p1-open", projectId: "proj-1", status: "todo", storyPoint: 5 },
+        { id: "p1-done", projectId: "proj-1", status: "done", storyPoint: 3 },
+        { id: "p2-open", projectId: "proj-2", status: "todo", storyPoint: 13 },
+      ],
+      perProjectBurndownSnapshots: {},
+    });
+
+    renderHook(() => useAppStoreSync(), { wrapper: createWrapper() });
+
+    await waitFor(() => {
+      expect(useAppStore.getState().perProjectBurndownSnapshots["proj-1"]).toHaveLength(1);
+    });
+
+    expect(useAppStore.getState().perProjectBurndownSnapshots["proj-1"][0]).toMatchObject({
+      total: 8,
+      remaining: 5,
+    });
+  });
 });

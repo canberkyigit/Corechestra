@@ -2,13 +2,17 @@ import { act, renderHook } from "@testing-library/react";
 import { useApp } from "./useAppApi";
 import { resetAppStore, useAppStore } from "../../store/useAppStore";
 
+const mockClearAllDomains = jest.fn();
+
 jest.mock("../../services/storage", () => ({
-  clearAllDomains: jest.fn(),
+  clearAllDomains: (...args) => mockClearAllDomains(...args),
 }));
 
 describe("useApp", () => {
   beforeEach(() => {
     resetAppStore();
+    mockClearAllDomains.mockReset();
+    mockClearAllDomains.mockResolvedValue(true);
   });
 
   it("creates a task in the active sprint and records activity + notification", () => {
@@ -96,7 +100,7 @@ describe("useApp", () => {
           "proj-1": [{ id: 7, title: "Carry over", tasks: [] }],
         },
         perProjectSprint: {
-          "proj-1": { id: "s1", name: "Sprint 1", goal: "Ship it", startDate: "2026-03-01", endDate: "2026-03-14", status: "active" },
+          "proj-1": { id: "s1", name: "Sprint 1", goal: "Ship it", reviewNotes: "Stakeholders approved", startDate: "2026-03-01", endDate: "2026-03-14", status: "active" },
         },
       });
     });
@@ -112,6 +116,7 @@ describe("useApp", () => {
     expect(state.perProjectBacklog["proj-1"][0].tasks.map((task) => task.id)).toEqual(["todo-1"]);
     expect(state.archivedTasks[0]).toMatchObject({ id: "done-1" });
     expect(state.perProjectCompletedSprints["proj-1"]).toHaveLength(1);
+    expect(state.perProjectCompletedSprints["proj-1"][0].reviewNotes).toBe("Stakeholders approved");
     expect(state.notifications[0].type).toBe("sprint_completed");
   });
 
@@ -369,7 +374,52 @@ describe("useApp", () => {
     ]);
   });
 
-  it("resets all data back to the initial store shape", () => {
+  it("updates a backlog task without moving it into the active sprint", () => {
+    act(() => {
+      useAppStore.setState({
+        currentProjectId: "proj-1",
+        activeTasks: [],
+        perProjectBacklog: {
+          "proj-1": [{ id: 11, title: "Backlog", tasks: [{ id: "task-1", title: "Before", status: "todo" }] }],
+        },
+      });
+    });
+
+    const { result } = renderHook(() => useApp());
+
+    act(() => {
+      result.current.updateTask({ id: "task-1", title: "After", status: "todo" });
+    });
+
+    expect(useAppStore.getState().activeTasks).toEqual([]);
+    expect(useAppStore.getState().perProjectBacklog["proj-1"][0].tasks[0].title).toBe("After");
+  });
+
+  it("writes a numeric Planning Poker result to active and backlog tasks", () => {
+    act(() => {
+      useAppStore.setState({
+        currentProjectId: "proj-1",
+        activeTasks: [{ id: "active-1", projectId: "proj-1", title: "Active", storyPoint: 1 }],
+        perProjectBacklog: {
+          "proj-1": [{ id: 11, title: "Backlog", tasks: [{ id: "backlog-1", title: "Backlog", storyPoint: 2 }] }],
+        },
+      });
+    });
+
+    const { result } = renderHook(() => useApp());
+
+    act(() => {
+      result.current.savePokerResult({ taskId: "active-1", estimation: "8" });
+      result.current.savePokerResult({ taskId: "backlog-1", estimation: 13 });
+    });
+
+    const state = useAppStore.getState();
+    expect(state.activeTasks[0].storyPoint).toBe(8);
+    expect(state.perProjectBacklog["proj-1"][0].tasks[0].storyPoint).toBe(13);
+    expect(state.perProjectPokerHistory["proj-1"]).toHaveLength(2);
+  });
+
+  it("clears persisted domains before resetting the store", async () => {
     act(() => {
       useAppStore.setState({
         currentProjectId: "proj-1",
@@ -383,16 +433,40 @@ describe("useApp", () => {
 
     const { result } = renderHook(() => useApp());
 
-    act(() => {
-      result.current.resetAllData();
+    await act(async () => {
+      await result.current.resetAllData();
     });
 
     const state = useAppStore.getState();
+    expect(mockClearAllDomains).toHaveBeenCalledTimes(1);
     expect(state.currentProjectId).toBe("");
     expect(state.currentUser).toBe("");
     expect(state.activeTasks).toEqual([]);
     expect(state.notifications).toEqual([]);
     expect(state.darkMode).toBe(false);
     expect(state.dbReady).toBe(false);
+  });
+
+  it("keeps local data when persisted-domain reset fails", async () => {
+    mockClearAllDomains.mockResolvedValue(false);
+    act(() => {
+      useAppStore.setState({
+        currentProjectId: "proj-1",
+        currentUser: "alice",
+        activeTasks: [{ id: "task-1", title: "Keep me" }],
+        dbReady: true,
+      });
+    });
+
+    const { result } = renderHook(() => useApp());
+    let didReset;
+    await act(async () => {
+      didReset = await result.current.resetAllData();
+    });
+
+    expect(didReset).toBe(false);
+    expect(useAppStore.getState().activeTasks).toEqual([{ id: "task-1", title: "Keep me" }]);
+    expect(useAppStore.getState().currentProjectId).toBe("proj-1");
+    expect(useAppStore.getState().dbReady).toBe(true);
   });
 });

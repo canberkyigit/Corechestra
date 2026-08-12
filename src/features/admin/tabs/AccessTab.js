@@ -78,7 +78,7 @@ export function AccessTab({ currentUid }) {
       return;
     }
     if (sensitiveActionPolicy?.protectRoleChanges !== false) {
-      const confirmed = window.confirm(`Apply ${newRole} role to this user? This change is audited and will take effect on next login.`);
+      const confirmed = window.confirm(`Apply ${newRole} role to this user? This change is audited and takes effect immediately.`);
       if (!confirmed) return;
     }
     setUpdating(uid);
@@ -123,7 +123,7 @@ export function AccessTab({ currentUid }) {
           <div>
             <div className="font-medium">Role changes are security-sensitive</div>
             <div className="mt-1 text-xs text-amber-700/80 dark:text-amber-300/80">
-              Updates are written to the audit stream and take effect on the user&apos;s next login.
+              Updates are written to the audit stream and take effect immediately in active sessions.
             </div>
           </div>
         </div>

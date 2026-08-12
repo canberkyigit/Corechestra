@@ -241,8 +241,11 @@ export function useAppStoreSync() {
     setPerProjectBurndownSnapshots((prev) => {
       const existing = prev[currentProjectId] || [];
       if (existing.some((snapshot) => snapshot.date === today)) return prev;
-      const total = activeTasks.reduce((sum, task) => sum + (Number(task.storyPoint) || 0), 0);
-      const remaining = activeTasks
+      const projectTasks = activeTasks.filter((task) => (
+        (task.projectId || "proj-1") === currentProjectId
+      ));
+      const total = projectTasks.reduce((sum, task) => sum + (Number(task.storyPoint) || 0), 0);
+      const remaining = projectTasks
         .filter((task) => task.status !== "done")
         .reduce((sum, task) => sum + (Number(task.storyPoint) || 0), 0);
       const updated = [...existing, { date: today, remaining, total }].slice(-60);

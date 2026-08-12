@@ -27,6 +27,7 @@ import {
   FaTrash,
 } from "react-icons/fa";
 import { useApp } from "../../../shared/context/AppContext";
+import { buildMentionItems } from "../utils/mentionUtils";
 
 function relativeTime(iso) {
   if (!iso) return "";
@@ -378,7 +379,7 @@ export function PageView({
       Mention.configure({
         HTMLAttributes: { class: "doc-mention" },
         suggestion: {
-          items: ({ query }) => (usersRef.current || []).filter((user) => user.toLowerCase().includes(query.toLowerCase())).slice(0, 6),
+          items: ({ query }) => buildMentionItems(usersRef.current, query),
           render: () => ({
             onStart: (props) => {
               mentionCommandRef.current = props.command;
@@ -409,7 +410,7 @@ export function PageView({
               if (event.key === "Enter" || event.key === "Tab") {
                 const item = mentionItemsRef.current[mentionIndexRef.current];
                 if (item) {
-                  mentionCommandRef.current?.({ id: item, label: item });
+                  mentionCommandRef.current?.({ id: item.id, label: item.label });
                   setMentionDropdown((dropdown) => ({ ...dropdown, open: false }));
                 }
                 return true;
@@ -603,7 +604,7 @@ export function PageView({
           <div className="fixed z-[100] bg-white dark:bg-[#1c2030] border border-slate-200 dark:border-[#2a3044] rounded-xl shadow-xl overflow-hidden min-w-[160px]" style={{ top: mentionDropdown.rect.bottom + 4, left: mentionDropdown.rect.left }}>
             {mentionDropdown.items.map((item, index) => (
               <button
-                key={item}
+                key={item.id}
                 className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors ${
                   index === mentionDropdown.selectedIndex
                     ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
@@ -611,14 +612,14 @@ export function PageView({
                 }`}
                 onMouseDown={(event) => {
                   event.preventDefault();
-                  mentionCommandRef.current?.({ id: item, label: item });
+                  mentionCommandRef.current?.({ id: item.id, label: item.label });
                   setMentionDropdown((dropdown) => ({ ...dropdown, open: false }));
                 }}
               >
                 <div className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0">
-                  {item[0]?.toUpperCase()}
+                  {item.label[0]?.toUpperCase()}
                 </div>
-                <span className="capitalize">{item}</span>
+                <span className="capitalize">{item.label}</span>
               </button>
             ))}
           </div>

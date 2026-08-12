@@ -50,6 +50,7 @@ export function useBoardApi({
     setBacklogSections,
     allTasks,
     idToGlobalIndex,
+    updateTask: boardActions.updateTask,
     updateActiveTask: boardActions.updateActiveTask,
     createTask: boardActions.createTask,
     deleteTask: boardActions.deleteTask,

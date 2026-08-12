@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { taskKey } from "../../../shared/utils/helpers";
 import { FaCheckCircle, FaRegCircle, FaStickyNote, FaHistory, FaChevronDown, FaChevronRight } from "react-icons/fa";
 import { useApp } from "../../../shared/context/AppContext";
@@ -57,6 +57,12 @@ function SprintHistoryCard({ sprint }) {
               {sprint.startDate} → {sprint.endDate}
             </p>
           )}
+          {sprint.reviewNotes && (
+            <div className="mt-3 rounded-lg bg-slate-50 dark:bg-[#232838] px-3 py-2">
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">Review notes</div>
+              <p className="text-xs text-slate-600 dark:text-slate-300 whitespace-pre-wrap">{sprint.reviewNotes}</p>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -64,9 +70,23 @@ function SprintHistoryCard({ sprint }) {
 }
 
 export default function SprintReviewTab({ onTaskClick }) {
-  const { activeTasks, setActiveTasks, sprint, currentProjectId, completedSprints } = useApp();
-  const [meetingNotes, setMeetingNotes] = useState("");
+  const { activeTasks, setActiveTasks, sprint, updateSprint, currentProjectId, completedSprints } = useApp();
+  const [meetingNotes, setMeetingNotes] = useState(sprint?.reviewNotes || "");
   const [editingNotes, setEditingNotes] = useState(false);
+
+  useEffect(() => {
+    if (!editingNotes) setMeetingNotes(sprint?.reviewNotes || "");
+  }, [editingNotes, sprint?.id, sprint?.reviewNotes]);
+
+  const saveMeetingNotes = () => {
+    updateSprint({ reviewNotes: meetingNotes.trim() });
+    setEditingNotes(false);
+  };
+
+  const cancelMeetingNotes = () => {
+    setMeetingNotes(sprint?.reviewNotes || "");
+    setEditingNotes(false);
+  };
 
   const projectTasks = activeTasks.filter((t) => (t.projectId || "proj-1") === currentProjectId);
   const doneTasks = projectTasks.filter((t) => t.status === "done");
@@ -225,10 +245,13 @@ export default function SprintReviewTab({ onTaskClick }) {
           </div>
           {!editingNotes && (
             <button
-              onClick={() => setEditingNotes(true)}
+              onClick={() => {
+                setMeetingNotes(sprint?.reviewNotes || "");
+                setEditingNotes(true);
+              }}
               className="text-xs text-blue-500 hover:text-blue-700 transition-colors"
             >
-              {meetingNotes ? "Edit" : "+ Add notes"}
+              {sprint?.reviewNotes ? "Edit" : "+ Add notes"}
             </button>
           )}
         </div>
@@ -244,15 +267,21 @@ export default function SprintReviewTab({ onTaskClick }) {
             />
             <div className="flex justify-end gap-2 mt-2">
               <button
-                onClick={() => setEditingNotes(false)}
+                onClick={cancelMeetingNotes}
                 className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 dark:border-[#2a3044] text-slate-500 dark:text-slate-400 hover:bg-slate-50 transition-colors"
               >
-                Done
+                Cancel
+              </button>
+              <button
+                onClick={saveMeetingNotes}
+                className="text-xs px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+              >
+                Save
               </button>
             </div>
           </div>
-        ) : meetingNotes ? (
-          <p className="text-sm text-slate-600 dark:text-slate-300 whitespace-pre-wrap">{meetingNotes}</p>
+        ) : sprint?.reviewNotes ? (
+          <p className="text-sm text-slate-600 dark:text-slate-300 whitespace-pre-wrap">{sprint.reviewNotes}</p>
         ) : (
           <p className="text-sm text-slate-400 italic">No notes yet</p>
         )}

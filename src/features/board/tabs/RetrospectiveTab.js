@@ -7,6 +7,7 @@ import {
   FaBold, FaItalic, FaStrikethrough, FaCode, FaListUl, FaListOl, FaQuoteLeft, FaMinus, FaLink,
 } from "react-icons/fa";
 import { useApp } from "../../../shared/context/AppContext";
+import { useProjectTasks } from "../../../shared/context/hooks/useProjectTasks";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -794,7 +795,8 @@ const SUB_TABS = [
 ];
 
 export default function RetrospectiveTab() {
-  const { retrospectiveItems, activeTasks } = useApp();
+  const { retrospectiveItems } = useApp();
+  const { projectActiveTasks } = useProjectTasks();
   const [subTab, setSubTab] = useState("retro");
 
   return (
@@ -830,14 +832,14 @@ export default function RetrospectiveTab() {
         {subTab === "statistics" && (
           <>
             <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-5">Statistics & Metrics</h2>
-            <StatisticsContent retrospectiveItems={retrospectiveItems} activeTasks={activeTasks} />
+            <StatisticsContent retrospectiveItems={retrospectiveItems} activeTasks={projectActiveTasks} />
           </>
         )}
 
         {subTab === "charts" && (
           <>
             <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-5">Sprint Charts</h2>
-            <ChartsContent activeTasks={activeTasks} />
+            <ChartsContent activeTasks={projectActiveTasks} />
           </>
         )}
 

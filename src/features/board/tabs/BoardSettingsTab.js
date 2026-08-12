@@ -40,6 +40,7 @@ const STAT_STYLES = {
 export default function BoardSettingsTab() {
   const { boardSettings, updateBoardSettings, resetAllData, activeTasks, backlogSections, columns } = useApp();
   const [resetConfirm, setResetConfirm] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const [savedFeedback, setSavedFeedback] = useState(false);
 
   const backlogTasks = backlogSections.flatMap((s) => s.tasks);
@@ -239,7 +240,7 @@ export default function BoardSettingsTab() {
       {/* Danger Zone */}
       <div className="bg-white dark:bg-[#1c2030] rounded-xl border border-red-200 dark:border-red-900/50 shadow-sm p-6">
         <h2 className="text-lg font-bold text-red-700 dark:text-red-400 mb-2">Danger Zone</h2>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">Permanently reset all board data to initial seed data. This cannot be undone.</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">Permanently erase all workspace data. This cannot be undone.</p>
         {!resetConfirm ? (
           <button
             onClick={() => setResetConfirm(true)}
@@ -252,17 +253,21 @@ export default function BoardSettingsTab() {
           <div className="flex items-center gap-3">
             <span className="text-sm text-slate-700 dark:text-slate-300">Are you sure? This will erase all tasks, retro items and notes.</span>
             <button
-              onClick={() => {
-                resetAllData();
-                setResetConfirm(false);
+              onClick={async () => {
+                setResetting(true);
+                const didReset = await resetAllData();
+                setResetting(false);
+                if (didReset) setResetConfirm(false);
               }}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 transition-colors"
+              disabled={resetting}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 transition-colors disabled:cursor-wait disabled:opacity-60"
             >
-              Yes, Reset
+              {resetting ? "Resetting…" : "Yes, Reset"}
             </button>
             <button
               onClick={() => setResetConfirm(false)}
-              className="px-4 py-2 bg-slate-100 dark:bg-[#232838] text-slate-700 dark:text-slate-300 rounded-lg text-sm font-semibold hover:bg-slate-200 dark:hover:bg-[#2a3044] transition-colors"
+              disabled={resetting}
+              className="px-4 py-2 bg-slate-100 dark:bg-[#232838] text-slate-700 dark:text-slate-300 rounded-lg text-sm font-semibold hover:bg-slate-200 dark:hover:bg-[#2a3044] transition-colors disabled:opacity-60"
             >
               Cancel
             </button>
