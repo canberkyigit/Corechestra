@@ -1,6 +1,6 @@
 import { doc, getDoc, setDoc, onSnapshot } from "firebase/firestore";
 import { db } from "./firebase";
-import { resetWorkspaceData } from "./adminFunctions";
+import { persistWorkspaceDomain, resetWorkspaceData } from "./adminFunctions";
 import {
   E2E_DOMAINS_KEY,
   isE2EMode,
@@ -290,6 +290,14 @@ export function setStorageActor(actor, role = "admin") {
 export function saveDomain(domain, data) {
   if (_storageRole === "viewer") return;
   const clean = cloneData(data);
+  // These controls use an immediate, audited, acknowledgement-based callable
+  // from WorkspaceTab. Do not duplicate them through the generic debounce.
+  if (domain === "config" && !isE2EMode()) {
+    delete clean.permissionMatrix;
+    delete clean.workspaceSettings;
+    delete clean.sensitiveActionPolicy;
+    if (Object.keys(clean).length === 0) return;
+  }
   if (!_pendingBaseData[domain]) {
     _pendingBaseData[domain] = cloneData(_lastKnownDomainData[domain] || {});
   }
@@ -423,19 +431,13 @@ export function saveDomain(domain, data) {
           },
         });
       } else {
-        await setDoc(
-          doc(db, COLLECTION, domain),
-          {
-            ...changedFields,
-            _updatedAt: ts,
-            _updatedBy: _storageActor || null,
-            _version: ((_lastRemoteVersion[domain] || 0) + 1),
-            _lastMutationId: `${domain}-${ts}`,
-          },
-          { merge: true }
-        );
+        const result = await persistWorkspaceDomain(domain, changedFields);
+        _lastWriteTs[domain] = result?._updatedAt || ts;
+        _lastRemoteVersion[domain] = result?._version || ((_lastRemoteVersion[domain] || 0) + 1);
       }
-      _lastRemoteVersion[domain] = (_lastRemoteVersion[domain] || 0) + 1;
+      if (isE2EMode()) {
+        _lastRemoteVersion[domain] = (_lastRemoteVersion[domain] || 0) + 1;
+      }
       _lastKnownDomainData[domain] = {
         ...known,
         ...changedFields,

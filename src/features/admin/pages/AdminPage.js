@@ -434,12 +434,13 @@ export default function AdminPage() {
     setActiveTasks, setBacklogSections,
   } = useApp();
 
-  const { user: authUser } = useAuth();
+  const { user: authUser, isAdmin } = useAuth();
   const { canPerform } = usePermissions();
   const [activeTab, setActiveTab] = useState("people");
 
   // On mount: clean up all seed data remnants
   useEffect(() => {
+    if (!isAdmin) return;
     const SEED_NAMES = new Set(["alice", "bob", "carol", "dave"]);
 
     // Unassign tasks still assigned to seed usernames
@@ -465,7 +466,7 @@ export default function AdminPage() {
       }
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isAdmin]);
 
   // Teams
   const [showTeamForm, setShowTeamForm] = useState(false);
@@ -475,14 +476,27 @@ export default function AdminPage() {
   const [editingProj,  setEditingProj]  = useState(null);
   const activeUsers  = dedupUsers(users, deletedUserIds).filter((u) => u.status === "active").length;
 
-  const TABS = [
-    { id: "people",   label: "People",          icon: FaUserFriends },
-    { id: "projects", label: "Projects",         icon: FaProjectDiagram },
-    { id: "teams",    label: "Teams",            icon: FaUsers },
-    { id: "access",   label: "Access",           icon: FaKey },
-    ...(canPerform("workspace:manage") ? [{ id: "workspace", label: "Workspace", icon: FaCog }] : []),
-    ...(canPerform("audit:view") ? [{ id: "audit", label: "Audit", icon: FaStream }] : []),
-  ];
+  const canOpenPeople = ["user:invite", "user:manage", "team:manage", "project:manage", "task:edit"]
+    .some((permission) => canPerform(permission));
+  const canManageProjects = canPerform("project:manage");
+  const canManageTeams = canPerform("team:manage");
+  const canManageRoles = canPerform("role:manage");
+  const canViewAudit = canPerform("audit:view");
+  const canOpenWorkspace = isAdmin || canPerform("workspace:manage") || canPerform("templates:manage");
+  const TABS = useMemo(() => [
+    ...(canOpenPeople ? [{ id: "people", label: "People", icon: FaUserFriends }] : []),
+    ...(canManageProjects ? [{ id: "projects", label: "Projects", icon: FaProjectDiagram }] : []),
+    ...(canManageTeams ? [{ id: "teams", label: "Teams", icon: FaUsers }] : []),
+    ...(canManageRoles ? [{ id: "access", label: "Access", icon: FaKey }] : []),
+    ...(canOpenWorkspace ? [{ id: "workspace", label: "Workspace", icon: FaCog }] : []),
+    ...(canViewAudit ? [{ id: "audit", label: "Audit", icon: FaStream }] : []),
+  ], [canManageProjects, canManageRoles, canManageTeams, canOpenPeople, canOpenWorkspace, canViewAudit]);
+
+  useEffect(() => {
+    if (TABS.length > 0 && !TABS.some((tab) => tab.id === activeTab)) {
+      setActiveTab(TABS[0].id);
+    }
+  }, [activeTab, TABS]);
 
   return (
     <div className="h-full overflow-y-auto p-4 md:p-6 max-w-6xl mx-auto">
@@ -529,7 +543,7 @@ export default function AdminPage() {
       </div>
 
       {/* People */}
-      {activeTab === "people" && (
+      {activeTab === "people" && canOpenPeople && (
         <PeopleTab
           users={users}
           teams={teams}
@@ -548,20 +562,20 @@ export default function AdminPage() {
       )}
 
       {/* Access */}
-      {activeTab === "access" && (
+      {activeTab === "access" && canManageRoles && (
         <AccessTab currentUid={authUser?.uid} />
       )}
 
-      {activeTab === "workspace" && canPerform("workspace:manage") && (
+      {activeTab === "workspace" && canOpenWorkspace && (
         <WorkspaceTab />
       )}
 
-      {activeTab === "audit" && canPerform("audit:view") && (
+      {activeTab === "audit" && canViewAudit && (
         <AuditTab />
       )}
 
       {/* Projects */}
-      {activeTab === "projects" && (
+      {activeTab === "projects" && canManageProjects && (
         <div className="space-y-4">
           {showProjForm && !editingProj && <ProjectForm onSave={(d) => { createProject(d); setShowProjForm(false); }} onCancel={() => setShowProjForm(false)} />}
           {editingProj && <ProjectForm initial={editingProj} onSave={(d) => { updateProject({...editingProj,...d}); setEditingProj(null); }} onCancel={() => setEditingProj(null)} />}
@@ -580,7 +594,7 @@ export default function AdminPage() {
       )}
 
       {/* Teams */}
-      {activeTab === "teams" && (
+      {activeTab === "teams" && canManageTeams && (
         <div className="space-y-4">
           {showTeamForm && !editingTeam && <TeamForm projects={projects} onSave={(d) => { createTeam(d); setShowTeamForm(false); }} onCancel={() => setShowTeamForm(false)} />}
           {editingTeam && <TeamForm initial={editingTeam} projects={projects} onSave={(d) => { updateTeam({...editingTeam,...d}); setEditingTeam(null); }} onCancel={() => setEditingTeam(null)} />}

@@ -4,6 +4,7 @@ import { FaArrowRight, FaTrash, FaPencilAlt, FaSearch } from "react-icons/fa";
 import TaskRow from "../components/TaskRow";
 import { useApp } from "../../../shared/context/AppContext";
 import { useToast } from "../../../shared/context/ToastContext";
+import { usePermissions } from "../../../shared/context/hooks/usePermissions";
 
 function SubtaskList({ task, onToggle }) {
   return (
@@ -42,6 +43,8 @@ export default function BacklogTab({ onTaskClick, onPokerClick, focusSectionId, 
     currentProjectId,
   } = useApp();
   const { addToast } = useToast();
+  const { canPerform } = usePermissions();
+  const canEditTask = canPerform("task:edit");
 
   const projectActiveTasks = activeTasks.filter(
     (t) => (t.projectId || "proj-1") === currentProjectId
@@ -72,6 +75,7 @@ export default function BacklogTab({ onTaskClick, onPokerClick, focusSectionId, 
     setExpandedSubtasks((prev) => ({ ...prev, [taskId]: !prev[taskId] }));
 
   const toggleSubtask = (task, subId, isActive, sectionIdx) => {
+    if (!canEditTask) return;
     const updatedSubtasks = task.subtasks.map((s) =>
       s.id === subId ? { ...s, done: !s.done } : s
     );
@@ -92,6 +96,7 @@ export default function BacklogTab({ onTaskClick, onPokerClick, focusSectionId, 
 
   // Move a backlog task to the active sprint
   const moveToSprint = (task, sectionId) => {
+    if (!canEditTask) return;
     setBacklogSections((prev) =>
       prev.map((s) =>
         s.id !== sectionId ? s : { ...s, tasks: s.tasks.filter((t) => t.id !== task.id) }

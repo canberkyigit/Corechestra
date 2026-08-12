@@ -80,9 +80,16 @@ export function AccessTab({ currentUid }) {
       addToast("You do not have permission to change roles.", "error");
       return;
     }
-    if (sensitiveActionPolicy?.protectRoleChanges !== false) {
+    if (sensitiveActionPolicy?.protectRoleChanges !== false && sensitiveActionPolicy?.requireConfirmation !== false) {
       const confirmed = window.confirm(`Apply ${newRole} role to this user? This change is audited and takes effect immediately.`);
       if (!confirmed) return;
+    }
+    const reason = sensitiveActionPolicy?.protectRoleChanges !== false && sensitiveActionPolicy?.requireAdminReason
+      ? (window.prompt("Reason for this role change:", "")?.trim() || "")
+      : "";
+    if (sensitiveActionPolicy?.protectRoleChanges !== false && sensitiveActionPolicy?.requireAdminReason && !reason) {
+      addToast("A change reason is required by workspace policy.", "error");
+      return;
     }
     setUpdating(uid);
     const targetUser = firebaseUsers.find((entry) => entry.uid === uid);
@@ -90,7 +97,7 @@ export function AccessTab({ currentUid }) {
       if (e2eMode) {
         updateE2EAuthUserRole(uid, newRole);
       } else {
-        await changeWorkspaceUserRole(uid, newRole);
+        await changeWorkspaceUserRole(uid, newRole, reason);
       }
       setFirebaseUsers((prev) => prev.map((user) => (
         user.uid === uid ? { ...user, role: newRole } : user

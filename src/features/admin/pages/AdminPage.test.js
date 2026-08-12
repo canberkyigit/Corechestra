@@ -72,7 +72,7 @@ function createAppMock(overrides = {}) {
 describe("AdminPage", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockUseAuth.mockReturnValue({ user: { uid: "uid-1", email: "alice@example.com" } });
+    mockUseAuth.mockReturnValue({ user: { uid: "uid-1", email: "alice@example.com" }, isAdmin: true });
     mockUsePermissions.mockReturnValue({
       canPerform: () => true,
       canAccessPage: () => true,
@@ -108,7 +108,7 @@ describe("AdminPage", () => {
     fireEvent.change(screen.getByTestId("access-role-toggle-uid-2"), { target: { value: "admin" } });
 
     await waitFor(() => {
-      expect(mockChangeWorkspaceUserRole).toHaveBeenCalledWith("uid-2", "admin");
+      expect(mockChangeWorkspaceUserRole).toHaveBeenCalledWith("uid-2", "admin", "");
     });
     expect(appMock.updateUser).toHaveBeenCalledWith(expect.objectContaining({
       id: "uid-2",

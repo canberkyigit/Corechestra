@@ -39,7 +39,10 @@ async function run() {
       setDoc(doc(db, "users", "viewer-1"), { email: "viewer@example.com", role: "viewer", status: "active" }),
       setDoc(doc(db, "users", "inactive-1"), { email: "inactive@example.com", role: "admin", status: "inactive" }),
       setDoc(doc(db, "appData", "tasks"), { activeTasks: [] }),
-      setDoc(doc(db, "appData", "config"), { workspaceSettings: { name: "Corechestra" } }),
+      setDoc(doc(db, "appData", "config"), {
+        workspaceSettings: { name: "Corechestra" },
+        permissionMatrix: { member: { actions: { "audit:view": false } } },
+      }),
       setDoc(doc(db, "auditLogs", "audit-1"), { type: "user.role_updated", createdAt: "2026-08-12T10:00:00.000Z" }),
       setDoc(doc(db, "hrData", "member-1"), { timeEntries: [] }),
       setDoc(doc(db, "hrData", "admin-1"), { timeEntries: [] }),
@@ -53,11 +56,11 @@ async function run() {
     ["active viewers can read workspace data", () => assertSucceeds(getDoc(doc(viewerDb, "appData", "tasks")))],
     ["inactive accounts cannot read workspace data", () => assertFails(getDoc(doc(inactiveDb, "appData", "tasks")))],
     ["viewers cannot write workspace data", () => assertFails(updateDoc(doc(viewerDb, "appData", "tasks"), { activeTasks: [{ id: "blocked" }] }))],
-    ["members can edit operational workspace data", () => assertSucceeds(updateDoc(doc(memberDb, "appData", "tasks"), { activeTasks: [{ id: "allowed" }] }))],
+    ["members cannot bypass callable workspace authorization", () => assertFails(updateDoc(doc(memberDb, "appData", "tasks"), { activeTasks: [{ id: "blocked" }] }))],
     ["members cannot write protected workspace config", () => assertFails(updateDoc(doc(memberDb, "appData", "config"), { workspaceSettings: { name: "Hijacked" } }))],
-    ["admins can write protected workspace config", () => assertSucceeds(updateDoc(doc(adminDb, "appData", "config"), { workspaceSettings: { name: "Approved" } }))],
+    ["admins cannot bypass audited workspace controls", () => assertFails(updateDoc(doc(adminDb, "appData", "config"), { workspaceSettings: { name: "Bypassed" } }))],
     ["members cannot delete workspace domains", () => assertFails(deleteDoc(doc(memberDb, "appData", "tasks")))],
-    ["admins can delete workspace domains", () => assertSucceeds(deleteDoc(doc(adminDb, "appData", "tasks")))],
+    ["admins cannot bypass audited workspace deletion", () => assertFails(deleteDoc(doc(adminDb, "appData", "tasks")))],
     ["users can update whitelisted profile fields", () => assertSucceeds(updateDoc(doc(memberDb, "users", "member-1"), { fullName: "Member One", timezone: "Europe/Istanbul" }))],
     ["users cannot promote themselves", () => assertFails(updateDoc(doc(memberDb, "users", "member-1"), { role: "admin" }))],
     ["admins cannot bypass the audited role function", () => assertFails(updateDoc(doc(adminDb, "users", "member-1"), { role: "viewer" }))],
@@ -69,6 +72,19 @@ async function run() {
     ["clients cannot forge audit events", () => assertFails(setDoc(doc(adminDb, "auditLogs", "forged"), { type: "forged" }))],
     ["admins can read immutable audit events", () => assertSucceeds(getDoc(doc(adminDb, "auditLogs", "audit-1")))],
     ["members cannot read admin audit events", () => assertFails(getDoc(doc(memberDb, "auditLogs", "audit-1")))],
+    ["members with audit permission can read audit events", async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await updateDoc(doc(context.firestore(), "appData", "config"), {
+          "permissionMatrix.member.actions.audit:view": true,
+        });
+      });
+      await assertSucceeds(getDoc(doc(memberDb, "auditLogs", "audit-1")));
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await updateDoc(doc(context.firestore(), "appData", "config"), {
+          "permissionMatrix.member.actions.audit:view": false,
+        });
+      });
+    }],
     ["users can read and write their own HR record", async () => {
       await assertSucceeds(getDoc(doc(memberDb, "hrData", "member-1")));
       await assertSucceeds(updateDoc(doc(memberDb, "hrData", "member-1"), { timeEntries: [{ date: "2026-08-12" }] }));
@@ -77,6 +93,20 @@ async function run() {
     ["non-admins cannot read the hiring pipeline", () => assertFails(getDoc(doc(memberDb, "hrData", "pipeline")))],
     ["admins can read the hiring pipeline", () => assertSucceeds(getDoc(doc(adminDb, "hrData", "pipeline")))],
     ["employees cannot change protected shared HR fields", () => assertFails(updateDoc(doc(memberDb, "hrData", "hr_shared"), { performanceNotes: [{ text: "forged" }] }))],
+    ["employees can append their own pending shared HR request", () => assertSucceeds(updateDoc(doc(memberDb, "hrData", "hr_shared"), {
+      absences: [{ requestId: "request-1", userId: "member-1" }],
+      approvalInbox: [{ id: "approval-request-1", userId: "member-1", status: "pending" }],
+    }))],
+    ["employees cannot directly resolve a shared approval", async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await updateDoc(doc(context.firestore(), "hrData", "hr_shared"), {
+          approvalInbox: [{ id: "approval-1", status: "pending" }],
+        });
+      });
+      await assertFails(updateDoc(doc(memberDb, "hrData", "hr_shared"), {
+        approvalInbox: [{ id: "approval-1", status: "approved" }],
+      }));
+    }],
   ];
 
   let passed = 0;

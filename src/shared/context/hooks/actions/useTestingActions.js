@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { createDeploymentTimelineEvent, hydrateReleaseDefaults } from "../../../utils/releasePlanning";
+import { usePermissions } from "../usePermissions";
 
 export function useTestingActions({
   currentUser,
@@ -10,6 +11,12 @@ export function useTestingActions({
   setTestCases,
   setTestRuns,
 }) {
+  const { role, canAccessModule } = usePermissions();
+  const guardMutation = (allowed, callback) => (...args) => (
+    allowed ? callback(...args) : undefined
+  );
+  const canMutateReleases = role !== "viewer" && canAccessModule("releases");
+  const canMutateTests = role !== "viewer" && canAccessModule("tests");
   const createRelease = useCallback((data) => {
     const selectedTemplate = (templateRegistry?.release || []).find((template) => template.id === data.templateId) || null;
     const newRelease = hydrateReleaseDefaults({
@@ -190,22 +197,22 @@ export function useTestingActions({
   }, [setTestRuns]);
 
   return {
-    createRelease,
-    updateRelease,
-    deleteRelease,
-    addChangelogEntry,
-    deleteChangelogEntry,
-    createTestPlan,
-    updateTestPlan,
-    deleteTestPlan,
-    createTestSuite,
-    updateTestSuite,
-    deleteTestSuite,
-    createTestCase,
-    updateTestCase,
-    deleteTestCase,
-    createTestRun,
-    updateTestRun,
-    updateTestRunResult,
+    createRelease: guardMutation(canMutateReleases, createRelease),
+    updateRelease: guardMutation(canMutateReleases, updateRelease),
+    deleteRelease: guardMutation(canMutateReleases, deleteRelease),
+    addChangelogEntry: guardMutation(canMutateReleases, addChangelogEntry),
+    deleteChangelogEntry: guardMutation(canMutateReleases, deleteChangelogEntry),
+    createTestPlan: guardMutation(canMutateTests, createTestPlan),
+    updateTestPlan: guardMutation(canMutateTests, updateTestPlan),
+    deleteTestPlan: guardMutation(canMutateTests, deleteTestPlan),
+    createTestSuite: guardMutation(canMutateTests, createTestSuite),
+    updateTestSuite: guardMutation(canMutateTests, updateTestSuite),
+    deleteTestSuite: guardMutation(canMutateTests, deleteTestSuite),
+    createTestCase: guardMutation(canMutateTests, createTestCase),
+    updateTestCase: guardMutation(canMutateTests, updateTestCase),
+    deleteTestCase: guardMutation(canMutateTests, deleteTestCase),
+    createTestRun: guardMutation(canMutateTests, createTestRun),
+    updateTestRun: guardMutation(canMutateTests, updateTestRun),
+    updateTestRunResult: guardMutation(canMutateTests, updateTestRunResult),
   };
 }

@@ -12,7 +12,7 @@ export function getAdminActionMessage(error, fallback = "The admin action could 
   const code = String(error?.code || "").replace("functions/", "");
   const messages = {
     unauthenticated: "Your session has expired. Sign in again and retry.",
-    "permission-denied": "Only workspace admins can perform this action.",
+    "permission-denied": error?.message || "Your workspace role does not allow this action.",
     "failed-precondition": error?.message || "This action is not allowed in the current state.",
     "invalid-argument": error?.message || "Check the supplied values and retry.",
     "already-exists": "An account with this email already exists.",
@@ -27,8 +27,8 @@ export async function inviteWorkspaceUser({ email, name, role }) {
   return result.data;
 }
 
-export async function changeWorkspaceUserRole(uid, role) {
-  const result = await callable("updateUserRole")({ uid, role });
+export async function changeWorkspaceUserRole(uid, role, reason = "") {
+  const result = await callable("updateUserRole")({ uid, role, reason, confirmed: true });
   return result.data;
 }
 
@@ -44,5 +44,31 @@ export async function removeWorkspaceUser(uid) {
 
 export async function resetWorkspaceData() {
   const result = await callable("resetWorkspace")({});
+  return result.data;
+}
+
+export async function persistWorkspaceDomain(domain, patch) {
+  const result = await callable("saveWorkspaceDomain")({ domain, patch });
+  return result.data;
+}
+
+export async function saveWorkspaceControls({
+  workspaceSettings,
+  permissionMatrix,
+  sensitiveActionPolicy,
+  reason = "",
+}) {
+  const result = await callable("updateWorkspaceControls")({
+    workspaceSettings,
+    permissionMatrix,
+    sensitiveActionPolicy,
+    reason,
+    confirmed: true,
+  });
+  return result.data;
+}
+
+export async function resolveWorkspaceHrApproval(id, status) {
+  const result = await callable("resolveHrApproval")({ id, status });
   return result.data;
 }

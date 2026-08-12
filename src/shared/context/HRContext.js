@@ -3,6 +3,7 @@ import { db } from "../services/firebase";
 import { doc, onSnapshot, setDoc, updateDoc, getDoc } from "firebase/firestore";
 import { useAuth } from "./AuthContext";
 import { isE2EMode } from "../e2e/testMode";
+import { resolveWorkspaceHrApproval } from "../services/adminFunctions";
 
 const HRContext = createContext(null);
 
@@ -385,14 +386,17 @@ export function HRProvider({ children }) {
   }, [approvalInbox, saveShared, user?.uid]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const updateApprovalRequest = useCallback(async (approvalId, patch) => {
-    await saveShared({
-      approvalInbox: approvalInbox.map((item) => (
+    if (!["approved", "rejected"].includes(patch?.status)) return;
+    if (e2eMode) {
+      setApprovalInbox((current) => current.map((item) => (
         item.id === approvalId
           ? { ...item, ...patch, updatedAt: new Date().toISOString() }
           : item
-      )),
-    });
-  }, [approvalInbox, saveShared]);
+      )));
+      return;
+    }
+    await resolveWorkspaceHrApproval(approvalId, patch.status);
+  }, [e2eMode]);
 
   const createOnboardingWorkflow = useCallback(async (data) => {
     const workflow = {

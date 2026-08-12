@@ -26,10 +26,6 @@ service cloud.firestore {
       return hasRole("admin");
     }
 
-    function canEditWorkspace() {
-      return hasRole("admin") || hasRole("member");
-    }
-
     function isWorkspaceDomain(domain) {
       return domain in [
         "config", "entities", "tasks", "sprints", "activity",
@@ -55,6 +51,26 @@ service cloud.firestore {
         "notificationPreferences",
         "_updatedAt"
       ];
+    }
+
+    function canViewAudit() {
+      return isAdmin() || (
+        hasRole("member")
+        && exists(/databases/$(database)/documents/appData/config)
+        && "permissionMatrix" in get(/databases/$(database)/documents/appData/config).data
+        && "member" in get(/databases/$(database)/documents/appData/config).data.permissionMatrix
+        && "actions" in get(/databases/$(database)/documents/appData/config).data.permissionMatrix.member
+        && get(/databases/$(database)/documents/appData/config).data.permissionMatrix.member.actions["audit:view"] == true
+      );
+    }
+
+    function onlyAppendsSharedHrRequests() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(["absences", "approvalInbox"])
+        && request.resource.data.absences.size() >= resource.data.absences.size()
+        && request.resource.data.absences.toSet().hasAll(resource.data.absences.toSet())
+        && request.resource.data.approvalInbox.size() >= resource.data.approvalInbox.size()
+        && request.resource.data.approvalInbox.toSet().hasAll(resource.data.approvalInbox.toSet());
     }
 
     match /users/{uid} {
@@ -89,10 +105,9 @@ service cloud.firestore {
 
     match /appData/{domain} {
       allow read: if isActiveUser();
-      allow create, update: if canEditWorkspace()
-        && isWorkspaceDomain(domain)
-        && (domain != "config" || isAdmin());
-      allow delete: if isAdmin() && isWorkspaceDomain(domain);
+      // Shared writes are authorized semantically and audited by Cloud
+      // Functions. No role may bypass the permission matrix from the client.
+      allow create, update, delete: if false;
     }
 
     // Read-only compatibility path for the pre-domain storage migration.
@@ -122,8 +137,7 @@ service cloud.firestore {
         || ownerId == request.auth.uid
         || (
           ownerId == "hr_shared"
-          && request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(["absences", "approvalInbox"])
+          && onlyAppendsSharedHrRequests()
         )
       );
 
@@ -149,7 +163,7 @@ service cloud.firestore {
     }
 
     match /auditLogs/{eventId} {
-      allow read: if isAdmin();
+      allow read: if canViewAudit();
       allow write: if false;
     }
 
