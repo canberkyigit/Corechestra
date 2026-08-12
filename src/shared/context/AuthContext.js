@@ -62,17 +62,26 @@ export function AuthProvider({ children }) {
 
       if (firebaseUser) {
         const userRef = doc(db, "users", firebaseUser.uid);
-        // Initial fetch — ensures role/profile are set before the app renders
-        const snap = await getDoc(userRef);
-        if (!snap.exists()) {
-          const initial = { email: firebaseUser.email, role: "member" };
-          await setDoc(userRef, initial);
+        // Initial fetch — ensures role/profile are set before the app renders.
+        // If Firestore rules are not deployed yet, keep auth alive and let the
+        // rest of the app surface sync errors without crashing the dev overlay.
+        try {
+          const snap = await getDoc(userRef);
+          if (!snap.exists()) {
+            const initial = { email: firebaseUser.email, role: "member" };
+            await setDoc(userRef, initial);
+            setRole("member");
+            setProfile(initial);
+          } else {
+            const data = snap.data();
+            setRole(data.role || "member");
+            setProfile(data);
+          }
+        } catch (err) {
+          console.warn("[AuthContext] Failed to load user profile:", err.code || err.message);
+          const fallback = { email: firebaseUser.email, role: "member" };
           setRole("member");
-          setProfile(initial);
-        } else {
-          const data = snap.data();
-          setRole(data.role || "member");
-          setProfile(data);
+          setProfile(fallback);
         }
         setUser(firebaseUser);
 
@@ -84,6 +93,8 @@ export function AuthProvider({ children }) {
             setRole(data.role || "member");
             setProfile(data);
           }
+        }, (err) => {
+          console.warn("[AuthContext] User profile listener failed:", err.code || err.message);
         });
       } else {
         setRole(null);

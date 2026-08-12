@@ -49,10 +49,19 @@ export function AccessTab({ currentUid }) {
 
     async function loadUsers() {
       setLoading(true);
-      const snap = await getDocs(collection(db, "users"));
-      if (!cancelled) {
-        setFirebaseUsers(snap.docs.map((snapshot) => ({ uid: snapshot.id, ...snapshot.data() })));
-        setLoading(false);
+      try {
+        const snap = await getDocs(collection(db, "users"));
+        if (!cancelled) {
+          setFirebaseUsers(snap.docs.map((snapshot) => ({ uid: snapshot.id, ...snapshot.data() })));
+          setLoading(false);
+        }
+      } catch (err) {
+        console.warn("[AccessTab] Failed to load Firebase users:", err.code || err.message);
+        if (!cancelled) {
+          setFirebaseUsers([]);
+          setLoading(false);
+          addToast("Could not load Firebase users. Check Firestore permissions.", "error");
+        }
       }
     }
 
@@ -61,7 +70,7 @@ export function AccessTab({ currentUid }) {
     return () => {
       cancelled = true;
     };
-  }, [e2eMode]);
+  }, [addToast, e2eMode]);
 
   const handleRoleChange = async (uid, newRole) => {
     if (!canPerform("role:manage")) {
