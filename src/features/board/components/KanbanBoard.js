@@ -3,6 +3,7 @@ import KanbanColumn from "./KanbanColumn";
 import { DragDropContext } from "@hello-pangea/dnd";
 import { FaTrash, FaArrowRight, FaUserAlt, FaChevronDown, FaChevronRight } from "react-icons/fa";
 import { useApp } from "../../../shared/context/AppContext";
+import { usePermissions } from "../../../shared/context/hooks/usePermissions";
 
 export default function KanbanBoard({
   filter,
@@ -20,6 +21,9 @@ export default function KanbanBoard({
   columns,
 }) {
   const { deleteTask, teamMembers, currentProjectId } = useApp();
+  const { canPerform } = usePermissions();
+  const canEditTask = canPerform("task:edit");
+  const canArchiveTask = canPerform("task:archive");
   const [collapsedLanes, setCollapsedLanes] = useState(new Set());
 
   // Persist column collapse state per project in localStorage
@@ -90,6 +94,7 @@ export default function KanbanBoard({
   };
 
   const onDragEnd = (result) => {
+    if (!canEditTask) return;
     const { destination, source, draggableId } = result;
     if (!destination) return;
     if (destination.droppableId === source.droppableId && destination.index === source.index) return;
@@ -128,13 +133,14 @@ export default function KanbanBoard({
 
   // Bulk actions
   const handleBulkMove = () => {
-    if (!bulkStatus || selectedIds.size === 0) return;
+    if (!canEditTask || !bulkStatus || selectedIds.size === 0) return;
     setTasks((prev) => prev.map((t) => selectedIds.has(t.id) ? { ...t, status: bulkStatus } : t));
     setSelectedIds(new Set());
     setBulkStatus("");
   };
 
   const handleBulkDelete = () => {
+    if (!canArchiveTask) return;
     selectedIds.forEach((id) => deleteTask(id));
     setSelectedIds(new Set());
   };
@@ -150,20 +156,20 @@ export default function KanbanBoard({
           <div className="flex items-center gap-2 ml-auto bg-blue-600 text-white text-xs rounded-lg px-3 py-1.5 shadow-md">
             <span className="font-medium">{selectedIds.size} selected</span>
             <span className="opacity-50">|</span>
-            <select
+            {canEditTask && <select
               className="bg-transparent border-none outline-none text-white text-xs cursor-pointer"
               value={bulkStatus}
               onChange={(e) => setBulkStatus(e.target.value)}
             >
               <option value="">Move to...</option>
               {boardColumns.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
-            </select>
-            <button className="hover:bg-blue-700 rounded px-1.5 py-0.5 flex items-center gap-1" onClick={handleBulkMove} disabled={!bulkStatus}>
+            </select>}
+            {canEditTask && <button className="hover:bg-blue-700 rounded px-1.5 py-0.5 flex items-center gap-1" onClick={handleBulkMove} disabled={!bulkStatus}>
               <FaArrowRight className="w-3 h-3" /> Apply
-            </button>
-            <button className="hover:bg-red-600 rounded px-1.5 py-0.5 flex items-center gap-1" onClick={handleBulkDelete}>
+            </button>}
+            {canArchiveTask && <button className="hover:bg-red-600 rounded px-1.5 py-0.5 flex items-center gap-1" onClick={handleBulkDelete}>
               <FaTrash className="w-3 h-3" /> Delete
-            </button>
+            </button>}
             <button className="opacity-75 hover:opacity-100" onClick={() => setSelectedIds(new Set())}>✕</button>
           </div>
         </div>

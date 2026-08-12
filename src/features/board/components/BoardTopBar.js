@@ -1,6 +1,6 @@
 import React from "react";
 
-export function BoardTopBar({ tabs, activeTab, onTabChange, onCreateTask }) {
+export function BoardTopBar({ tabs, activeTab, onTabChange, onCreateTask, canCreateTask = true }) {
   return (
     <div className="flex items-center gap-2 px-3 md:px-6 pt-3 md:pt-4 pb-0 border-b border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#1c2030] transition-colors min-w-0">
       <div className="flex gap-0.5 overflow-x-auto scrollbar-none min-w-0 flex-1">
@@ -18,10 +18,10 @@ export function BoardTopBar({ tabs, activeTab, onTabChange, onCreateTask }) {
           </button>
         ))}
       </div>
-      <button className="flex-shrink-0 mb-1 px-2.5 md:px-4 py-1.5 rounded-lg bg-blue-600 text-white font-medium shadow-sm hover:bg-blue-700 transition-all text-xs md:text-sm flex items-center gap-1" onClick={onCreateTask}>
+      {canCreateTask && <button className="flex-shrink-0 mb-1 px-2.5 md:px-4 py-1.5 rounded-lg bg-blue-600 text-white font-medium shadow-sm hover:bg-blue-700 transition-all text-xs md:text-sm flex items-center gap-1" onClick={onCreateTask}>
         <span className="md:hidden">+</span>
         <span className="hidden md:inline">+ Create Task</span>
-      </button>
+      </button>}
     </div>
   );
 }

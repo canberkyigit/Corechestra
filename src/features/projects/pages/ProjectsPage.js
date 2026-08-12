@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { FaPlus, FaCheck, FaUsers, FaTasks, FaLayerGroup, FaTimes, FaTh, FaList, FaCog } from "react-icons/fa";
 import { useApp } from "../../../shared/context/AppContext";
 import { ProjectsSkeleton } from "../../../shared/components/Skeleton";
-import { useAuth } from "../../../shared/context/AuthContext";
+import { usePermissions } from "../../../shared/context/hooks/usePermissions";
 import ProjectSettingsModal from "../../board/components/ProjectSettingsModal";
 
 const PROJECT_COLORS = [
@@ -142,7 +142,8 @@ function CreateProjectModal({ onClose, onCreate }) {
 
 export default function ProjectsPage({ onNavigate }) {
   const { projects, currentProjectId, setCurrentProjectId, activeTasks, createProject, projectsViewMode, setProjectsViewMode, dbReady } = useApp();
-  const { isAdmin } = useAuth();
+  const { canPerform } = usePermissions();
+  const canManageProjects = canPerform("project:manage");
   const [showCreate, setShowCreate] = useState(false);
   const [settingsProject, setSettingsProject] = useState(null);
   const viewMode = projectsViewMode;
@@ -184,7 +185,7 @@ export default function ProjectsPage({ onNavigate }) {
               <FaList className="w-3.5 h-3.5" />
             </button>
           </div>
-          {isAdmin && (
+          {canManageProjects && (
             <button
               onClick={() => setShowCreate(true)}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
@@ -242,7 +243,7 @@ export default function ProjectsPage({ onNavigate }) {
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    {isAdmin && (
+                    {canManageProjects && (
                       <button
                         onClick={(e) => { e.stopPropagation(); setSettingsProject(p); }}
                         className="w-7 h-7 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#232838]"
@@ -374,7 +375,7 @@ export default function ProjectsPage({ onNavigate }) {
 
                 {/* Action */}
                 <div className="flex items-center justify-end gap-2">
-                  {isAdmin && (
+                  {canManageProjects && (
                     <button
                       onClick={(e) => { e.stopPropagation(); setSettingsProject(p); }}
                       className="p-1.5 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#232838] rounded-lg transition-all"

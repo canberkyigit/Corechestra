@@ -25,6 +25,7 @@ export function usePermissions() {
   );
 
   return {
+    role: role || "viewer",
     rolePermissions,
     permissionMatrix: normalized,
     sensitiveActionPolicy,

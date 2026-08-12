@@ -112,8 +112,10 @@ export function normalizePermissionMatrix(permissionMatrix) {
   const source = permissionMatrix || {};
   return {
     admin: {
-      modules: { ...DEFAULT_PERMISSION_MATRIX.admin.modules, ...(source.admin?.modules || {}) },
-      actions: { ...DEFAULT_PERMISSION_MATRIX.admin.actions, ...(source.admin?.actions || {}) },
+      // Administrative access is a hard ceiling. A malformed/stale remote
+      // matrix must never lock every administrator out of workspace controls.
+      modules: { ...DEFAULT_PERMISSION_MATRIX.admin.modules },
+      actions: { ...DEFAULT_PERMISSION_MATRIX.admin.actions },
     },
     member: {
       modules: { ...DEFAULT_PERMISSION_MATRIX.member.modules, ...(source.member?.modules || {}) },
@@ -121,7 +123,9 @@ export function normalizePermissionMatrix(permissionMatrix) {
     },
     viewer: {
       modules: { ...DEFAULT_PERMISSION_MATRIX.viewer.modules, ...(source.viewer?.modules || {}) },
-      actions: { ...DEFAULT_PERMISSION_MATRIX.viewer.actions, ...(source.viewer?.actions || {}) },
+      // Viewer is deliberately read-only. Module visibility may be tailored,
+      // but no workspace matrix can grant a viewer a mutation capability.
+      actions: { ...DEFAULT_PERMISSION_MATRIX.viewer.actions },
     },
   };
 }

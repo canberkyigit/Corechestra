@@ -10,6 +10,7 @@ import { BoardSkeleton } from "../../../shared/components/Skeleton";
 import { useBoardState } from "../../../shared/context/hooks/useBoardState";
 import { useBoardFilters } from "../hooks/useBoardFilters";
 import { BOARD_STATUS_OPTIONS, BOARD_TABS, BOARD_VIEW_MODES } from "../constants/boardPageConfig";
+import { usePermissions } from "../../../shared/context/hooks/usePermissions";
 
 export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
   const {
@@ -22,6 +23,10 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
     perProjectBoardFilters, setPerProjectBoardFilters,
     teamMembers, currentUser, dbReady,
   } = useApp();
+  const { canPerform } = usePermissions();
+  const canCreateTask = canPerform("task:create");
+  const canEditTask = canPerform("task:edit");
+  const canArchiveTask = canPerform("task:archive");
 
   // Only show members who are in this project (via memberUsernames or task assignment)
   const [activeTab, setActiveTab] = useState("active");
@@ -96,19 +101,20 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
   }, [selectedIds]); // eslint-disable-line
 
   const handleBulkStatusChange = useCallback(() => {
-    if (!bulkStatus) return;
+    if (!canEditTask || !bulkStatus) return;
     setActiveTasks((prev) =>
       prev.map((t) => selectedIds.has(t.id) ? { ...t, status: bulkStatus } : t)
     );
     setSelectedIds(new Set());
     setBulkStatus("");
-  }, [bulkStatus, selectedIds, setActiveTasks]);
+  }, [bulkStatus, canEditTask, selectedIds, setActiveTasks]);
 
   const handleBulkDelete = useCallback(() => {
+    if (!canArchiveTask) return;
     if (!window.confirm(`Delete ${selectedIds.size} task(s)?`)) return;
     setActiveTasks((prev) => prev.filter((t) => !selectedIds.has(t.id)));
     setSelectedIds(new Set());
-  }, [selectedIds, setActiveTasks]);
+  }, [canArchiveTask, selectedIds, setActiveTasks]);
 
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [newTaskData] = useState({});
@@ -145,6 +151,7 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
   };
 
   const handleTaskUpdate = (updatedTask) => {
+    if (!canEditTask) return;
     setActiveTasks((prev) => prev.map((t) => (t.id === updatedTask.id ? updatedTask : t)));
     setSelectedTask(updatedTask);
   };
@@ -159,6 +166,7 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
 
   const handlePokerClick = (task) => { setPokerTask(task); setPokerOpen(true); };
   const handleEstimationComplete = (data) => {
+    if (!canEditTask) return;
     savePokerResult({ ...data, taskTitle: pokerTask?.title });
     setPokerOpen(false); setPokerTask(null);
   };
@@ -166,6 +174,7 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
   const { showBadges, showPriorityColors, showTaskIds, showSubtaskButtons } = boardSettings;
 
   const setProjectTasks = (updaterOrArray) => {
+    if (!canEditTask) return;
     setActiveTasks((fullPrev) => {
       const projIds = new Set(projectActiveTasks.map((t) => t.id));
       const others  = fullPrev.filter((t) => !projIds.has(t.id));
@@ -177,7 +186,11 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
   };
 
   const openSprintModal = (mode) => { setSprintModalMode(mode); setSprintModalOpen(true); };
-  const handleCreateTask = () => { setSelectedSprint(sprintOptions[0]); setCreateModalOpen(true); };
+  const handleCreateTask = () => {
+    if (!canCreateTask) return;
+    setSelectedSprint(sprintOptions[0]);
+    setCreateModalOpen(true);
+  };
 
   if (!dbReady) return <BoardSkeleton />;
   return (
@@ -193,7 +206,7 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
         onOpenFuturePlans={() => setFuturePlansOpen(true)}
       />
 
-      <BoardTopBar tabs={BOARD_TABS} activeTab={activeTab} onTabChange={setActiveTab} onCreateTask={handleCreateTask} />
+      <BoardTopBar tabs={BOARD_TABS} activeTab={activeTab} onTabChange={setActiveTab} onCreateTask={handleCreateTask} canCreateTask={canCreateTask} />
 
       {activeTab === "active" && (
         <>

@@ -15,7 +15,7 @@ import {
 } from "react-icons/fa";
 import { useApp } from "../../../shared/context/AppContext";
 import { useToast } from "../../../shared/context/ToastContext";
-import { useAuth } from "../../../shared/context/AuthContext";
+import { usePermissions } from "../../../shared/context/hooks/usePermissions";
 import { getEntityTypeMeta } from "../../../shared/constants/entityMeta";
 import { AppBadge, AppButton, getTaskStatusTone } from "../../../shared/components/AppPrimitives";
 import CommentSection from "../../docs/components/CommentSection";
@@ -76,8 +76,10 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
     ? teamMembers.filter((m) => m.value === "unassigned" || projectMemberSet.has(m.value))
     : teamMembers.filter((m) => m.value !== "");
   const { addToast } = useToast();
-  const { role } = useAuth();
-  const isViewer = role === "viewer";
+  const { canPerform } = usePermissions();
+  const canEditTask = canPerform("task:edit");
+  const canArchiveTask = canPerform("task:archive");
+  const isViewer = !canEditTask;
 
   const [title,        setTitle]        = useState("");
   const [description,  setDescription]  = useState("");
@@ -246,6 +248,7 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
   };
 
   const handleDelete = () => {
+    if (!canArchiveTask) return;
     if (task.id) deleteTask(task.id);
     addToast("Task deleted", "error");
     onClose();
@@ -425,7 +428,7 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
               <FaExpand className="w-3.5 h-3.5" />
             </button>
           )}
-          {!isViewer && (
+          {canArchiveTask && (
             <button
               className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
               onClick={() => setConfirmDelete(true)}

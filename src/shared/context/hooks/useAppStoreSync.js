@@ -1,11 +1,20 @@
 import { useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { loadAllDomains, saveDomain, setStorageActor, subscribeToAll } from "../../services/storage";
+import {
+  loadAllDomains,
+  saveDomain,
+  saveUserPreferences,
+  setStorageActor,
+  subscribeToAll,
+  subscribeToUserPreferences,
+} from "../../services/storage";
 import { useAppStore } from "../../store/useAppStore";
+import { useAuth } from "../AuthContext";
 
 const SHOULD_LOG_SYNC_DIAGNOSTICS = process.env.NODE_ENV !== "production";
 
 export function useAppStoreSync() {
+  const { user: authUser, role } = useAuth();
   const {
     projects,
     currentProjectId,
@@ -196,8 +205,8 @@ export function useAppStoreSync() {
   ]);
 
   const { data: remoteData, isError: loadFailed } = useQuery({
-    queryKey: ["corechestra-app-data"],
-    queryFn: loadAllDomains,
+    queryKey: ["corechestra-app-data", authUser?.uid],
+    queryFn: () => loadAllDomains(authUser?.uid),
     retry: 3,
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
     staleTime: Infinity,
@@ -232,6 +241,12 @@ export function useAppStoreSync() {
   }, [fieldSetters]);
 
   useEffect(() => {
+    return subscribeToUserPreferences(authUser?.uid, (field, value) => {
+      fieldSetters[field]?.(value);
+    });
+  }, [authUser?.uid, fieldSetters]);
+
+  useEffect(() => {
     if (!currentProjectId) return;
     const today = new Date().toISOString().slice(0, 10);
     setPerProjectBurndownSnapshots((prev) => {
@@ -259,42 +274,52 @@ export function useAppStoreSync() {
   }, [darkMode, dbReady]);
 
   useEffect(() => {
-    setStorageActor(currentUser || "");
-  }, [currentUser]);
+    setStorageActor(currentUser || authUser?.email || "", role);
+  }, [authUser?.email, currentUser, role]);
 
   useEffect(() => {
-    if (!dbReady) return;
-    saveDomain("config", {
-      currentUser,
-      currentProjectId,
-    });
-  }, [currentUser, currentProjectId, dbReady]);
-
-  useEffect(() => {
-    if (!dbReady) return;
+    if (!dbReady || role !== "admin") return;
     saveDomain("config", { sprintDefaults });
-  }, [sprintDefaults, dbReady]);
+  }, [sprintDefaults, dbReady, role]);
 
   useEffect(() => {
-    if (!dbReady) return;
-    saveDomain("config", { darkMode, sidebarCollapsed, projectsViewMode });
-  }, [darkMode, sidebarCollapsed, projectsViewMode, dbReady]);
-
-  useEffect(() => {
-    if (!dbReady) return;
+    if (!dbReady || role !== "admin") return;
     saveDomain("config", {
-      perProjectBoardFilters,
       templateRegistry,
+      permissionMatrix,
+      workspaceSettings,
+      sensitiveActionPolicy,
+    });
+  }, [templateRegistry, permissionMatrix, workspaceSettings, sensitiveActionPolicy, dbReady, role]);
+
+  useEffect(() => {
+    if (!dbReady || !authUser?.uid) return;
+    saveUserPreferences(authUser.uid, {
+      currentProjectId,
+      darkMode,
+      sidebarCollapsed,
+      projectsViewMode,
+      perProjectBoardFilters,
       savedViews,
       recentItems,
       favoriteItems,
       pinnedItems,
       notificationPreferences,
-      permissionMatrix,
-      workspaceSettings,
-      sensitiveActionPolicy,
     });
-  }, [perProjectBoardFilters, templateRegistry, savedViews, recentItems, favoriteItems, pinnedItems, notificationPreferences, permissionMatrix, workspaceSettings, sensitiveActionPolicy, dbReady]);
+  }, [
+    authUser?.uid,
+    currentProjectId,
+    darkMode,
+    dbReady,
+    favoriteItems,
+    notificationPreferences,
+    perProjectBoardFilters,
+    pinnedItems,
+    projectsViewMode,
+    recentItems,
+    savedViews,
+    sidebarCollapsed,
+  ]);
 
   useEffect(() => {
     if (!dbReady) return;

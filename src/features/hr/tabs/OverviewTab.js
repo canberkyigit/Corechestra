@@ -4,6 +4,9 @@ import { useHR } from "../../../shared/context/HRContext";
 import { useApp } from "../../../shared/context/AppContext";
 import { Avatar, Card } from "../components/HRSharedUI";
 import { PUBLIC_HOLIDAYS } from "../constants/publicHolidays";
+import { usePermissions } from "../../../shared/context/hooks/usePermissions";
+import { useToast } from "../../../shared/context/ToastContext";
+import { getAdminActionMessage } from "../../../shared/services/adminFunctions";
 
 export function OverviewTab({ userName, setActiveTab }) {
   const {
@@ -16,6 +19,8 @@ export function OverviewTab({ userName, setActiveTab }) {
     toggleOnboardingStep,
   } = useHR();
   const { users } = useApp();
+  const { canPerform } = usePermissions();
+  const { addToast } = useToast();
   const [timeOffTab, setTimeOffTab] = useState("upcoming");
   const [dismiss2fa, setDismiss2fa] = useState(false);
 
@@ -24,6 +29,16 @@ export function OverviewTab({ userName, setActiveTab }) {
   const pendingDocCount = (documents || []).filter((document) => document.status === "not_submitted" || (!document.status && document.actions?.includes("sign"))).length;
   const pendingApprovals = (approvalInbox || []).filter((item) => item.status === "pending").slice(0, 3);
   const activeOnboarding = (onboardingWorkflows || []).filter((workflow) => workflow.status !== "completed").slice(0, 2);
+  const canResolveApprovals = canPerform("approval:resolve");
+  const resolveApproval = async (id, status) => {
+    if (!canResolveApprovals) return;
+    try {
+      await updateApprovalRequest(id, { status });
+      addToast(`Approval ${status}.`, "success");
+    } catch (error) {
+      addToast(getAdminActionMessage(error, "Approval could not be updated."), "error");
+    }
+  };
 
   const salaryDisplay = employeeProfile?.salary
     ? `${employeeProfile.salaryCurrency || ""}${employeeProfile.salary}`
@@ -187,20 +202,20 @@ export function OverviewTab({ userName, setActiveTab }) {
                 <p className="text-sm text-slate-700 dark:text-slate-200 truncate">{item.title}</p>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{item.summary || item.type}</p>
               </div>
-              <div className="flex items-center gap-2">
+              {canResolveApprovals && <div className="flex items-center gap-2">
                 <button
-                  onClick={() => updateApprovalRequest(item.id, { status: "approved" })}
+                  onClick={() => resolveApproval(item.id, "approved")}
                   className="text-[11px] text-green-600 dark:text-green-400 border border-green-200 dark:border-green-500/30 px-2 py-1 rounded-lg"
                 >
                   Approve
                 </button>
                 <button
-                  onClick={() => updateApprovalRequest(item.id, { status: "rejected" })}
+                  onClick={() => resolveApproval(item.id, "rejected")}
                   className="text-[11px] text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/30 px-2 py-1 rounded-lg"
                 >
                   Reject
                 </button>
-              </div>
+              </div>}
             </div>
           ))}
           {pendingDocCount === 0 && dismiss2fa && (

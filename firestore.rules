@@ -1,9 +1,174 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Only authenticated users from the same domain can read/write
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function currentUser() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function isActiveUser() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && (!("deleted" in currentUser().data) || currentUser().data.deleted != true)
+        && (!("status" in currentUser().data) || currentUser().data.status != "inactive");
+    }
+
+    function hasRole(role) {
+      return isActiveUser()
+        && currentUser().data.role == role;
+    }
+
+    function isAdmin() {
+      return hasRole("admin");
+    }
+
+    function isWorkspaceDomain(domain) {
+      return domain in [
+        "config", "entities", "tasks", "sprints", "activity",
+        "workspace", "docs", "releases", "testing", "archive"
+      ];
+    }
+
+    function profileFields() {
+      return ["name", "fullName", "title", "timezone", "bio", "color", "notifPrefs"];
+    }
+
+    function preferenceFields() {
+      return [
+        "currentProjectId",
+        "darkMode",
+        "sidebarCollapsed",
+        "projectsViewMode",
+        "perProjectBoardFilters",
+        "savedViews",
+        "recentItems",
+        "favoriteItems",
+        "pinnedItems",
+        "notificationPreferences",
+        "_updatedAt"
+      ];
+    }
+
+    function canViewAudit() {
+      return isAdmin() || (
+        hasRole("member")
+        && exists(/databases/$(database)/documents/appData/config)
+        && "permissionMatrix" in get(/databases/$(database)/documents/appData/config).data
+        && "member" in get(/databases/$(database)/documents/appData/config).data.permissionMatrix
+        && "actions" in get(/databases/$(database)/documents/appData/config).data.permissionMatrix.member
+        && get(/databases/$(database)/documents/appData/config).data.permissionMatrix.member.actions["audit:view"] == true
+      );
+    }
+
+    function onlyAppendsSharedHrRequests() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(["absences", "approvalInbox"])
+        && request.resource.data.absences.size() >= resource.data.absences.size()
+        && request.resource.data.absences.toSet().hasAll(resource.data.absences.toSet())
+        && request.resource.data.approvalInbox.size() >= resource.data.approvalInbox.size()
+        && request.resource.data.approvalInbox.toSet().hasAll(resource.data.approvalInbox.toSet());
+    }
+
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isActiveUser());
+
+      // Self-registration can only bootstrap a regular member profile.
+      allow create: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.role == "member"
+        && request.resource.data.keys().hasOnly(["email", "role"]);
+
+      // Roles, account status and deletion flags are server-managed. Even an
+      // admin must use the audited callable functions for those fields.
+      allow update: if isActiveUser()
+        && (request.auth.uid == uid || isAdmin())
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(profileFields());
+
+      allow delete: if false;
+    }
+
+    match /userPreferences/{uid} {
+      allow read: if isActiveUser() && request.auth.uid == uid;
+      allow create: if isActiveUser()
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(preferenceFields());
+      allow update: if isActiveUser()
+        && request.auth.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(preferenceFields());
+      allow delete: if isActiveUser() && request.auth.uid == uid;
+    }
+
+    match /appData/{domain} {
+      allow read: if isActiveUser();
+      // Shared writes are authorized semantically and audited by Cloud
+      // Functions. No role may bypass the permission matrix from the client.
+      allow create, update, delete: if false;
+    }
+
+    // Read-only compatibility path for the pre-domain storage migration.
+    match /appState/{documentId} {
+      allow read: if isActiveUser();
+      allow write: if false;
+    }
+
+    match /hrData/{ownerId} {
+      allow read: if isActiveUser() && (
+        isAdmin()
+        || ownerId == request.auth.uid
+        || ownerId == "hr_shared"
+      );
+
+      allow create: if isActiveUser() && (
+        isAdmin()
+        || ownerId == request.auth.uid
+        || (
+          ownerId == "hr_shared"
+          && request.resource.data.keys().hasOnly(["absences", "approvalInbox"])
+        )
+      );
+
+      allow update: if isActiveUser() && (
+        isAdmin()
+        || ownerId == request.auth.uid
+        || (
+          ownerId == "hr_shared"
+          && onlyAppendsSharedHrRequests()
+        )
+      );
+
+      allow delete: if isAdmin() || (isActiveUser() && ownerId == request.auth.uid);
+    }
+
+    match /approvalRequests/{requestId} {
+      allow read: if isActiveUser() && (
+        isAdmin()
+        || resource.data.requestedBy == request.auth.uid
+        || request.auth.uid in resource.data.approverIds
+      );
+      allow write: if false;
+    }
+
+    match /scheduledReminders/{reminderId} {
+      allow read: if isActiveUser() && (
+        isAdmin()
+        || resource.data.assignedTo == request.auth.uid
+        || request.auth.uid in resource.data.approverIds
+      );
+      allow write: if false;
+    }
+
+    match /auditLogs/{eventId} {
+      allow read: if canViewAudit();
+      allow write: if false;
+    }
+
     match /{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if false;
     }
   }
 }

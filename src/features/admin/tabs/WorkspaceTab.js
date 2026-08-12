@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { FaCheckCircle, FaWrench } from "react-icons/fa";
 import { useApp } from "../../../shared/context/AppContext";
 import { useToast } from "../../../shared/context/ToastContext";
@@ -10,8 +10,12 @@ import {
 import { buildWorkspaceSetupState } from "../../../shared/utils/workspaceSetup";
 import { WorkspaceSetupChecklist } from "../../../shared/components/WorkspaceSetupChecklist";
 import { AppBadge, AppButton, AppDataCard, AppInput, AppSelect } from "../../../shared/components/AppPrimitives";
+import { useAuth } from "../../../shared/context/AuthContext";
+import { usePermissions } from "../../../shared/context/hooks/usePermissions";
+import { getAdminActionMessage, saveWorkspaceControls } from "../../../shared/services/adminFunctions";
+import { isE2EMode } from "../../../shared/e2e/testMode";
 
-function PermissionMatrixTable({ title, rows, matrix, scope, onToggle }) {
+function PermissionMatrixTable({ title, rows, matrix, scope, onToggle, canEditMatrix }) {
   return (
     <AppDataCard className="p-5">
       <div className="app-kicker mb-2">{scope === "modules" ? "Module Visibility" : "Action Control"}</div>
@@ -35,15 +39,21 @@ function PermissionMatrixTable({ title, rows, matrix, scope, onToggle }) {
                 </td>
                 {["admin", "member", "viewer"].map((role) => (
                   <td key={role} className="px-3 py-3">
-                    <label className="inline-flex cursor-pointer items-center gap-2">
+                    {(() => {
+                      const lockedByRole = role === "admin" || (role === "viewer" && scope === "actions");
+                      const disabled = !canEditMatrix || lockedByRole;
+                      return <label className={`inline-flex items-center gap-2 ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}>
                       <input
                         type="checkbox"
                         checked={!!matrix?.[role]?.[scope]?.[row.key]}
                         onChange={() => onToggle(role, scope, row.key)}
+                        disabled={disabled}
+                        data-testid={`permission-${role}-${scope}-${row.key}`}
                         className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                       />
                       <span className="text-xs text-slate-500 dark:text-slate-400">{role}</span>
-                    </label>
+                    </label>;
+                    })()}
                   </td>
                 ))}
               </tr>
@@ -55,29 +65,8 @@ function PermissionMatrixTable({ title, rows, matrix, scope, onToggle }) {
   );
 }
 
-export function WorkspaceTab() {
-  const {
-    projects,
-    users,
-    teams,
-    spaces,
-    templateRegistry,
-    permissionMatrix,
-    setPermissionMatrix,
-    workspaceSettings,
-    setWorkspaceSettings,
-    sensitiveActionPolicy,
-    setSensitiveActionPolicy,
-    logAuditEvent,
-  } = useApp();
-  const { addToast } = useToast();
-
-  const normalizedMatrix = useMemo(
-    () => normalizePermissionMatrix(permissionMatrix),
-    [permissionMatrix]
-  );
-
-  const [workspaceDraft, setWorkspaceDraft] = useState(() => ({
+function buildWorkspaceDraft(workspaceSettings, templateRegistry) {
+  return {
     displayName: workspaceSettings?.displayName || "Corechestra Workspace",
     supportEmail: workspaceSettings?.supportEmail || "",
     onboardingMode: workspaceSettings?.onboardingMode || "guided",
@@ -96,14 +85,65 @@ export function WorkspaceTab() {
       notifyOnBlocked: workspaceSettings?.defaultProjectWorkflow?.notifyOnBlocked !== false,
       allowBackwardMoves: workspaceSettings?.defaultProjectWorkflow?.allowBackwardMoves !== false,
     },
-  }));
-  const [matrixDraft, setMatrixDraft] = useState(normalizedMatrix);
-  const [policyDraft, setPolicyDraft] = useState(() => ({
+  };
+}
+
+function buildPolicyDraft(sensitiveActionPolicy) {
+  return {
     requireConfirmation: sensitiveActionPolicy?.requireConfirmation !== false,
     requireAdminReason: !!sensitiveActionPolicy?.requireAdminReason,
     protectRoleChanges: sensitiveActionPolicy?.protectRoleChanges !== false,
     protectWorkspaceSettings: sensitiveActionPolicy?.protectWorkspaceSettings !== false,
-  }));
+  };
+}
+
+export function WorkspaceTab() {
+  const {
+    projects,
+    users,
+    teams,
+    spaces,
+    templateRegistry,
+    permissionMatrix,
+    setPermissionMatrix,
+    workspaceSettings,
+    setWorkspaceSettings,
+    sensitiveActionPolicy,
+    setSensitiveActionPolicy,
+    logAuditEvent,
+  } = useApp();
+  const { addToast } = useToast();
+  const { isAdmin } = useAuth();
+  const { canPerform } = usePermissions();
+  const canManageWorkspace = canPerform("workspace:manage");
+  const canManageTemplates = canPerform("templates:manage");
+  const e2eMode = isE2EMode();
+
+  const normalizedMatrix = useMemo(
+    () => normalizePermissionMatrix(permissionMatrix),
+    [permissionMatrix]
+  );
+
+  const externalWorkspaceDraft = useMemo(
+    () => buildWorkspaceDraft(workspaceSettings, templateRegistry),
+    [templateRegistry, workspaceSettings]
+  );
+  const externalPolicyDraft = useMemo(
+    () => buildPolicyDraft(sensitiveActionPolicy),
+    [sensitiveActionPolicy]
+  );
+  const [workspaceDraft, setWorkspaceDraft] = useState(externalWorkspaceDraft);
+  const [matrixDraft, setMatrixDraft] = useState(normalizedMatrix);
+  const [policyDraft, setPolicyDraft] = useState(externalPolicyDraft);
+  const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (dirty) return;
+    setWorkspaceDraft(externalWorkspaceDraft);
+    setMatrixDraft(normalizedMatrix);
+    setPolicyDraft(externalPolicyDraft);
+  }, [dirty, externalPolicyDraft, externalWorkspaceDraft, normalizedMatrix]);
 
   const setup = useMemo(() => buildWorkspaceSetupState({
     projects,
@@ -116,6 +156,7 @@ export function WorkspaceTab() {
   }), [matrixDraft, projects, spaces, teams, templateRegistry, users, workspaceDraft]);
 
   const updateTemplateField = (field, value) => {
+    setDirty(true);
     setWorkspaceDraft((prev) => ({
       ...prev,
       defaultTemplates: {
@@ -126,6 +167,7 @@ export function WorkspaceTab() {
   };
 
   const toggleWorkflowRule = (key) => {
+    setDirty(true);
     setWorkspaceDraft((prev) => ({
       ...prev,
       defaultProjectWorkflow: {
@@ -136,6 +178,8 @@ export function WorkspaceTab() {
   };
 
   const toggleMatrixValue = (role, scope, key) => {
+    if (!isAdmin || role === "admin" || (role === "viewer" && scope === "actions")) return;
+    setDirty(true);
     setMatrixDraft((prev) => ({
       ...prev,
       [role]: {
@@ -148,19 +192,56 @@ export function WorkspaceTab() {
     }));
   };
 
-  const saveWorkspaceSettings = () => {
-    setWorkspaceSettings(workspaceDraft);
-    setPermissionMatrix(matrixDraft);
-    setSensitiveActionPolicy(policyDraft);
-    logAuditEvent?.("workspace_security_updated", {
-      entityType: "workspace",
-      scope: "security",
-      settings: {
-        displayName: workspaceDraft.displayName,
-        onboardingMode: workspaceDraft.onboardingMode,
-      },
-    });
-    addToast("Workspace settings saved", "success");
+  const saveWorkspaceSettings = async () => {
+    if (saving || (!canManageWorkspace && !canManageTemplates && !isAdmin)) return;
+    if (policyDraft.requireConfirmation && policyDraft.protectWorkspaceSettings) {
+      const confirmed = window.confirm("Save these workspace security and access changes?");
+      if (!confirmed) return;
+    }
+    let reason = "";
+    if (policyDraft.requireAdminReason && policyDraft.protectWorkspaceSettings) {
+      reason = window.prompt("Reason for this workspace change:", "")?.trim() || "";
+      if (!reason) {
+        addToast("A change reason is required by workspace policy.", "error");
+        return;
+      }
+    }
+
+    setSaving(true);
+    try {
+      let saved = {
+        workspaceSettings: workspaceDraft,
+        permissionMatrix: normalizePermissionMatrix(matrixDraft),
+        sensitiveActionPolicy: policyDraft,
+      };
+      if (!e2eMode) {
+        saved = await saveWorkspaceControls({
+          workspaceSettings: workspaceDraft,
+          permissionMatrix: isAdmin ? matrixDraft : undefined,
+          sensitiveActionPolicy: isAdmin ? policyDraft : undefined,
+          reason,
+        });
+      } else {
+        logAuditEvent?.("workspace.controls_updated", {
+          entityType: "workspace",
+          scope: "security",
+          reason,
+        });
+      }
+
+      setWorkspaceSettings(saved.workspaceSettings);
+      setPermissionMatrix(saved.permissionMatrix);
+      setSensitiveActionPolicy(saved.sensitiveActionPolicy);
+      setWorkspaceDraft(saved.workspaceSettings);
+      setMatrixDraft(normalizePermissionMatrix(saved.permissionMatrix));
+      setPolicyDraft(buildPolicyDraft(saved.sensitiveActionPolicy));
+      setDirty(false);
+      addToast("Workspace controls saved and synced", "success");
+    } catch (error) {
+      addToast(getAdminActionMessage(error, "Workspace controls could not be saved."), "error");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -174,15 +255,15 @@ export function WorkspaceTab() {
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             <div>
               <label className="mb-1.5 block text-xs font-medium text-slate-500 dark:text-slate-400">Workspace name</label>
-              <AppInput value={workspaceDraft.displayName} onChange={(e) => setWorkspaceDraft((prev) => ({ ...prev, displayName: e.target.value }))} />
+              <AppInput value={workspaceDraft.displayName} disabled={!canManageWorkspace} onChange={(e) => { setDirty(true); setWorkspaceDraft((prev) => ({ ...prev, displayName: e.target.value })); }} />
             </div>
             <div>
               <label className="mb-1.5 block text-xs font-medium text-slate-500 dark:text-slate-400">Support email</label>
-              <AppInput type="email" value={workspaceDraft.supportEmail} onChange={(e) => setWorkspaceDraft((prev) => ({ ...prev, supportEmail: e.target.value }))} placeholder="ops@company.com" />
+              <AppInput type="email" value={workspaceDraft.supportEmail} disabled={!canManageWorkspace} onChange={(e) => { setDirty(true); setWorkspaceDraft((prev) => ({ ...prev, supportEmail: e.target.value })); }} placeholder="ops@company.com" />
             </div>
             <div>
               <label className="mb-1.5 block text-xs font-medium text-slate-500 dark:text-slate-400">Onboarding mode</label>
-              <AppSelect value={workspaceDraft.onboardingMode} onChange={(e) => setWorkspaceDraft((prev) => ({ ...prev, onboardingMode: e.target.value }))}>
+              <AppSelect value={workspaceDraft.onboardingMode} disabled={!canManageWorkspace} onChange={(e) => { setDirty(true); setWorkspaceDraft((prev) => ({ ...prev, onboardingMode: e.target.value })); }}>
                 <option value="guided">Guided setup</option>
                 <option value="accelerated">Accelerated setup</option>
               </AppSelect>
@@ -196,7 +277,8 @@ export function WorkspaceTab() {
                 <input
                   type="checkbox"
                   checked={workspaceDraft.emptyStateHints}
-                  onChange={() => setWorkspaceDraft((prev) => ({ ...prev, emptyStateHints: !prev.emptyStateHints }))}
+                  disabled={!canManageWorkspace}
+                  onChange={() => { setDirty(true); setWorkspaceDraft((prev) => ({ ...prev, emptyStateHints: !prev.emptyStateHints })); }}
                   className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                 />
               </div>
@@ -218,7 +300,8 @@ export function WorkspaceTab() {
                 <input
                   type="checkbox"
                   checked={!!policyDraft[key]}
-                  onChange={() => setPolicyDraft((prev) => ({ ...prev, [key]: !prev[key] }))}
+                  disabled={!isAdmin}
+                  onChange={() => { setDirty(true); setPolicyDraft((prev) => ({ ...prev, [key]: !prev[key] })); }}
                   className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                 />
                 <div>
@@ -256,7 +339,7 @@ export function WorkspaceTab() {
           ].map(([key, label, options]) => (
             <div key={key}>
               <label className="mb-1.5 block text-xs font-medium text-slate-500 dark:text-slate-400">{label}</label>
-              <AppSelect value={workspaceDraft.defaultTemplates[key]} onChange={(e) => updateTemplateField(key, e.target.value)}>
+              <AppSelect value={workspaceDraft.defaultTemplates[key]} disabled={!canManageTemplates} onChange={(e) => updateTemplateField(key, e.target.value)}>
                 {options.map((template) => (
                   <option key={template.id} value={template.id}>{template.name}</option>
                 ))}
@@ -280,6 +363,7 @@ export function WorkspaceTab() {
               <input
                 type="checkbox"
                 checked={!!workspaceDraft.defaultProjectWorkflow[key]}
+                disabled={!canManageWorkspace}
                 onChange={() => toggleWorkflowRule(key)}
                 className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
               />
@@ -295,6 +379,7 @@ export function WorkspaceTab() {
         matrix={matrixDraft}
         scope="modules"
         onToggle={toggleMatrixValue}
+        canEditMatrix={isAdmin}
       />
 
       <PermissionMatrixTable
@@ -303,11 +388,16 @@ export function WorkspaceTab() {
         matrix={matrixDraft}
         scope="actions"
         onToggle={toggleMatrixValue}
+        canEditMatrix={isAdmin}
       />
 
       <div className="flex justify-end">
-        <AppButton onClick={saveWorkspaceSettings}>
-          <FaCheckCircle className="w-3 h-3" /> Save workspace controls
+        <AppButton
+          onClick={saveWorkspaceSettings}
+          disabled={saving || !dirty || (!canManageWorkspace && !canManageTemplates && !isAdmin)}
+          data-testid="save-workspace-controls"
+        >
+          <FaCheckCircle className="w-3 h-3" /> {saving ? "Saving..." : "Save workspace controls"}
         </AppButton>
       </div>
     </div>

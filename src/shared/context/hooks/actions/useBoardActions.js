@@ -1,6 +1,8 @@
-import { useCallback } from "react";
+/* eslint-disable react-hooks/exhaustive-deps */
+import { useCallback, useRef } from "react";
 import { generateId } from "../../../utils/helpers";
 import { DEFAULT_COLUMNS } from "../../AppSeeds";
+import { usePermissions } from "../usePermissions";
 
 export function useBoardActions({
   currentProjectId,
@@ -38,7 +40,11 @@ export function useBoardActions({
   logActivity,
   addNotification,
 }) {
+  const permissionCheckRef = useRef(null);
+  permissionCheckRef.current = usePermissions().canPerform;
+  const canPerform = useCallback((permission) => permissionCheckRef.current(permission), []);
   const updateTask = useCallback((updatedTask, logMsg) => {
+    if (!canPerform("task:edit")) return;
     const previousTask = activeTasks.find((task) => task.id === updatedTask.id)
       || Object.values(perProjectBacklog)
         .flatMap((sections) => sections.flatMap((section) => section.tasks || []))
@@ -96,6 +102,7 @@ export function useBoardActions({
   const updateActiveTask = updateTask;
 
   const createTask = useCallback((taskData, sprintValue) => {
+    if (!canPerform("task:create")) return null;
     const newTask = {
       ...taskData,
       id: generateId(),
@@ -134,6 +141,7 @@ export function useBoardActions({
   }, [addNotification, currentProjectId, logActivity, setActiveTasks, setBacklogSections]);
 
   const deleteTask = useCallback((taskId) => {
+    if (!canPerform("task:archive")) return;
     const task = activeTasks.find((item) => item.id === taskId)
       || Object.values(perProjectBacklog)
         .flatMap((sections) => sections.flatMap((section) => section.tasks))
@@ -161,6 +169,7 @@ export function useBoardActions({
   }, [activeTasks, addNotification, perProjectBacklog, setActiveTasks, setArchivedTasks, setPerProjectBacklog]);
 
   const restoreTask = useCallback((taskId) => {
+    if (!canPerform("task:create") || !canPerform("task:archive")) return;
     const task = archivedTasks.find((item) => item.id === taskId);
     if (!task) return;
     const { archivedAt, ...restored } = task;
@@ -175,6 +184,7 @@ export function useBoardActions({
   }, [addNotification, archivedTasks, setActiveTasks, setArchivedTasks]);
 
   const permanentDeleteTask = useCallback((taskId) => {
+    if (!canPerform("task:archive")) return;
     const task = archivedTasks.find((item) => item.id === taskId);
     setArchivedTasks((prev) => prev.filter((item) => item.id !== taskId));
     if (task) {
@@ -188,6 +198,7 @@ export function useBoardActions({
   }, [addNotification, archivedTasks, setArchivedTasks]);
 
   const emptyArchive = useCallback(() => {
+    if (!canPerform("task:archive") || !canPerform("project:manage")) return;
     const count = archivedTasks.length + archivedProjects.length + archivedEpics.length;
     setArchivedTasks([]);
     setArchivedProjects([]);
@@ -198,12 +209,14 @@ export function useBoardActions({
   const updateBacklogTask = updateTask;
 
   const startSprint = useCallback((sprintData) => {
+    if (!canPerform("task:edit")) return;
     setSprint({ ...sprintData, status: "active" });
     logActivity("sprint", "started sprint", { name: sprintData.name });
     addNotification({ type: "sprint_started", text: `Sprint "${sprintData.name}" started` });
   }, [addNotification, logActivity, setSprint]);
 
   const completeSprint = useCallback((moveToBacklogSectionId) => {
+    if (!canPerform("task:edit") || !canPerform("task:archive")) return;
     const projectTasks = activeTasks.filter((task) => (
       (task.projectId || "proj-1") === currentProjectId
     ));
@@ -277,10 +290,12 @@ export function useBoardActions({
   ]);
 
   const updateSprint = useCallback((patch) => {
+    if (!canPerform("task:edit")) return;
     setSprint((prev) => ({ ...prev, ...patch }));
   }, [setSprint]);
 
   const createPlannedSprint = useCallback((data) => {
+    if (!canPerform("task:edit")) return;
     const sectionId = Date.now();
     const newSprint = {
       id: `ps-${sectionId}`,
@@ -303,6 +318,7 @@ export function useBoardActions({
   }, [currentProjectId, setBacklogSections, setPerProjectPlannedSprints]);
 
   const deletePlannedSprint = useCallback((sprintId) => {
+    if (!canPerform("task:edit")) return;
     const sprintToDelete = (perProjectPlannedSprints[currentProjectId] || [])
       .find((item) => item.id === sprintId);
     if (sprintToDelete?.backlogSectionId) {
@@ -317,18 +333,21 @@ export function useBoardActions({
   }, [currentProjectId, perProjectPlannedSprints, setBacklogSections, setPerProjectPlannedSprints]);
 
   const createEpic = useCallback((epicData) => {
+    if (!canPerform("task:edit")) return;
     const newEpic = { ...epicData, id: `epic-${Date.now()}`, projectId: currentProjectId };
     setEpics((prev) => [...prev, newEpic]);
     addNotification({ type: "epic_created", text: `Epic "${epicData.title}" created` });
   }, [addNotification, currentProjectId, setEpics]);
 
   const updateEpic = useCallback((updatedEpic) => {
+    if (!canPerform("task:edit")) return;
     setEpics((prev) => prev.map((epic) => (
       epic.id === updatedEpic.id ? updatedEpic : epic
     )));
   }, [setEpics]);
 
   const deleteEpic = useCallback((epicId) => {
+    if (!canPerform("task:edit")) return;
     const epic = epics.find((item) => item.id === epicId);
     setEpics((prev) => prev.filter((item) => item.id !== epicId));
     const unsetEpic = (tasks) => tasks.map((task) => (
@@ -351,10 +370,12 @@ export function useBoardActions({
   }, [addNotification, epics, setActiveTasks, setEpics, setPerProjectBacklog]);
 
   const createLabel = useCallback((labelData) => {
+    if (!canPerform("task:edit")) return;
     setLabels((prev) => [...prev, { ...labelData, id: `lbl-${Date.now()}` }]);
   }, [setLabels]);
 
   const deleteLabel = useCallback((labelId) => {
+    if (!canPerform("task:edit")) return;
     setLabels((prev) => prev.filter((label) => label.id !== labelId));
     const removeLabel = (tasks) => tasks.map((task) => ({
       ...task,
@@ -381,17 +402,20 @@ export function useBoardActions({
   }, [currentProjectId, setProjectColumns]);
 
   const renameColumn = useCallback((columnId, newTitle) => {
+    if (!canPerform("task:edit")) return;
     setColumnsForCurrentProject((cols) => cols.map((column) => (
       column.id === columnId ? { ...column, title: newTitle } : column
     )));
   }, [setColumnsForCurrentProject]);
 
   const createColumn = useCallback((title) => {
+    if (!canPerform("task:edit")) return;
     const id = `custom_${Date.now()}`;
     setColumnsForCurrentProject((cols) => [...cols, { id, title, custom: true }]);
   }, [setColumnsForCurrentProject]);
 
   const deleteColumn = useCallback((columnId) => {
+    if (!canPerform("task:edit")) return;
     setColumnsForCurrentProject((cols) => cols.filter((column) => column.id !== columnId));
     setActiveTasks((prev) => prev.map((task) => (
       task.status === columnId ? { ...task, status: "todo" } : task
@@ -399,14 +423,17 @@ export function useBoardActions({
   }, [setActiveTasks, setColumnsForCurrentProject]);
 
   const reorderColumns = useCallback((newCols) => {
+    if (!canPerform("task:edit")) return;
     setProjectColumns((prev) => ({ ...prev, [currentProjectId]: newCols }));
   }, [currentProjectId, setProjectColumns]);
 
   const updateProjectColumns = useCallback((projectId, newCols) => {
+    if (!canPerform("task:edit")) return;
     setProjectColumns((prev) => ({ ...prev, [projectId]: newCols }));
   }, [setProjectColumns]);
 
   const createBacklogSection = useCallback(() => {
+    if (!canPerform("task:edit")) return;
     setBacklogSections((prev) => [
       ...prev,
       { id: Date.now(), title: `Backlog ${prev.length + 1}`, tasks: [] },
@@ -414,16 +441,19 @@ export function useBoardActions({
   }, [setBacklogSections]);
 
   const deleteBacklogSection = useCallback((sectionId) => {
+    if (!canPerform("task:edit")) return;
     setBacklogSections((prev) => prev.filter((section) => section.id !== sectionId));
   }, [setBacklogSections]);
 
   const renameBacklogSection = useCallback((sectionId, newTitle) => {
+    if (!canPerform("task:edit")) return;
     setBacklogSections((prev) => prev.map((section) => (
       section.id === sectionId ? { ...section, title: newTitle } : section
     )));
   }, [setBacklogSections]);
 
   const handleBacklogDragEnd = useCallback((result) => {
+    if (!canPerform("task:edit")) return;
     const { destination, source, draggableId } = result;
     if (!destination) return;
     if (
@@ -521,6 +551,7 @@ export function useBoardActions({
   }, [activeTasks, backlogSections, setActiveTasks, setBacklogSections]);
 
   const addRetroItem = useCallback((category) => {
+    if (!canPerform("task:edit")) return;
     setRetrospectiveItems((prev) => ({
       ...prev,
       [category]: [
@@ -531,6 +562,7 @@ export function useBoardActions({
   }, [setRetrospectiveItems]);
 
   const updateRetroItem = useCallback((category, itemId, text) => {
+    if (!canPerform("task:edit")) return;
     setRetrospectiveItems((prev) => ({
       ...prev,
       [category]: prev[category].map((item) => (
@@ -540,6 +572,7 @@ export function useBoardActions({
   }, [setRetrospectiveItems]);
 
   const deleteRetroItem = useCallback((category, itemId) => {
+    if (!canPerform("task:edit")) return;
     setRetrospectiveItems((prev) => ({
       ...prev,
       [category]: prev[category].filter((item) => item.id !== itemId),
@@ -547,6 +580,7 @@ export function useBoardActions({
   }, [setRetrospectiveItems]);
 
   const voteRetroItem = useCallback((category, itemId, delta) => {
+    if (!canPerform("task:edit")) return;
     setRetrospectiveItems((prev) => ({
       ...prev,
       [category]: prev[category].map((item) => (
@@ -556,6 +590,7 @@ export function useBoardActions({
   }, [setRetrospectiveItems]);
 
   const toggleRetroItem = useCallback((category, itemId) => {
+    if (!canPerform("task:edit")) return;
     setRetrospectiveItems((prev) => ({
       ...prev,
       [category]: prev[category].map((item) => (
@@ -565,6 +600,7 @@ export function useBoardActions({
   }, [setRetrospectiveItems]);
 
   const setRetroItemEditing = useCallback((category, itemId, isEditing) => {
+    if (!canPerform("task:edit")) return;
     setRetrospectiveItems((prev) => ({
       ...prev,
       [category]: prev[category].map((item) => (
@@ -576,15 +612,18 @@ export function useBoardActions({
   }, [setRetrospectiveItems]);
 
   const addNote = useCallback((content) => {
+    if (!canPerform("task:edit")) return;
     if (!content?.trim()) return;
     setNotesList((prev) => [{ id: Date.now(), content }, ...prev]);
   }, [setNotesList]);
 
   const deleteNote = useCallback((noteId) => {
+    if (!canPerform("task:edit")) return;
     setNotesList((prev) => prev.filter((note) => note.id !== noteId));
   }, [setNotesList]);
 
   const savePokerResult = useCallback((result) => {
+    if (!canPerform("task:edit")) return;
     const numericEstimation = (
       typeof result.estimation === "number"
         ? result.estimation
@@ -615,6 +654,7 @@ export function useBoardActions({
   }, [setActiveTasks, setPerProjectBacklog, setPokerHistory]);
 
   const updateBoardSettings = useCallback((patch) => {
+    if (!canPerform("task:edit") && !canPerform("project:manage")) return;
     setBoardSettings((prev) => ({ ...prev, ...patch }));
     if (patch.boardName !== undefined) {
       setProjects((prev) => prev.map((project) => (

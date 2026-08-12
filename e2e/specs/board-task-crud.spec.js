@@ -18,6 +18,7 @@ test.describe("board task CRUD", () => {
 
     await expect(page.getByText(taskTitle)).toBeVisible();
     await page.getByText(taskTitle).click();
+    await page.getByRole("button", { name: /open full view/i }).click();
 
     await expect(modal).toBeVisible();
     await modal.locator('input[placeholder*="Task title"]').fill(updatedTitle);

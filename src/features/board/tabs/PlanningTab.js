@@ -10,6 +10,7 @@ import {
   FaExclamationCircle,
 } from "react-icons/fa";
 import { useApp } from "../../../shared/context/AppContext";
+import { usePermissions } from "../../../shared/context/hooks/usePermissions";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const DEFAULT_VELOCITY_PER_PERSON = 10;
@@ -206,6 +207,8 @@ export default function PlanningTab() {
     projects,
     currentProjectId,
   } = useApp();
+  const { canPerform } = usePermissions();
+  const canEditTask = canPerform("task:edit");
 
   // ── Local state ──────────────────────────────────────────────────────────────
   const [goalDraft, setGoalDraft] = useState(sprint?.goal || "");
@@ -215,8 +218,9 @@ export default function PlanningTab() {
 
   // ── Sync goal draft when sprint changes ──────────────────────────────────────
   const handleGoalBlur = useCallback(() => {
+    if (!canEditTask) return;
     updateSprint({ goal: goalDraft });
-  }, [updateSprint, goalDraft]);
+  }, [canEditTask, updateSprint, goalDraft]);
 
   // ── Derived data ─────────────────────────────────────────────────────────────
   // Current project active tasks
@@ -317,6 +321,7 @@ export default function PlanningTab() {
 
   // ── Actions ──────────────────────────────────────────────────────────────────
   const addToSprint = useCallback((task, sectionId) => {
+    if (!canEditTask) return;
     // Remove from backlog section
     setBacklogSections((prev) =>
       prev.map((s) =>
@@ -333,9 +338,10 @@ export default function PlanningTab() {
         projectId: currentProjectId,
       },
     ]);
-  }, [setBacklogSections, setActiveTasks, currentProjectId]);
+  }, [canEditTask, setBacklogSections, setActiveTasks, currentProjectId]);
 
   const removeFromSprint = useCallback((task) => {
+    if (!canEditTask) return;
     // Remove from active tasks
     setActiveTasks((prev) => prev.filter((t) => t.id !== task.id));
     // Add back to first backlog section (or create one)
@@ -345,7 +351,7 @@ export default function PlanningTab() {
         i !== 0 ? s : { ...s, tasks: [...s.tasks, task] }
       );
     });
-  }, [setActiveTasks, setBacklogSections]);
+  }, [canEditTask, setActiveTasks, setBacklogSections]);
 
   // ── Sprint date helpers ──────────────────────────────────────────────────────
   const formatDate = (dateStr) => {

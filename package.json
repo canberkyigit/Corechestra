@@ -42,6 +42,7 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
+    "test:rules": "firebase emulators:exec --project demo-corechestra --only firestore \"node scripts/test-firestore-rules.cjs\"",
     "e2e": "playwright test",
     "e2e:headed": "playwright test --headed",
     "e2e:install": "playwright install chromium",
@@ -66,6 +67,7 @@
     ]
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.1",
     "@playwright/test": "^1.59.0"
   }
 }
