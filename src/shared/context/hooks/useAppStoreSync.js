@@ -42,7 +42,6 @@ export function useAppStoreSync() {
     darkMode,
     sidebarCollapsed,
     projectsViewMode,
-    densityMode,
     perProjectBoardFilters,
     templateRegistry,
     savedViews,
@@ -89,7 +88,6 @@ export function useAppStoreSync() {
     setDarkMode,
     setSidebarCollapsed,
     setProjectsViewMode,
-    setDensityMode,
     setPerProjectBoardFilters,
     setTemplateRegistry,
     setSavedViews,
@@ -136,7 +134,6 @@ export function useAppStoreSync() {
     darkMode: setDarkMode,
     sidebarCollapsed: setSidebarCollapsed,
     projectsViewMode: setProjectsViewMode,
-    densityMode: setDensityMode,
     perProjectBoardFilters: setPerProjectBoardFilters,
     templateRegistry: setTemplateRegistry,
     savedViews: setSavedViews,
@@ -183,7 +180,6 @@ export function useAppStoreSync() {
     setDarkMode,
     setSidebarCollapsed,
     setProjectsViewMode,
-    setDensityMode,
     setPerProjectBoardFilters,
     setTemplateRegistry,
     setSavedViews,
@@ -257,12 +253,10 @@ export function useAppStoreSync() {
     if (!dbReady) return;
     if (darkMode) document.documentElement.classList.add("dark");
     else document.documentElement.classList.remove("dark");
-    document.documentElement.dataset.density = densityMode;
     try {
       localStorage.setItem("corechestra_dark", darkMode ? "1" : "0");
-      localStorage.setItem("corechestra_density", densityMode);
     } catch (_) {}
-  }, [darkMode, densityMode, dbReady]);
+  }, [darkMode, dbReady]);
 
   useEffect(() => {
     setStorageActor(currentUser || "");
@@ -283,8 +277,8 @@ export function useAppStoreSync() {
 
   useEffect(() => {
     if (!dbReady) return;
-    saveDomain("config", { darkMode, sidebarCollapsed, projectsViewMode, densityMode });
-  }, [darkMode, sidebarCollapsed, projectsViewMode, densityMode, dbReady]);
+    saveDomain("config", { darkMode, sidebarCollapsed, projectsViewMode });
+  }, [darkMode, sidebarCollapsed, projectsViewMode, dbReady]);
 
   useEffect(() => {
     if (!dbReady) return;

@@ -9,9 +9,6 @@ import reportWebVitals from './reportWebVitals';
 if (localStorage.getItem('corechestra_dark') === '1') {
   document.documentElement.classList.add('dark');
 }
-document.documentElement.dataset.density = localStorage.getItem('corechestra_density') || 'comfortable';
-
-
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>

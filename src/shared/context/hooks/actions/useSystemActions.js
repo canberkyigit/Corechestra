@@ -43,7 +43,6 @@ export function useSystemActions({
   setDarkMode,
   setSidebarCollapsed,
   setProjectsViewMode,
-  setDensityMode,
   setPerProjectBoardFilters,
   setTemplateRegistry,
   setSavedViews,
@@ -96,7 +95,6 @@ export function useSystemActions({
     setDarkMode(false);
     setSidebarCollapsed(false);
     setProjectsViewMode("grid");
-    setDensityMode("comfortable");
     setPerProjectBoardFilters({});
     setTemplateRegistry(DEFAULT_TEMPLATE_REGISTRY);
     setSavedViews({ board: [], docs: [], releases: [], tests: [] });
@@ -137,7 +135,6 @@ export function useSystemActions({
     setCurrentUser,
     setDarkMode,
     setDeletedUserIds,
-    setDensityMode,
     setDocPages,
     setEpics,
     setGlobalActivityLog,

@@ -108,8 +108,6 @@ function createAppMock(overrides = {}) {
     backlogSections: [],
     darkMode: false,
     setDarkMode: jest.fn(),
-    densityMode: "comfortable",
-    setDensityMode: jest.fn(),
     users: [],
     createUser: jest.fn(),
     updateUser: jest.fn(),

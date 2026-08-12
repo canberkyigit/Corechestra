@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   FaSearch, FaTimes, FaCheckSquare, FaBug, FaPlusSquare, FaExclamationCircle,
   FaUser, FaRocket, FaFlag, FaPlay, FaRegDotCircle, FaColumns,
-  FaTachometerAlt, FaChartBar, FaCalendarAlt, FaShieldAlt, FaLayerGroup, FaStream, FaMoon, FaCompressAlt, FaBook,
+  FaTachometerAlt, FaChartBar, FaCalendarAlt, FaShieldAlt, FaLayerGroup, FaStream, FaMoon, FaBook,
 } from "react-icons/fa";
 import { useApp } from "../context/AppContext";
 
@@ -48,8 +48,8 @@ const PAGES = [
   { id: "activity",  label: "Activity",   icon: FaStream        },
 ];
 
-export default function CommandPalette({ open, onClose, onOpenTask, onNavigate, onCreateTask, onToggleDark, onToggleDensity }) {
-  const { activeTasks, backlogSections, epics, docPages, releases, testSuites, recentItems, darkMode, densityMode } = useApp();
+export default function CommandPalette({ open, onClose, onOpenTask, onNavigate, onCreateTask, onToggleDark }) {
+  const { activeTasks, backlogSections, epics, docPages, releases, testSuites, recentItems, darkMode } = useApp();
   const [query, setQuery]       = useState("");
   const [cursor, setCursor]     = useState(0);
   const inputRef                = useRef(null);
@@ -100,11 +100,10 @@ export default function CommandPalette({ open, onClose, onOpenTask, onNavigate, 
     const actionHits = [
       { kind: "action", id: "create-task", title: "Create task", icon: FaPlusSquare, run: onCreateTask },
       { kind: "action", id: "toggle-dark", title: darkMode ? "Switch to light mode" : "Switch to dark mode", icon: FaMoon, run: onToggleDark },
-      { kind: "action", id: "toggle-density", title: densityMode === "comfortable" ? "Switch to compact density" : "Switch to comfortable density", icon: FaCompressAlt, run: onToggleDensity },
     ].filter((action) => action.title.toLowerCase().includes(q));
 
     return [...actionHits, ...taskHits, ...docHits, ...releaseHits, ...suiteHits, ...epicHits, ...pageHits];
-  }, [query, activeTasks, allBacklogTasks, epics, docPages, releases, testSuites, onCreateTask, darkMode, onToggleDark, densityMode, onToggleDensity]);
+  }, [query, activeTasks, allBacklogTasks, epics, docPages, releases, testSuites, onCreateTask, darkMode, onToggleDark]);
 
   // Keyboard navigation
   useEffect(() => {
