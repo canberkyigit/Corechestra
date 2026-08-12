@@ -48,25 +48,31 @@ export function HRProvider({ children }) {
 
     const userRef = doc(db, "hrData", user.uid);
     const unsubUser = onSnapshot(userRef, async (snap) => {
-      if (snap.exists()) {
-        const d = snap.data();
-        setTimeOffRequests(d.timeOffRequests || []);
-        setTimeEntries(d.timeEntries     || []);
-        setDocuments(d.documents?.length ? d.documents : DEFAULT_HR_DOCUMENTS);
-        setEmployeeProfile(d.employeeProfile || {});
-        setExpenses(d.expenses || []);
-        setBankAccounts(d.bankAccounts || []);
-      } else {
-        // First-time init
-        await setDoc(userRef, {
-          timeOffRequests: [],
-          timeEntries:     [],
-          documents:       DEFAULT_HR_DOCUMENTS,
-          employeeProfile: {},
-          expenses:        [],
-          bankAccounts:    [],
-        });
+      try {
+        if (snap.exists()) {
+          const d = snap.data();
+          setTimeOffRequests(d.timeOffRequests || []);
+          setTimeEntries(d.timeEntries     || []);
+          setDocuments(d.documents?.length ? d.documents : DEFAULT_HR_DOCUMENTS);
+          setEmployeeProfile(d.employeeProfile || {});
+          setExpenses(d.expenses || []);
+          setBankAccounts(d.bankAccounts || []);
+        } else {
+          // First-time init
+          await setDoc(userRef, {
+            timeOffRequests: [],
+            timeEntries:     [],
+            documents:       DEFAULT_HR_DOCUMENTS,
+            employeeProfile: {},
+            expenses:        [],
+            bankAccounts:    [],
+          });
+        }
+      } catch (err) {
+        console.warn("[HRContext] user data sync failed:", err.code || err.message);
       }
+    }, (err) => {
+      console.warn("[HRContext] user data listener failed:", err.code || err.message);
     });
 
     // Shared absences (all users)
@@ -78,6 +84,8 @@ export function HRProvider({ children }) {
       setOnboardingWorkflows(data.onboardingWorkflows || []);
       setPerformanceNotes(data.performanceNotes || []);
       setProjectAllocations(data.projectAllocations || []);
+    }, (err) => {
+      console.warn("[HRContext] shared data listener failed:", err.code || err.message);
     });
 
     // Shared hiring pipeline (all users)
