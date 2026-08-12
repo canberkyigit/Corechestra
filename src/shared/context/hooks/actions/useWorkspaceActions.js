@@ -1,7 +1,5 @@
-/* eslint-disable react-hooks/exhaustive-deps */
-import { useCallback, useRef } from "react";
+import { useCallback } from "react";
 import { DEFAULT_BOARD_SETTINGS, DEFAULT_COLUMNS } from "../../AppSeeds";
-import { usePermissions } from "../usePermissions";
 
 export function useWorkspaceActions({
   currentProjectId,
@@ -24,11 +22,7 @@ export function useWorkspaceActions({
   addNotification,
   logAuditEvent,
 }) {
-  const permissionCheckRef = useRef(null);
-  permissionCheckRef.current = usePermissions().canPerform;
-  const canPerform = useCallback((permission) => permissionCheckRef.current(permission), []);
   const createProject = useCallback((data) => {
-    if (!canPerform("project:manage")) return null;
     const id = `proj-${Date.now()}`;
     const defaultTemplates = workspaceSettings?.defaultTemplates || {};
     const defaultProjectWorkflow = workspaceSettings?.defaultProjectWorkflow || {};
@@ -112,7 +106,6 @@ export function useWorkspaceActions({
   ]);
 
   const updateProject = useCallback((updated) => {
-    if (!canPerform("project:manage")) return;
     setProjects((prev) => prev.map((project) => (
       project.id === updated.id ? updated : project
     )));
@@ -133,7 +126,6 @@ export function useWorkspaceActions({
   }, [logAuditEvent, setPerProjectBoardSettings, setProjects]);
 
   const deleteProject = useCallback((projectId) => {
-    if (!canPerform("project:manage")) return;
     const project = projects.find((item) => item.id === projectId);
     setProjects((prev) => prev.filter((item) => item.id !== projectId));
     if (project) {
@@ -149,7 +141,6 @@ export function useWorkspaceActions({
   }, [addNotification, logAuditEvent, projects, setProjects]);
 
   const createTeam = useCallback((data) => {
-    if (!canPerform("team:manage")) return null;
     const id = `team-${Date.now()}`;
     setTeams((prev) => [...prev, { ...data, id }]);
     logAuditEvent?.("team_created", {
@@ -161,7 +152,6 @@ export function useWorkspaceActions({
   }, [logAuditEvent, setTeams]);
 
   const updateTeam = useCallback((updated) => {
-    if (!canPerform("team:manage")) return;
     setTeams((prev) => prev.map((team) => (
       team.id === updated.id ? updated : team
     )));
@@ -174,7 +164,6 @@ export function useWorkspaceActions({
   }, [logAuditEvent, setTeams]);
 
   const deleteTeam = useCallback((teamId) => {
-    if (!canPerform("team:manage")) return;
     setTeams((prev) => prev.filter((team) => team.id !== teamId));
     logAuditEvent?.("team_deleted", {
       entityType: "team",
@@ -185,7 +174,6 @@ export function useWorkspaceActions({
   }, [logAuditEvent, setTeams]);
 
   const createUser = useCallback((data) => {
-    if (!canPerform("user:invite")) return null;
     const id = data.id || `user-${Date.now()}`;
     let created = false;
     setUsers((prev) => {
@@ -210,7 +198,6 @@ export function useWorkspaceActions({
   }, [logAuditEvent, setUsers]);
 
   const updateUser = useCallback((updated) => {
-    if (!canPerform("user:manage") && !canPerform("role:manage")) return;
     setUsers((prev) => prev.map((user) => (
       user.id === updated.id ? updated : user
     )));
@@ -223,7 +210,6 @@ export function useWorkspaceActions({
   }, [logAuditEvent, setUsers]);
 
   const deleteUser = useCallback((userId) => {
-    if (!canPerform("user:manage")) return;
     setUsers((prev) => prev.filter((user) => user.id !== userId));
     setDeletedUserIds((prev) => (
       prev.includes(userId) ? prev : [...prev, userId]
@@ -237,7 +223,6 @@ export function useWorkspaceActions({
   }, [logAuditEvent, setDeletedUserIds, setUsers]);
 
   const updateSprintDefaults = useCallback((patch) => {
-    if (!canPerform("project:manage")) return;
     setSprintDefaults((prev) => ({ ...prev, ...patch }));
     logAuditEvent?.("sprint_defaults_updated", {
       entityType: "workspace",

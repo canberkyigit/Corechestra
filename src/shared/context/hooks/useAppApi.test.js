@@ -3,18 +3,9 @@ import { useApp } from "./useAppApi";
 import { resetAppStore, useAppStore } from "../../store/useAppStore";
 
 const mockClearAllDomains = jest.fn();
-const mockCanPerform = jest.fn(() => true);
 
 jest.mock("../../services/storage", () => ({
   clearAllDomains: (...args) => mockClearAllDomains(...args),
-}));
-
-jest.mock("./usePermissions", () => ({
-  usePermissions: () => ({
-    role: "admin",
-    canAccessModule: () => true,
-    canPerform: (...args) => mockCanPerform(...args),
-  }),
 }));
 
 describe("useApp", () => {
@@ -22,30 +13,6 @@ describe("useApp", () => {
     resetAppStore();
     mockClearAllDomains.mockReset();
     mockClearAllDomains.mockResolvedValue(true);
-    mockCanPerform.mockReset();
-    mockCanPerform.mockReturnValue(true);
-  });
-
-  it("blocks task mutations when the current permission set is read-only", () => {
-    mockCanPerform.mockReturnValue(false);
-    act(() => {
-      useAppStore.setState({
-        activeTasks: [{ id: "task-locked", title: "Locked task", status: "todo" }],
-        archivedTasks: [],
-      });
-    });
-    const { result } = renderHook(() => useApp());
-
-    act(() => {
-      result.current.createTask({ title: "Blocked create" }, "active");
-      result.current.updateTask({ id: "task-locked", title: "Blocked edit", status: "done" });
-      result.current.deleteTask("task-locked");
-    });
-
-    expect(useAppStore.getState().activeTasks).toEqual([
-      expect.objectContaining({ id: "task-locked", title: "Locked task", status: "todo" }),
-    ]);
-    expect(useAppStore.getState().archivedTasks).toEqual([]);
   });
 
   it("creates a task in the active sprint and records activity + notification", () => {
@@ -476,7 +443,7 @@ describe("useApp", () => {
     expect(state.currentUser).toBe("");
     expect(state.activeTasks).toEqual([]);
     expect(state.notifications).toEqual([]);
-    expect(state.darkMode).toBe(true);
+    expect(state.darkMode).toBe(false);
     expect(state.dbReady).toBe(false);
   });
 

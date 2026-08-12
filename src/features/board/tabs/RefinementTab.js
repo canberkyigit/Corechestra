@@ -3,7 +3,6 @@ import { taskKey } from "../../../shared/utils/helpers";
 import { FaPlay, FaSearch } from "react-icons/fa";
 import { useApp } from "../../../shared/context/AppContext";
 import { TYPE_OPTIONS } from "../constants/taskOptions";
-import { usePermissions } from "../../../shared/context/hooks/usePermissions";
 
 const TYPE_COLORS = {
   feature: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400",
@@ -137,8 +136,6 @@ function TaskEstimationRow({ task, onTaskClick, onPokerClick, onSpUpdate }) {
 // ── Main ─────────────────────────────────────────────────────────────────────
 export default function RefinementTab({ onTaskClick, onPokerClick }) {
   const { activeTasks, setActiveTasks, backlogSections, setBacklogSections, pokerHistory, currentProjectId } = useApp();
-  const { canPerform } = usePermissions();
-  const canEditTask = canPerform("task:edit");
 
   const [typeFilter,    setTypeFilter]    = useState("");
   const [search,        setSearch]        = useState("");
@@ -184,7 +181,6 @@ export default function RefinementTab({ onTaskClick, onPokerClick }) {
   }, [allTasksForEstimation, typeFilter, search, sortBy, hideEstimated]);
 
   const handleSpUpdate = (taskId, source, newSp) => {
-    if (!canEditTask) return;
     const upd = (tasks) => tasks.map((t) => t.id === taskId ? { ...t, storyPoint: newSp } : t);
     if (source === "active") {
       setActiveTasks((prev) => upd(prev));

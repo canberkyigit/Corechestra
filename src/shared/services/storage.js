@@ -1,6 +1,5 @@
-import { doc, getDoc, setDoc, onSnapshot } from "firebase/firestore";
+import { doc, getDoc, setDoc, deleteDoc, onSnapshot } from "firebase/firestore";
 import { db } from "./firebase";
-import { persistWorkspaceDomain, resetWorkspaceData } from "./adminFunctions";
 import {
   E2E_DOMAINS_KEY,
   isE2EMode,
@@ -11,7 +10,6 @@ import {
 
 // ── Firestore domain structure ──────────────────────────────────────────────
 const COLLECTION = "appData";
-const PREFERENCES_COLLECTION = "userPreferences";
 const SHOULD_LOG_STORAGE_DIAGNOSTICS = process.env.NODE_ENV !== "production" && process.env.NODE_ENV !== "test";
 
 function emitStorageError(message) {
@@ -139,7 +137,10 @@ function mergeConflictArray(baseArray, remoteArray, localArray) {
 }
 
 export const DOMAIN_FIELDS = {
-  config:    ["sprintDefaults", "templateRegistry", "permissionMatrix", "workspaceSettings", "sensitiveActionPolicy"],
+  config:    ["currentUser", "currentProjectId", "sprintDefaults",
+              "darkMode", "sidebarCollapsed", "projectsViewMode", "perProjectBoardFilters", "templateRegistry",
+              "savedViews", "recentItems", "favoriteItems", "pinnedItems", "notificationPreferences",
+              "permissionMatrix", "workspaceSettings", "sensitiveActionPolicy"],
   entities:  ["projects", "teams", "users", "epics", "labels", "deletedUserIds"],
   tasks:     ["activeTasks", "perProjectBacklog"],
   sprints:   ["perProjectSprint", "projectColumns", "perProjectBoardSettings",
@@ -152,22 +153,9 @@ export const DOMAIN_FIELDS = {
   archive:   ["archivedTasks", "archivedProjects", "archivedEpics"],
 };
 
-export const PREFERENCE_FIELDS = [
-  "currentProjectId",
-  "darkMode",
-  "sidebarCollapsed",
-  "projectsViewMode",
-  "perProjectBoardFilters",
-  "savedViews",
-  "recentItems",
-  "favoriteItems",
-  "pinnedItems",
-  "notificationPreferences",
-];
-
 // ── Load all domains (one-time, for initial hydration) ──────────────────────
 
-export async function loadAllDomains(userId = null) {
+export async function loadAllDomains() {
   if (isE2EMode()) {
     try {
       const rawDomains = readE2EDomains();
@@ -185,15 +173,6 @@ export async function loadAllDomains(userId = null) {
           if (data[field] !== undefined) merged[field] = data[field];
         });
       });
-
-      const preferences = userId ? rawDomains[`preferences:${userId}`] : null;
-      if (preferences) {
-        hasData = true;
-        _lastKnownPreferences = stripMeta(preferences);
-        PREFERENCE_FIELDS.forEach((field) => {
-          if (preferences[field] !== undefined) merged[field] = preferences[field];
-        });
-      }
 
       return hasData ? merged : null;
     } catch (e) {
@@ -224,20 +203,6 @@ export async function loadAllDomains(userId = null) {
         });
       }
     });
-
-    if (userId) {
-      const preferenceSnap = await getDoc(doc(db, PREFERENCES_COLLECTION, userId));
-      const preferenceData = preferenceSnap.exists() ? preferenceSnap.data() : null;
-      if (preferenceData) _lastKnownPreferences = stripMeta(preferenceData);
-      const legacyConfig = snaps[domains.indexOf("config")]?.data?.() || {};
-      const source = preferenceData || legacyConfig;
-      PREFERENCE_FIELDS.forEach((field) => {
-        if (source[field] !== undefined) {
-          hasData = true;
-          merged[field] = source[field];
-        }
-      });
-    }
 
     if (hasData) return merged;
 
@@ -276,28 +241,13 @@ const _lastKnownDomainData = {};
 const _pendingDomainData = {};
 const _pendingBaseData = {};
 let _storageActor = "";
-let _storageRole = "admin";
 
-let _preferenceTimer = null;
-let _lastKnownPreferences = {};
-let _pendingPreferences = {};
-
-export function setStorageActor(actor, role = "admin") {
+export function setStorageActor(actor) {
   _storageActor = actor || "";
-  _storageRole = role || "viewer";
 }
 
 export function saveDomain(domain, data) {
-  if (_storageRole === "viewer") return;
   const clean = cloneData(data);
-  // These controls use an immediate, audited, acknowledgement-based callable
-  // from WorkspaceTab. Do not duplicate them through the generic debounce.
-  if (domain === "config" && !isE2EMode()) {
-    delete clean.permissionMatrix;
-    delete clean.workspaceSettings;
-    delete clean.sensitiveActionPolicy;
-    if (Object.keys(clean).length === 0) return;
-  }
   if (!_pendingBaseData[domain]) {
     _pendingBaseData[domain] = cloneData(_lastKnownDomainData[domain] || {});
   }
@@ -431,13 +381,19 @@ export function saveDomain(domain, data) {
           },
         });
       } else {
-        const result = await persistWorkspaceDomain(domain, changedFields);
-        _lastWriteTs[domain] = result?._updatedAt || ts;
-        _lastRemoteVersion[domain] = result?._version || ((_lastRemoteVersion[domain] || 0) + 1);
+        await setDoc(
+          doc(db, COLLECTION, domain),
+          {
+            ...changedFields,
+            _updatedAt: ts,
+            _updatedBy: _storageActor || null,
+            _version: ((_lastRemoteVersion[domain] || 0) + 1),
+            _lastMutationId: `${domain}-${ts}`,
+          },
+          { merge: true }
+        );
       }
-      if (isE2EMode()) {
-        _lastRemoteVersion[domain] = (_lastRemoteVersion[domain] || 0) + 1;
-      }
+      _lastRemoteVersion[domain] = (_lastRemoteVersion[domain] || 0) + 1;
       _lastKnownDomainData[domain] = {
         ...known,
         ...changedFields,
@@ -450,77 +406,6 @@ export function saveDomain(domain, data) {
       delete _pendingBaseData[domain];
     }
   }, 1500);
-}
-
-export function saveUserPreferences(userId, data) {
-  if (!userId) return;
-  const clean = cloneData(data);
-  _pendingPreferences = { ..._pendingPreferences, ...clean };
-
-  clearTimeout(_preferenceTimer);
-  _preferenceTimer = setTimeout(async () => {
-    const changedFields = {};
-    PREFERENCE_FIELDS.forEach((field) => {
-      if (_pendingPreferences[field] === undefined) return;
-      if (!isEqualValue(_lastKnownPreferences[field], _pendingPreferences[field])) {
-        changedFields[field] = _pendingPreferences[field];
-      }
-    });
-
-    _pendingPreferences = {};
-    if (Object.keys(changedFields).length === 0) return;
-
-    const updatedAt = Date.now();
-    try {
-      if (isE2EMode()) {
-        const domains = readE2EDomains();
-        const key = `preferences:${userId}`;
-        writeE2EDomains({
-          ...domains,
-          [key]: { ...(domains[key] || {}), ...changedFields, _updatedAt: updatedAt },
-        });
-      } else {
-        await setDoc(
-          doc(db, PREFERENCES_COLLECTION, userId),
-          { ...changedFields, _updatedAt: updatedAt },
-          { merge: true }
-        );
-      }
-      _lastKnownPreferences = { ..._lastKnownPreferences, ...changedFields };
-    } catch (error) {
-      logStorageDiagnostic("warn", "[Firestore] user preferences save failed:", error.message);
-      emitStorageError("Failed to save your personal preferences.");
-    }
-  }, 1000);
-}
-
-export function subscribeToUserPreferences(userId, onUpdate) {
-  if (!userId) return () => {};
-
-  if (isE2EMode()) {
-    const applyPreferences = () => {
-      const data = readE2EDomains()[`preferences:${userId}`];
-      if (!data) return;
-      _lastKnownPreferences = stripMeta(data);
-      PREFERENCE_FIELDS.forEach((field) => {
-        if (data[field] !== undefined) onUpdate(field, data[field]);
-      });
-    };
-    applyPreferences();
-    return subscribeE2EKey(E2E_DOMAINS_KEY, applyPreferences);
-  }
-
-  return onSnapshot(doc(db, PREFERENCES_COLLECTION, userId), (snapshot) => {
-    if (!snapshot.exists()) return;
-    const data = snapshot.data();
-    _lastKnownPreferences = stripMeta(data);
-    PREFERENCE_FIELDS.forEach((field) => {
-      if (data[field] !== undefined) onUpdate(field, data[field]);
-    });
-  }, (error) => {
-    logStorageDiagnostic("warn", "[Firestore] user preferences listener failed:", error.message);
-    emitStorageError("Failed to sync your personal preferences.");
-  });
 }
 
 // ── Real-time listeners ─────────────────────────────────────────────────────
@@ -596,10 +481,7 @@ export function subscribeToAll(onUpdate) {
 export async function clearAllDomains() {
   if (isE2EMode()) {
     try {
-      const preferences = Object.fromEntries(
-        Object.entries(readE2EDomains()).filter(([key]) => key.startsWith("preferences:"))
-      );
-      writeE2EDomains(preferences);
+      writeE2EDomains({});
       Object.keys(DOMAIN_FIELDS).forEach((domain) => {
         clearTimeout(_timers[domain]);
         delete _timers[domain];
@@ -620,8 +502,9 @@ export async function clearAllDomains() {
 
   try {
     Object.keys(DOMAIN_FIELDS).forEach((domain) => clearTimeout(_timers[domain]));
-    await resetWorkspaceData();
-    localStorage.removeItem("corechestra_v1");
+    await Promise.all(
+      Object.keys(DOMAIN_FIELDS).map((d) => deleteDoc(doc(db, COLLECTION, d)))
+    );
     Object.keys(DOMAIN_FIELDS).forEach((domain) => {
       delete _timers[domain];
       delete _lastWriteTs[domain];

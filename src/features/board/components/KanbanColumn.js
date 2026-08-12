@@ -3,7 +3,6 @@ import TaskCard from "./TaskCard";
 import { Draggable, Droppable } from "@hello-pangea/dnd";
 import { FaPlus, FaTimes, FaInbox, FaChevronLeft } from "react-icons/fa";
 import { useApp } from "../../../shared/context/AppContext";
-import { usePermissions } from "../../../shared/context/hooks/usePermissions";
 
 const COLUMN_COLORS = {
   todo: { dot: "bg-slate-400", header: "text-slate-600" },
@@ -28,9 +27,6 @@ export default function KanbanColumn({
   onToggleCollapse,
 }) {
   const { createTask } = useApp();
-  const { canPerform } = usePermissions();
-  const canCreateTask = canPerform("task:create");
-  const canEditTask = canPerform("task:edit");
   const [inlineOpen, setInlineOpen] = useState(false);
   const [inlineTitle, setInlineTitle] = useState("");
   const TASKS_PER_PAGE = 20;
@@ -39,7 +35,6 @@ export default function KanbanColumn({
   const colors = COLUMN_COLORS[columnId] || { dot: "bg-slate-400", header: "text-slate-600" };
 
   const handleInlineCreate = () => {
-    if (!canCreateTask) return;
     if (!inlineTitle.trim()) { setInlineOpen(false); return; }
     createTask({ title: inlineTitle.trim(), status: columnId, priority: "medium", type: "task", description: "" }, "active");
     setInlineTitle("");
@@ -90,13 +85,13 @@ export default function KanbanColumn({
             <FaChevronLeft className="w-3 h-3" />
           </button>
         )}
-        {canCreateTask && <button
+        <button
           className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-slate-200 dark:hover:bg-[#2a3044] text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-all"
           onClick={() => { setInlineOpen(true); setInlineTitle(""); }}
           title="Add task"
         >
           <FaPlus className="w-3 h-3" />
-        </button>}
+        </button>
       </div>
 
       {/* Drop zone */}
@@ -113,8 +108,8 @@ export default function KanbanColumn({
           >
             {tasks.length === 0 && !inlineOpen && (
               <div
-                className={`flex-1 min-h-[220px] flex flex-col items-center justify-center border-2 border-dashed border-slate-200 dark:border-[#2a3044] rounded-xl transition-all group ${canCreateTask ? "cursor-pointer hover:border-blue-300 dark:hover:border-blue-600 hover:bg-blue-50/40 dark:hover:bg-blue-900/10" : "cursor-default"}`}
-                onClick={() => { if (canCreateTask) { setInlineOpen(true); setInlineTitle(""); } }}
+                className="flex-1 min-h-[220px] flex flex-col items-center justify-center border-2 border-dashed border-slate-200 dark:border-[#2a3044] rounded-xl cursor-pointer hover:border-blue-300 dark:hover:border-blue-600 hover:bg-blue-50/40 dark:hover:bg-blue-900/10 transition-all group"
+                onClick={() => { setInlineOpen(true); setInlineTitle(""); }}
               >
                 <FaInbox className="w-5 h-5 text-slate-300 dark:text-slate-600 group-hover:text-blue-400 transition-colors mb-1.5" />
                 <span className="text-xs text-slate-400 dark:text-slate-500 group-hover:text-blue-500 transition-colors">Drop or add a task</span>
@@ -122,7 +117,7 @@ export default function KanbanColumn({
             )}
 
             {tasks.slice(0, visibleCount).map((task, idx) => (
-              <Draggable draggableId={task.id} index={idx} key={task.id} isDragDisabled={!canEditTask}>
+              <Draggable draggableId={task.id} index={idx} key={task.id}>
                 {(provided, snapshot) => (
                   <div
                     ref={provided.innerRef}

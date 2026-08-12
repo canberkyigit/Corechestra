@@ -1,16 +1,10 @@
 import { useCallback } from "react";
-import { usePermissions } from "../usePermissions";
 
 export function useDocsActions({
   currentUser,
   setSpaces,
   setDocPages,
 }) {
-  const { role, canAccessModule } = usePermissions();
-  const canMutateDocs = role !== "viewer" && canAccessModule("docs");
-  const guardMutation = (callback) => (...args) => (
-    canMutateDocs ? callback(...args) : undefined
-  );
   const createSpace = useCallback((data) => {
     const now = new Date().toISOString();
     const id = `space-${Date.now()}`;
@@ -112,14 +106,14 @@ export function useDocsActions({
   }, [setDocPages]);
 
   return {
-    createSpace: guardMutation(createSpace),
-    updateSpace: guardMutation(updateSpace),
-    deleteSpace: guardMutation(deleteSpace),
-    createDocPage: guardMutation(createDocPage),
-    updateDocPage: guardMutation(updateDocPage),
-    deleteDocPage: guardMutation(deleteDocPage),
-    moveDocPage: guardMutation(moveDocPage),
-    addDocComment: guardMutation(addDocComment),
-    deleteDocComment: guardMutation(deleteDocComment),
+    createSpace,
+    updateSpace,
+    deleteSpace,
+    createDocPage,
+    updateDocPage,
+    deleteDocPage,
+    moveDocPage,
+    addDocComment,
+    deleteDocComment,
   };
 }

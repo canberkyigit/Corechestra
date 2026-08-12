@@ -6,10 +6,6 @@ jest.mock("../../../shared/context/AppContext", () => ({
   useApp: jest.fn(),
 }));
 
-jest.mock("../../../shared/context/hooks/usePermissions", () => ({
-  usePermissions: () => ({ canPerform: () => true }),
-}));
-
 const { useApp } = jest.requireMock("../../../shared/context/AppContext");
 
 describe("PlanningTab", () => {

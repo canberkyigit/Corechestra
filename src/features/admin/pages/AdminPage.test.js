@@ -7,7 +7,6 @@ const mockUseAuth = jest.fn();
 const mockUsePermissions = jest.fn();
 const mockGetDocs = jest.fn();
 const mockUpdateDoc = jest.fn();
-const mockChangeWorkspaceUserRole = jest.fn();
 const mockCollection = jest.fn();
 const mockDoc = jest.fn();
 
@@ -25,14 +24,6 @@ jest.mock("../../../shared/context/hooks/usePermissions", () => ({
 
 jest.mock("../../../shared/services/firebase", () => ({
   db: { __type: "mock-db" },
-}));
-
-jest.mock("../../../shared/services/adminFunctions", () => ({
-  changeWorkspaceUserRole: (...args) => mockChangeWorkspaceUserRole(...args),
-  changeWorkspaceUserStatus: jest.fn(),
-  getAdminActionMessage: (error, fallback) => error?.message || fallback,
-  inviteWorkspaceUser: jest.fn(),
-  removeWorkspaceUser: jest.fn(),
 }));
 
 jest.mock("firebase/firestore", () => ({
@@ -72,7 +63,7 @@ function createAppMock(overrides = {}) {
 describe("AdminPage", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockUseAuth.mockReturnValue({ user: { uid: "uid-1", email: "alice@example.com" }, isAdmin: true });
+    mockUseAuth.mockReturnValue({ user: { uid: "uid-1", email: "alice@example.com" } });
     mockUsePermissions.mockReturnValue({
       canPerform: () => true,
       canAccessPage: () => true,
@@ -91,7 +82,6 @@ describe("AdminPage", () => {
       ],
     });
     mockUpdateDoc.mockResolvedValue(undefined);
-    mockChangeWorkspaceUserRole.mockResolvedValue({ success: true });
   });
 
   it("locks the current user in the access tab and lets admins change another user's role", async () => {
@@ -108,7 +98,10 @@ describe("AdminPage", () => {
     fireEvent.change(screen.getByTestId("access-role-toggle-uid-2"), { target: { value: "admin" } });
 
     await waitFor(() => {
-      expect(mockChangeWorkspaceUserRole).toHaveBeenCalledWith("uid-2", "admin", "");
+      expect(mockUpdateDoc).toHaveBeenCalledWith(
+        { db: { __type: "mock-db" }, collectionName: "users", id: "uid-2" },
+        { role: "admin" }
+      );
     });
     expect(appMock.updateUser).toHaveBeenCalledWith(expect.objectContaining({
       id: "uid-2",
