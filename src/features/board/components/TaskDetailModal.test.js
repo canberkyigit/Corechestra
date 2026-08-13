@@ -180,6 +180,29 @@ describe("TaskDetailModal", () => {
     expect(onTaskUpdate).not.toHaveBeenCalled();
   });
 
+  it("links a related task from the inline links section without crashing", () => {
+    const { onTaskUpdate } = renderModal({
+      allTasks: [{ id: 44, title: "Auth bug", type: "bug" }],
+    });
+
+    fireEvent.click(screen.getByText(/^\+ Link a related task$/i));
+    fireEvent.change(screen.getByPlaceholderText(/Search tasks by name or CY-/i), {
+      target: { value: "auth" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Auth bug/i }));
+
+    expect(screen.getByText("Auth bug")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Save Changes/i }));
+    expect(onTaskUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      linkedItems: [expect.objectContaining({
+        targetType: "task",
+        targetId: 44,
+        relationship: "relates to",
+      })],
+    }));
+  });
+
   it("supports cross-linking docs, releases and test cases from the links tab", () => {
     renderModal({
       allTasks: [{ id: 44, title: "Auth bug", type: "bug" }],

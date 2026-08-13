@@ -18,6 +18,7 @@ import { useApp } from "../../../shared/context/AppContext";
 import { useAuth } from "../../../shared/context/AuthContext";
 import { useToast } from "../../../shared/context/ToastContext";
 import { taskSchema } from "../../../shared/schemas";
+import { getEntityTypeMeta } from "../../../shared/constants/entityMeta";
 import { AppButton } from "../../../shared/components/AppPrimitives";
 import SubtaskDetailPanel from "./SubtaskDetailPanel";
 import { format, parseISO } from "date-fns";
@@ -618,15 +619,15 @@ export default function TaskDetailModal({
                         </div>
                         {linkSearchResults.length > 0 && (
                           <div className="border border-slate-200 dark:border-[#2a3044] rounded-lg bg-white dark:bg-[#1c2030] divide-y divide-slate-100 dark:divide-[#2a3044] max-h-32 overflow-y-auto">
-                            {linkSearchResults.map((t) => {
-                              const tInfo = TYPE_OPTIONS.find((o) => o.value === t.type) || TYPE_OPTIONS[0];
-                              const TIcon = tInfo.icon;
+                            {linkSearchResults.map((entity) => {
+                              const entityMeta = getEntityTypeMeta(entity.type);
+                              const EntityIcon = entityMeta.icon;
                               return (
-                                <button key={t.id} className="w-full flex items-center gap-2 px-3 py-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-left transition-colors"
-                                  onClick={() => handleAddLink(t.id)}>
-                                  <TIcon className={`w-3 h-3 flex-shrink-0 ${tInfo.color}`} />
-                                  <span className="text-xs font-mono text-slate-400 flex-shrink-0">{taskKey(t.id)}</span>
-                                  <span className="text-xs text-slate-700 dark:text-slate-300 flex-1 truncate">{t.title}</span>
+                                <button key={`${entity.type}-${entity.id}`} className="w-full flex items-center gap-2 px-3 py-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-left transition-colors"
+                                  onClick={() => handleAddLink(entity)}>
+                                  <EntityIcon className={`w-3 h-3 flex-shrink-0 ${entityMeta.color}`} />
+                                  <span className="text-xs font-mono text-slate-400 flex-shrink-0">{entity.key || taskKey(entity.id)}</span>
+                                  <span className="text-xs text-slate-700 dark:text-slate-300 flex-1 truncate">{entity.title}</span>
                                 </button>
                               );
                             })}
@@ -641,14 +642,14 @@ export default function TaskDetailModal({
                         {Object.entries(linkedByRelationship).map(([rel, items]) => (
                           <div key={rel}>
                             <div className="px-3 py-1.5 text-xs text-slate-400 italic border-b border-slate-50 dark:border-[#2a3044] bg-slate-50/50 dark:bg-[#1a1f2e]/30">{rel}</div>
-                            {items.map(({ id: linkId, linkedTask }) => {
-                              const ltInfo = TYPE_OPTIONS.find((o) => o.value === linkedTask.type) || TYPE_OPTIONS[0];
-                              const LTIcon = ltInfo.icon;
+                            {items.map(({ id: linkId, linkedEntity }) => {
+                              const entityMeta = getEntityTypeMeta(linkedEntity.type);
+                              const EntityIcon = entityMeta.icon;
                               return (
                                 <div key={linkId} className="flex items-center gap-2 px-3 py-2 border-b border-slate-50 dark:border-[#2a3044] last:border-0 hover:bg-slate-50 dark:hover:bg-[#232838] group">
-                                  <LTIcon className={`w-3.5 h-3.5 flex-shrink-0 ${ltInfo.color}`} />
-                                  <span className="text-xs font-mono text-slate-400 flex-shrink-0">{taskKey(linkedTask.id)}</span>
-                                  <span className="text-sm text-slate-700 dark:text-slate-300 flex-1 truncate">{linkedTask.title}</span>
+                                  <EntityIcon className={`w-3.5 h-3.5 flex-shrink-0 ${entityMeta.color}`} />
+                                  <span className="text-xs font-mono text-slate-400 flex-shrink-0">{linkedEntity.key || taskKey(linkedEntity.id)}</span>
+                                  <span className="text-sm text-slate-700 dark:text-slate-300 flex-1 truncate">{linkedEntity.title}</span>
                                   <button className="opacity-0 group-hover:opacity-100 p-0.5 text-slate-300 hover:text-red-500 transition-all" onClick={() => handleRemoveLink(linkId)}>
                                     <FaTimes className="w-2.5 h-2.5" />
                                   </button>

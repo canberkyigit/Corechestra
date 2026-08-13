@@ -27,3 +27,11 @@ yarn-error.log*
 
 # Playwright MCP artifacts
 .playwright-mcp/
+
+# Local agent instructions
+AGENTS.md
+
+# Generated artifacts and temporary work
+output/
+test-results/
+tmp/
