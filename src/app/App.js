@@ -9,6 +9,7 @@ import LoginPage from "../features/auth/pages/LoginPage";
 import Logo from "../shared/components/Logo";
 import { AppProvider, useApp } from "../shared/context/AppContext";
 import { ToastProvider } from "../shared/context/ToastContext";
+import { ConfirmProvider } from "../shared/context/ConfirmContext";
 import { AuthProvider, useAuth } from "../shared/context/AuthContext";
 import { HRProvider } from "../shared/context/HRContext";
 import { usePermissions } from "../shared/context/hooks/usePermissions";
@@ -397,9 +398,11 @@ function AuthGate() {
   return (
     <AppProvider>
       <ToastProvider>
-        <HRProvider>
-          <AppInner />
-        </HRProvider>
+        <ConfirmProvider>
+          <HRProvider>
+            <AppInner />
+          </HRProvider>
+        </ConfirmProvider>
       </ToastProvider>
     </AppProvider>
   );

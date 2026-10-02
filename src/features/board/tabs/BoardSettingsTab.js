@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { FaCog, FaEye, FaFlag, FaHashtag, FaBars, FaTags, FaTrash, FaUserPlus, FaCheck, FaColumns, FaWindowMaximize } from "react-icons/fa";
+import { FaCog, FaEye, FaFlag, FaHashtag, FaBars, FaTags, FaUserPlus, FaCheck, FaColumns, FaWindowMaximize } from "react-icons/fa";
 import { useApp } from "../../../shared/context/AppContext";
 import { useBoardPermissions } from "../hooks/useBoardPermissions";
 import { getInitial, getUserColor } from "../utils/userColors";
@@ -44,7 +44,6 @@ export default function BoardSettingsTab() {
   const {
     boardSettings,
     updateBoardSettings,
-    resetAllData,
     activeTasks,
     backlogSections,
     columns,
@@ -53,8 +52,6 @@ export default function BoardSettingsTab() {
     currentProjectId,
   } = useApp();
   const { canManageWorkspace, canManageProject } = useBoardPermissions();
-  const [resetConfirm, setResetConfirm] = useState(false);
-  const [resetting, setResetting] = useState(false);
   const [savedFeedback, setSavedFeedback] = useState(false);
 
   // Everything on this tab is scoped to the current project.
@@ -291,44 +288,10 @@ export default function BoardSettingsTab() {
         </div>
       </div>
 
-      {/* Danger Zone */}
       {canManageWorkspace && (
-      <div className="bg-white dark:bg-[#1c2030] rounded-xl border border-red-200 dark:border-red-900/50 shadow-sm p-6">
-        <h2 className="text-lg font-bold text-red-700 dark:text-red-400 mb-2">Danger Zone</h2>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">Permanently erase all workspace data. This cannot be undone.</p>
-        {!resetConfirm ? (
-          <button
-            onClick={() => setResetConfirm(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border border-red-300 dark:border-red-800 rounded-lg text-sm font-medium hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
-          >
-            <FaTrash className="w-4 h-4" />
-            Reset All Data
-          </button>
-        ) : (
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-slate-700 dark:text-slate-300">Are you sure? This will erase all tasks, retro items and notes.</span>
-            <button
-              onClick={async () => {
-                setResetting(true);
-                const didReset = await resetAllData();
-                setResetting(false);
-                if (didReset) setResetConfirm(false);
-              }}
-              disabled={resetting}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 transition-colors disabled:cursor-wait disabled:opacity-60"
-            >
-              {resetting ? "Resetting…" : "Yes, Reset"}
-            </button>
-            <button
-              onClick={() => setResetConfirm(false)}
-              disabled={resetting}
-              className="px-4 py-2 bg-slate-100 dark:bg-[#232838] text-slate-700 dark:text-slate-300 rounded-lg text-sm font-semibold hover:bg-slate-200 dark:hover:bg-[#2a3044] transition-colors disabled:opacity-60"
-            >
-              Cancel
-            </button>
-          </div>
-        )}
-      </div>
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          Looking for workspace reset? It moved to <strong className="font-semibold">Admin → Workspace → Danger Zone</strong>.
+        </p>
       )}
     </div>
   );
