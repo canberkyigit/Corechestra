@@ -1,11 +1,9 @@
 import React, { memo } from "react";
 import { Listbox } from "@headlessui/react";
-import ReactDatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
-import { parse, format, isValid } from "date-fns";
 import { FaArrowRight, FaBan } from "react-icons/fa";
 import { TASK_TYPE_MAP } from "../../../shared/constants/taskMeta";
 import { taskKey } from "../../../shared/utils/helpers";
+import { getDueStatus } from "../../../shared/utils/dueDate";
 
 const STATUS_CHIP = {
   todo: "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-700/50 dark:text-slate-200 dark:border-slate-600",
@@ -27,11 +25,6 @@ const PRIORITIES = ["critical", "high", "medium", "low"];
 
 const OPTIONS_PANEL = "absolute mt-1 max-h-60 w-full overflow-auto rounded-lg bg-white dark:bg-[#1c2030] border border-slate-200 dark:border-[#2a3044] p-1 text-xs shadow-lg ring-1 ring-black/5 focus:outline-none z-50 space-y-1";
 
-const parseDueDate = (value) => {
-  if (!value) return null;
-  const parsed = parse(value, "yyyy-MM-dd", new Date());
-  return isValid(parsed) ? parsed : null;
-};
 
 /**
  * Backlog / sprint row with inline editors. Memoized; `onUpdate(task, patch)`
@@ -56,7 +49,7 @@ function TaskRow({
   const update = (patch) => { if (!readOnly) onUpdate?.(task, patch); };
 
   return (
-    <li className="py-3 flex items-center text-sm gap-6">
+    <li className="py-3 flex flex-col lg:flex-row lg:items-center text-sm gap-2 lg:gap-6">
       <div className="flex flex-col min-w-0 flex-1">
         <div className="font-medium text-slate-800 dark:text-slate-200 truncate flex items-center">
           {showArrow && (
@@ -74,12 +67,14 @@ function TaskRow({
           <span className={`mr-2 flex items-center justify-center w-7 h-7 rounded-full flex-shrink-0 ${typeInfo.color}`}>
             <span className="text-base flex items-center justify-center w-full h-full">{typeInfo.icon}</span>
           </span>
-          <span
-            className="cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors truncate"
+          <button
+            type="button"
+            title={title}
+            className="min-w-0 text-left cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors truncate rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
             onClick={() => onClick?.(task)}
           >
             {title}
-          </span>
+          </button>
           <span className="ml-3 text-xs text-slate-400 dark:text-slate-500 font-mono align-middle whitespace-nowrap">
             {taskKey(id)}
           </span>
@@ -94,9 +89,9 @@ function TaskRow({
         )}
       </div>
 
-      <div className="flex items-center flex-shrink-0" style={{ minWidth: "520px" }}>
+      <div className="flex flex-wrap lg:flex-nowrap items-center gap-2 lg:gap-4 flex-shrink-0 lg:min-w-[520px]">
         {/* Status */}
-        <div className="w-40 mr-4">
+        <div className="w-40">
           <Listbox value={status} onChange={(nextStatus) => update({ status: nextStatus })} disabled={readOnly}>
             <div className="relative w-40">
               <Listbox.Button
@@ -122,7 +117,7 @@ function TaskRow({
         </div>
 
         {/* Priority */}
-        <div className="w-20 mr-4">
+        <div className="w-20">
           <Listbox value={priorityValue} onChange={(nextPriority) => update({ priority: nextPriority })} disabled={readOnly}>
             <div className="relative w-full">
               <Listbox.Button
@@ -158,25 +153,25 @@ function TaskRow({
             const raw = event.target.value;
             update({ storyPoint: raw === "" ? "" : Math.max(0, Number(raw) || 0) });
           }}
-          className="w-12 px-2 py-0.5 rounded bg-slate-100 dark:bg-[#232838] text-slate-700 dark:text-slate-200 text-xs border border-slate-200 dark:border-[#2a3044] font-semibold ml-4 text-center focus:ring-2 focus:ring-blue-300 dark:focus:ring-blue-600 outline-none transition-all"
+          className="w-12 px-2 py-0.5 rounded bg-slate-100 dark:bg-[#232838] text-slate-700 dark:text-slate-200 text-xs border border-slate-200 dark:border-[#2a3044] font-semibold text-center focus:ring-2 focus:ring-blue-300 dark:focus:ring-blue-600 outline-none transition-all"
         />
 
         {/* Due Date */}
-        <div className="ml-4">
-          <ReactDatePicker
-            selected={parseDueDate(dueDate)}
-            onChange={(date) => update({ dueDate: date ? format(date, "yyyy-MM-dd") : "" })}
-            dateFormat="dd.MM.yyyy"
-            disabled={readOnly}
-            className="w-32 px-2 py-0.5 rounded bg-slate-50 dark:bg-[#232838] text-slate-500 dark:text-slate-300 text-xs border border-slate-200 dark:border-[#2a3044] text-center focus:ring-2 focus:ring-blue-300 dark:focus:ring-blue-600 outline-none transition-all"
-            popperPlacement="bottom"
-            placeholderText="Select date"
-            showPopperArrow={false}
-          />
-        </div>
+        <input
+          type="date"
+          aria-label="Due date"
+          value={dueDate || ""}
+          disabled={readOnly}
+          onChange={(event) => update({ dueDate: event.target.value })}
+          className={`w-36 px-2 py-0.5 rounded bg-slate-50 dark:bg-[#232838] text-xs border text-center focus:ring-2 focus:ring-blue-300 dark:focus:ring-blue-600 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark] ${
+            getDueStatus(dueDate, status) === "overdue"
+              ? "border-red-300 dark:border-red-800 text-red-600 dark:text-red-400 font-semibold"
+              : "border-slate-200 dark:border-[#2a3044] text-slate-600 dark:text-slate-300"
+          }`}
+        />
 
         {/* Assignee */}
-        <div className="ml-4 w-24">
+        <div className="w-24">
           <Listbox value={assignedTo || "unassigned"} onChange={(nextAssignee) => update({ assignedTo: nextAssignee })} disabled={readOnly}>
             <div className="relative w-24">
               <Listbox.Button className="w-full px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs border border-blue-200 dark:border-blue-800 font-semibold text-left truncate">

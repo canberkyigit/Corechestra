@@ -1,19 +1,19 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
-import { taskKey } from "../utils/helpers";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   FaBell, FaCog, FaUserCircle, FaChevronLeft, FaChevronRight,
   FaColumns, FaTachometerAlt, FaRocket, FaCalendarAlt,
   FaChartBar, FaSearch, FaMoon, FaSun,
   FaShieldAlt, FaLayerGroup, FaBook, FaTag, FaFlask,
-  FaTimes, FaArchive, FaPlus,
+  FaArchive, FaPlus,
   FaSignOutAlt, FaBars, FaBuilding, FaStream,
 } from "react-icons/fa";
 import { useApp } from "../context/AppContext";
-import { TASK_STATUS_BADGE_STYLES, TASK_STATUS_SHORT_LABELS, TASK_TYPE_ICON_META } from "../constants/taskMeta";
 import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
 import { usePermissions } from "../context/hooks/usePermissions";
+import { useConfirm } from "../context/ConfirmContext";
+import { useEscapeKey } from "../hooks/useEscapeKey";
 import {
   filterNotificationsForUser,
   getNotificationMeta,
@@ -22,21 +22,6 @@ import {
 import { useAppNavigationListener } from "./appNavigation";
 import Logo from "./Logo";
 
-const SEARCH_PAGES = [
-  { id: "dashboard", label: "Dashboard",  icon: FaTachometerAlt },
-  { id: "board",     label: "Board",      icon: FaColumns       },
-  { id: "roadmap",   label: "Roadmap",    icon: FaRocket        },
-  { id: "reports",   label: "Reports",    icon: FaChartBar      },
-  { id: "calendar",  label: "Calendar",   icon: FaCalendarAlt   },
-  { id: "projects",  label: "Projects",   icon: FaLayerGroup    },
-  { id: "docs",      label: "Documentation", icon: FaBook       },
-  { id: "releases",  label: "Releases",   icon: FaTag           },
-  { id: "tests",     label: "Tests",      icon: FaFlask         },
-  { id: "admin",     label: "Admin",      icon: FaShieldAlt     },
-  { id: "archive",   label: "Archive",    icon: FaArchive       },
-  { id: "for-you",   label: "For You",    icon: FaBell          },
-  { id: "activity",  label: "Activity",   icon: FaStream        },
-];
 
 function relativeTime(isoStr) {
   const time = new Date(isoStr).getTime();
@@ -72,6 +57,9 @@ const ADMIN_NAV_ITEMS = [
   { id: "hr",    label: "Human Resources",   icon: FaBuilding  },
 ];
 
+
+const IS_MAC = typeof navigator !== "undefined" && /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent || "");
+
 export default function Layout({
   children, activePage, onPageChange,
   darkMode, onToggleDark,
@@ -79,10 +67,22 @@ export default function Layout({
 }) {
   const {
     sidebarCollapsed: collapsed, setSidebarCollapsed: setCollapsed,
-    notifications, markNotifRead, markAllNotifsRead, activeTasks, backlogSections, epics, projects, currentProjectId,
+    notifications, markNotifRead, markAllNotifsRead, activeTasks, backlogSections, projects, currentProjectId,
     currentUser, archivedTasks,
   } = useApp();
   const { user, role, profile, logout } = useAuth();
+  const confirm = useConfirm();
+  // Sign-out sits next to other sidebar controls; confirm so a stray click
+  // doesn't end the session (and lose unsaved drafts).
+  const handleLogout = async () => {
+    const ok = await confirm({
+      title: "Sign out of Corechestra?",
+      description: "Unsaved changes in open editors will be lost.",
+      confirmLabel: "Sign out",
+      tone: "primary",
+    });
+    if (ok) logout();
+  };
   const { canAccessPage, canPerform } = usePermissions();
   const displayName = profile?.fullName || user?.email || "User";
   const [notifOpen,       setNotifOpen]       = useState(false);
@@ -93,11 +93,6 @@ export default function Layout({
   const [mobileNavOpen,  setMobileNavOpen]  = useState(false);
 
   // Inline search state
-  const [searchQuery,  setSearchQuery]  = useState("");
-  const [searchOpen,   setSearchOpen]   = useState(false);
-  const [searchCursor, setSearchCursor] = useState(0);
-  const searchContainerRef = useRef(null);
-  const searchListRef      = useRef(null);
 
   const { addToast } = useToast();
   const notifRef    = useRef(null);
@@ -145,6 +140,9 @@ export default function Layout({
 
   const toggleCollapsed = () => setCollapsed(!collapsed);
 
+  useEscapeKey(() => setNotifOpen(false), notifOpen);
+  useEscapeKey(() => setProfileMenuOpen(false), profileMenuOpen);
+
   useEffect(() => {
     const handler = (e) => {
       if (notifRef.current && !notifRef.current.contains(e.target)) setNotifOpen(false);
@@ -169,11 +167,6 @@ export default function Layout({
     (backlogSections || []).flatMap((s) => s.tasks || []),
   [backlogSections]);
 
-  const visibleSearchPages = useMemo(
-    () => SEARCH_PAGES.filter((page) => canAccessPage(page.id)),
-    [canAccessPage]
-  );
-
   const visibleNavItems = useMemo(
     () => NAV_ITEMS.filter((item) => canAccessPage(item.id)),
     [canAccessPage]
@@ -184,37 +177,6 @@ export default function Layout({
     [canAccessPage]
   );
 
-  const searchResults = useMemo(() => {
-    if (!searchQuery.trim()) return [];
-    const q = searchQuery.toLowerCase().trim();
-    const taskHits = [...(activeTasks || []), ...allBacklogTasks]
-      .filter((t) => t.title?.toLowerCase().includes(q) || taskKey(t.id).toLowerCase().includes(q) || t.description?.toLowerCase().includes(q))
-      .slice(0, 8)
-      .map((t) => ({ kind: "task", id: t.id, title: t.title, status: t.status, type: t.type || "task", item: t }));
-    const epicHits = (epics || [])
-      .filter((e) => e.title?.toLowerCase().includes(q) || e.description?.toLowerCase().includes(q))
-      .slice(0, 3)
-      .map((e) => ({ kind: "epic", id: e.id, title: e.title, color: e.color, item: e }));
-    const pageHits = visibleSearchPages
-      .filter((p) => p.label.toLowerCase().includes(q))
-      .map((p) => ({ kind: "page", id: p.id, title: p.label, icon: p.icon }));
-    return [...taskHits, ...epicHits, ...pageHits];
-  }, [searchQuery, activeTasks, allBacklogTasks, epics, visibleSearchPages]);
-
-  useEffect(() => {
-    const handler = (e) => {
-      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target)) setSearchOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  useEffect(() => {
-    const el = searchListRef.current?.children[searchCursor];
-    el?.scrollIntoView?.({ block: "nearest" });
-  }, [searchCursor]);
-
-  useEffect(() => { setSearchCursor(0); }, [searchResults]);
 
   const resolveTarget = (notification) => resolveNotificationTarget(notification, {
     tasks: [...(activeTasks || []), ...allBacklogTasks],
@@ -228,35 +190,6 @@ export default function Layout({
     const target = resolveTarget(notification);
     if (target?.kind === "task") onOpenTask?.(target.task);
     else if (target?.kind === "route") onPageChange?.(target.route);
-  };
-
-  const handleSearchSelect = (result) => {
-    if (result.kind === "task") { onOpenTask?.(result.item); }
-    if (result.kind === "epic") { onPageChange?.("roadmap"); }
-    if (result.kind === "page") { onPageChange?.(result.id); }
-    setSearchOpen(false);
-    setSearchQuery("");
-  };
-
-  const handleSearchKeyDown = (e) => {
-    const items = searchQuery.trim()
-      ? searchResults
-      : visibleSearchPages.map((p) => ({ kind: "page", id: p.id, title: p.label, icon: p.icon }));
-    if (e.key === "Escape") { setSearchOpen(false); e.target.blur(); return; }
-    if (e.key === "ArrowDown") { e.preventDefault(); setSearchCursor((c) => Math.min(c + 1, items.length - 1)); }
-    if (e.key === "ArrowUp")   { e.preventDefault(); setSearchCursor((c) => Math.max(c - 1, 0)); }
-    if (e.key === "Enter" && items[searchCursor]) { e.preventDefault(); handleSearchSelect(items[searchCursor]); }
-  };
-
-  const highlightMatch = (text) => {
-    if (!searchQuery.trim()) return text;
-    const q = searchQuery.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const parts = text.split(new RegExp(`(${q})`, "gi"));
-    return parts.map((p, i) =>
-      p.toLowerCase() === searchQuery.toLowerCase()
-        ? <mark key={i} className="bg-yellow-200 dark:bg-yellow-700/50 text-inherit rounded">{p}</mark>
-        : p
-    );
   };
 
   // ── Colour tokens ──────────────────────────────────────────────────────────
@@ -420,20 +353,24 @@ export default function Layout({
               </div>
               {/* Sign out */}
               <button
-                onClick={logout}
+                type="button"
+                onClick={handleLogout}
                 title="Sign out"
-                className={`p-1 rounded-md transition-colors flex-shrink-0 ${bottomRowClass}`}
+                aria-label="Sign out"
+                className={`p-2 rounded-md transition-colors flex-shrink-0 ${bottomRowClass}`}
               >
-                <FaSignOutAlt className="w-3 h-3" />
+                <FaSignOutAlt className="w-3.5 h-3.5" />
               </button>
               {/* Collapse — desktop only */}
               {!isMobile && (
                 <button
+                  type="button"
                   onClick={toggleCollapsed}
                   title="Collapse sidebar"
-                  className={`p-1 rounded-md transition-colors flex-shrink-0 ${bottomRowClass}`}
+                  aria-label="Collapse sidebar"
+                  className={`p-2 ml-1 rounded-md transition-colors flex-shrink-0 ${bottomRowClass}`}
                 >
-                  <FaChevronLeft className="w-3 h-3" />
+                  <FaChevronLeft className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>
@@ -478,135 +415,24 @@ export default function Layout({
             </span>
           </div>
 
-          {/* Search — desktop only */}
-          <div className="hidden md:flex flex-1 max-w-md mx-auto relative" ref={searchContainerRef}>
-            <FaSearch className={`absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${subText} pointer-events-none z-10`} />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => { setSearchQuery(e.target.value); setSearchOpen(true); }}
-              onFocus={() => setSearchOpen(true)}
-              onKeyDown={handleSearchKeyDown}
-              placeholder="Search tasks, epics, pages…"
-              aria-label="Search tasks, epics and pages"
-              className={`w-full pl-9 pr-8 py-1.5 text-sm rounded-lg border transition-all focus:outline-none focus:ring-2 focus:ring-blue-400
-                ${darkMode
-                  ? "bg-[#252b3b] text-slate-200 placeholder-slate-500 border-[#353d50] focus:bg-[#1a1f2e]"
-                  : "bg-slate-100 text-slate-700 placeholder-slate-400 border-transparent focus:bg-white"
-                }`}
-            />
-            {searchQuery && (
-              <button
-                onClick={() => { setSearchQuery(""); setSearchOpen(false); }}
-                className={`absolute right-2.5 top-1/2 -translate-y-1/2 ${subText} hover:text-slate-600 dark:hover:text-slate-300`}
-              >
-                <FaTimes className="w-3 h-3" />
-              </button>
-            )}
-
-            {/* Dropdown */}
-            <AnimatePresence>
-            {searchOpen && (
-              <motion.div
-                initial={{ opacity: 0, y: -8, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -8, scale: 0.95 }}
-                transition={{ duration: 0.15 }}
-                className={`absolute top-full left-0 right-0 mt-1.5 rounded-xl border shadow-2xl z-50 overflow-hidden ${
-                darkMode ? "bg-[#1c2030] border-[#2a3044]" : "bg-white border-slate-200"
-              }`}>
-                {searchQuery.trim() ? (
-                  searchResults.length > 0 ? (
-                    <div ref={searchListRef} className="max-h-72 overflow-y-auto py-1">
-                      {searchResults.map((r, i) => {
-                        const isFocused = i === searchCursor;
-                        if (r.kind === "task") {
-                          const typeInfo = TASK_TYPE_ICON_META[r.type] || TASK_TYPE_ICON_META.task;
-                          const TypeIcon = typeInfo.icon;
-                          return (
-                            <button
-                              key={`task-${r.id}`}
-                              className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${isFocused ? "bg-blue-50 dark:bg-blue-900/20" : "hover:bg-slate-50 dark:hover:bg-[#232838]"}`}
-                              onClick={() => handleSearchSelect(r)}
-                              onMouseEnter={() => setSearchCursor(i)}
-                            >
-                              <TypeIcon className={`w-3.5 h-3.5 flex-shrink-0 ${typeInfo.color}`} />
-                              <span className="text-xs font-mono text-slate-400 flex-shrink-0">{taskKey(r.id)}</span>
-                              <span className={`text-sm flex-1 truncate ${darkMode ? "text-slate-200" : "text-slate-700"}`}>{highlightMatch(r.title)}</span>
-                              {r.status && (
-                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 ${TASK_STATUS_BADGE_STYLES[r.status] || TASK_STATUS_BADGE_STYLES.todo}`}>
-                                  {TASK_STATUS_SHORT_LABELS[r.status] || r.status}
-                                </span>
-                              )}
-                            </button>
-                          );
-                        }
-                        if (r.kind === "epic") {
-                          return (
-                            <button
-                              key={`epic-${r.id}`}
-                              className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${isFocused ? "bg-blue-50 dark:bg-blue-900/20" : "hover:bg-slate-50 dark:hover:bg-[#232838]"}`}
-                              onClick={() => handleSearchSelect(r)}
-                              onMouseEnter={() => setSearchCursor(i)}
-                            >
-                              <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: r.color }} />
-                              <span className={`text-sm flex-1 truncate ${darkMode ? "text-slate-200" : "text-slate-700"}`}>{highlightMatch(r.title)}</span>
-                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 font-medium flex-shrink-0">Epic</span>
-                            </button>
-                          );
-                        }
-                        if (r.kind === "page") {
-                          const Icon = r.icon;
-                          return (
-                            <button
-                              key={`page-${r.id}`}
-                              className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${isFocused ? "bg-blue-50 dark:bg-blue-900/20" : "hover:bg-slate-50 dark:hover:bg-[#232838]"}`}
-                              onClick={() => handleSearchSelect(r)}
-                              onMouseEnter={() => setSearchCursor(i)}
-                            >
-                              <Icon className="w-3.5 h-3.5 flex-shrink-0 text-slate-400" />
-                              <span className={`text-sm flex-1 ${darkMode ? "text-slate-200" : "text-slate-700"}`}>{highlightMatch(r.title)}</span>
-                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 ${darkMode ? "bg-[#232838] text-slate-400" : "bg-slate-100 text-slate-500"}`}>Page</span>
-                            </button>
-                          );
-                        }
-                        return null;
-                      })}
-                    </div>
-                  ) : (
-                    <div className="py-8 text-center">
-                      <FaSearch className={`w-5 h-5 mx-auto mb-2 ${subText}`} />
-                      <p className={`text-xs ${subText}`}>No results for "<strong>{searchQuery}</strong>"</p>
-                    </div>
-                  )
-                ) : (
-                  <div className="py-3 px-2">
-                    <p className={`text-xs ${subText} mb-1.5 px-2`}>Quick navigation</p>
-                    {visibleSearchPages.map((p, i) => {
-                      const Icon = p.icon;
-                      return (
-                        <button
-                          key={p.id}
-                          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ${searchCursor === i ? "bg-blue-50 dark:bg-blue-900/20" : "hover:bg-slate-50 dark:hover:bg-[#232838]"}`}
-                          onClick={() => { onPageChange?.(p.id); setSearchOpen(false); }}
-                          onMouseEnter={() => setSearchCursor(i)}
-                        >
-                          <Icon className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                          <span className={`text-sm ${darkMode ? "text-slate-200" : "text-slate-700"}`}>{p.label}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-                <div className={`flex items-center gap-4 px-4 py-2 border-t ${borderColor} ${darkMode ? "bg-[#141720]" : "bg-slate-50"}`}>
-                  <span className={`text-[10px] ${subText} flex items-center gap-1`}><kbd className={`font-mono border rounded px-1 ${darkMode ? "border-[#2a3044]" : "border-slate-200"}`}>↑↓</kbd> navigate</span>
-                  <span className={`text-[10px] ${subText} flex items-center gap-1`}><kbd className={`font-mono border rounded px-1 ${darkMode ? "border-[#2a3044]" : "border-slate-200"}`}>↵</kbd> select</span>
-                  <span className={`text-[10px] ${subText} flex items-center gap-1`}><kbd className={`font-mono border rounded px-1 ${darkMode ? "border-[#2a3044]" : "border-slate-200"}`}>ESC</kbd> close</span>
-                </div>
-              </motion.div>
-            )}
-            </AnimatePresence>
-          </div>
+          {/* Search — opens the command palette (tasks, docs, releases, tests, pages) */}
+          <button
+            type="button"
+            onClick={onSearchClick}
+            aria-label="Search (Ctrl or Cmd + K)"
+            aria-keyshortcuts="Meta+K Control+K"
+            className={`hidden md:flex flex-1 max-w-md mx-auto items-center gap-2.5 pl-3 pr-2 py-1.5 text-sm rounded-lg border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+              darkMode
+                ? "bg-[#252b3b] text-slate-400 border-[#353d50] hover:border-[#46506a]"
+                : "bg-slate-100 text-slate-500 border-transparent hover:border-slate-300"
+            }`}
+          >
+            <FaSearch className="w-3.5 h-3.5 flex-shrink-0" />
+            <span className="flex-1 text-left truncate">Search tasks, docs, releases…</span>
+            <kbd className={`hidden lg:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-sans rounded border ${darkMode ? "border-[#3a4258] text-slate-400" : "border-slate-300 text-slate-500 bg-white"}`}>
+              {IS_MAC ? "⌘" : "Ctrl"} K
+            </kbd>
+          </button>
 
           {/* Spacer — mobile only (pushes actions to the right) */}
           <div className="flex-1 md:hidden" />
@@ -718,8 +544,12 @@ export default function Layout({
             {/* Profile dropdown */}
             <div className="relative" ref={profileMenuRef}>
               <button
+                type="button"
                 onClick={() => setProfileMenuOpen((v) => !v)}
                 title={user?.email || "Profile"}
+                aria-label="Account menu"
+                aria-haspopup="menu"
+                aria-expanded={profileMenuOpen}
                 className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white text-xs font-bold hover:ring-2 hover:ring-indigo-400 transition-all uppercase"
               >
                 {(profile?.fullName || user?.email || "U")[0].toUpperCase()}
@@ -756,7 +586,7 @@ export default function Layout({
                         Go to profile
                       </button>
                       <button
-                        onClick={() => { setProfileMenuOpen(false); logout(); }}
+                        onClick={() => { setProfileMenuOpen(false); handleLogout(); }}
                         className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors text-left text-red-500 ${
                           darkMode ? "hover:bg-red-500/10" : "hover:bg-red-50"
                         }`}

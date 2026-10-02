@@ -110,6 +110,18 @@ describe("TaskSidePanel", () => {
     expect(onOpenModal).toHaveBeenCalledWith(expect.objectContaining({ title: "Draft" }), { hasChanges: true });
   });
 
+  it("autosaves a picker change without committing the unsaved title draft", () => {
+    const onTaskUpdate = jest.fn();
+    render(<TaskSidePanel open task={TASK} onClose={jest.fn()} onTaskUpdate={onTaskUpdate} />);
+
+    fireEvent.change(screen.getByDisplayValue("Original title"), { target: { value: "Half-typed title" } });
+    fireEvent.click(screen.getAllByRole("button", { name: "Alice" }).at(-1));
+
+    expect(onTaskUpdate).toHaveBeenLastCalledWith(expect.objectContaining({ title: "Original title", watchers: ["alice"] }));
+    expect(screen.getByText("Unsaved text changes")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Half-typed title")).toBeInTheDocument();
+  });
+
   it("closes on Escape when there are no unsaved changes", () => {
     const onClose = jest.fn();
     render(<TaskSidePanel open task={TASK} onClose={onClose} onTaskUpdate={jest.fn()} />);

@@ -6,6 +6,7 @@ import {
   FaBold, FaItalic, FaStrikethrough, FaCode, FaListUl, FaListOl, FaQuoteLeft, FaMinus, FaLink,
 } from "react-icons/fa";
 import { useApp } from "../../../../shared/context/AppContext";
+import { useToast } from "../../../../shared/context/ToastContext";
 
 function ToolbarButton({ onClick, title, active, children }) {
   return (
@@ -27,7 +28,14 @@ function ToolbarButton({ onClick, title, active, children }) {
 const Separator = () => <span className="w-px h-4 bg-slate-200 dark:bg-[#2a3044] mx-0.5 flex-shrink-0" />;
 
 export default function RetroNotes() {
-  const { notesList: notesListRaw, addNote, deleteNote, darkMode } = useApp();
+  const { notesList: notesListRaw, addNote, deleteNote, restoreNote, darkMode } = useApp();
+  const { addToast } = useToast();
+  const handleDeleteNote = (noteId) => {
+    const removed = deleteNote(noteId);
+    addToast("Note deleted", "info", removed && restoreNote ? {
+      action: { label: "Undo", onClick: () => restoreNote(removed.note, removed.index) },
+    } : undefined);
+  };
   const notesList = notesListRaw || [];
   const colorMode = darkMode ? "dark" : "light";
   const [draft, setDraft] = useState("");
@@ -194,9 +202,11 @@ export default function RetroNotes() {
                       </span>
                     )}
                     <button
-                      onClick={(e) => { e.stopPropagation(); deleteNote(note.id); }}
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); handleDeleteNote(note.id); }}
                       className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex-shrink-0"
                       title="Delete note"
+                      aria-label="Delete note"
                     >
                       <FaTrash className="w-3 h-3" />
                     </button>

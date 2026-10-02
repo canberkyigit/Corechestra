@@ -65,6 +65,11 @@ jest.mock("../shared/context/ToastContext", () => ({
   ToastProvider: ({ children }) => <>{children}</>,
 }));
 
+jest.mock("../shared/context/ConfirmContext", () => ({
+  ConfirmProvider: ({ children }) => <>{children}</>,
+  useConfirm: () => async () => true,
+}));
+
 jest.mock("../shared/context/HRContext", () => ({
   HRProvider: ({ children }) => <>{children}</>,
 }));

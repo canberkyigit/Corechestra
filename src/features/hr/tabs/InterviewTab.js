@@ -4,6 +4,7 @@ import { FaBan, FaEdit, FaLink, FaPlus, FaSearch, FaUndo, FaUserPlus, FaUserTie 
 import { useHR } from "../../../shared/context/HRContext";
 import { useApp } from "../../../shared/context/AppContext";
 import { useToast } from "../../../shared/context/ToastContext";
+import { useConfirm } from "../../../shared/context/ConfirmContext";
 import { useHorizontalWheelScroll } from "../../../shared/hooks/useHorizontalWheelScroll";
 import { taskKey } from "../../../shared/utils/helpers";
 import { Badge } from "../components/HRSharedUI";
@@ -21,6 +22,7 @@ export function InterviewTab() {
   const { pipeline, moveCandidate, updateJobReq, restoreCandidate } = useHR();
   const { activeTasks, allTasks, users } = useApp();
   const { addToast } = useToast();
+  const confirm = useConfirm();
   const [selectedJobId, setSelectedJobId] = useState(null);
   const [jobModal, setJobModal] = useState(null);
   const [candidateModal, setCandidateModal] = useState(null);
@@ -197,7 +199,16 @@ export function InterviewTab() {
                     Reopen
                   </button>
                 ) : (
-                  <button type="button" onClick={() => { if (window.confirm(`Close the “${selectedJob.title}” requisition?`)) setJobStatus(selectedJob, "closed"); }} className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg border border-slate-200 dark:border-[#2a3044] text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">
+                  <button type="button" onClick={async () => {
+                    const ok = await confirm({
+                      title: `Close the “${selectedJob.title}” requisition?`,
+                      description: "The requisition stops accepting new candidates. You can reopen it later from Edit.",
+                      confirmLabel: "Close requisition",
+                      cancelLabel: "Keep open",
+                      tone: "warning",
+                    });
+                    if (ok) setJobStatus(selectedJob, "closed");
+                  }} className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg border border-slate-200 dark:border-[#2a3044] text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">
                     Close requisition
                   </button>
                 )}

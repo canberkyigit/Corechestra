@@ -41,7 +41,7 @@ const TaskDetailModal = lazy(() => import("./TaskDetailModal"));
  * draft applied.
  */
 export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpenModal }) {
-  const { labels, deleteTask, logActivity, allTasks, users } = useApp();
+  const { labels, deleteTask, restoreTask, logActivity, allTasks, users } = useApp();
   const { addToast } = useToast();
   const { canEditTask, canArchiveTask } = useBoardPermissions();
   const readOnly = !canEditTask;
@@ -128,10 +128,19 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
     comments: task.comments || [],
   });
 
-  // Persist action-field changes immediately; `patch` overrides stale state.
+  // Pickers/toggles persist immediately; `patch` overrides stale state.
+  // Text drafts (title, description, story points) are NOT committed here —
+  // they keep the stored value until the user presses Save, so "Unsaved
+  // changes" and Discard stay truthful.
   const autoSave = (patch) => {
     if (readOnly) return;
-    onTaskUpdate?.({ ...buildUpdated(), ...patch });
+    onTaskUpdate?.({
+      ...buildUpdated(),
+      title: task.title,
+      description: task.description,
+      storyPoint: task.storyPoint,
+      ...patch,
+    });
   };
 
   const handleClose = () => {
@@ -162,8 +171,11 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
 
   const handleDelete = () => {
     if (!canArchiveTask) return;
-    if (task.id) deleteTask(task.id);
-    addToast("Task moved to archive", "info");
+    const taskId = task.id;
+    const archived = taskId ? deleteTask(taskId) : false;
+    addToast("Task moved to archive", "info", archived && restoreTask ? {
+      action: { label: "Undo", onClick: () => restoreTask(taskId) },
+    } : undefined);
     onClose();
   };
 
@@ -197,8 +209,9 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
   };
 
   const removeSubtask = (id) => {
-    setSubtasks((prev) => prev.filter((subtask) => subtask.id !== id));
-    changed();
+    const nextSubtasks = subtasks.filter((subtask) => subtask.id !== id);
+    setSubtasks(nextSubtasks);
+    autoSave({ subtasks: nextSubtasks });
   };
 
   const handleAddLink = (target) => {
@@ -474,8 +487,9 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
                             key={member.value}
                             disabled={readOnly}
                             onClick={() => {
-                              setWatchers((prev) => (watching ? prev.filter((watcher) => watcher !== member.value) : [...prev, member.value]));
-                              changed();
+                              const nextWatchers = watching ? watchers.filter((watcher) => watcher !== member.value) : [...watchers, member.value];
+                              setWatchers(nextWatchers);
+                              autoSave({ watchers: nextWatchers });
                             }}
                             className={`flex items-center gap-1 px-2 py-1 rounded text-xs border transition-all ${watching ? "bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400" : "border-slate-200 dark:border-[#2a3044] text-slate-500 dark:text-slate-400"}`}
                           >
@@ -563,12 +577,18 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
 
             {/* Footer */}
             <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 dark:border-[#232838] bg-slate-50/50 dark:bg-[#141720]/50 flex-shrink-0">
-              <div className="text-xs text-orange-500 font-medium">{hasChanges ? "Unsaved changes" : readOnly ? <span className="text-slate-400">Read-only</span> : ""}</div>
+              <div className="text-xs font-medium min-w-0 truncate">
+                {hasChanges
+                  ? <span className="text-orange-500">Unsaved text changes</span>
+                  : readOnly
+                    ? <span className="text-slate-500 dark:text-slate-400">Read-only</span>
+                    : <span className="text-slate-500 dark:text-slate-400 font-normal" title="Status, assignee, dates, subtasks and links save as you change them">Fields save automatically</span>}
+              </div>
               <div className="flex gap-2">
                 <AppButton variant="secondary" size="sm" onClick={handleClose}>
                   Close
                 </AppButton>
-                <AppButton size="sm" onClick={handleSave} disabled={!title.trim() || readOnly}>
+                <AppButton variant="primary" size="sm" onClick={handleSave} disabled={!title.trim() || readOnly}>
                   Save
                 </AppButton>
               </div>

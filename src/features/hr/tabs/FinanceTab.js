@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
 import { FaDollarSign, FaPlus, FaReceipt, FaTimes, FaUniversity } from "react-icons/fa";
 import { useHR } from "../../../shared/context/HRContext";
 import { useToast } from "../../../shared/context/ToastContext";
+import { useConfirm } from "../../../shared/context/ConfirmContext";
 import { Badge, Card } from "../components/HRSharedUI";
+import { HRModal, hrPrimaryButton, hrSecondaryButton } from "../components/HRModal";
 import { PayslipList } from "../components/PayslipList";
 import { toLocalIsoDate } from "../utils/dates";
 import { formatMoney } from "../utils/payslips";
@@ -42,59 +43,53 @@ function AddExpenseModal({ open, onClose, onAdd }) {
   };
 
   const inputClassName = "w-full px-3 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#232838] text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500";
+  const dirty = Boolean(description.trim() || amount !== "" || currency !== "USD" || category !== "Travel" || (date && date !== toLocalIsoDate()));
 
   return (
-    <AnimatePresence>
-      {open && (
+    <HRModal
+      open={open}
+      onClose={onClose}
+      title="Add expense"
+      size="sm"
+      dirty={dirty}
+      footer={(
         <>
-          <motion.div key="bd" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-          <motion.div key="md" initial={{ opacity: 0, scale: 0.95, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 16 }} transition={{ duration: 0.2 }} className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
-            <div className="pointer-events-auto w-full max-w-sm bg-white dark:bg-[#1a1f2e] rounded-2xl shadow-2xl border border-slate-200 dark:border-[#2a3044]" onClick={(event) => event.stopPropagation()}>
-              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-[#2a3044]">
-                <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Add expense</h2>
-                <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#232838] transition-colors">
-                  <FaTimes className="w-3.5 h-3.5" />
-                </button>
-              </div>
-              <div className="px-5 py-4 space-y-3">
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Description</label>
-                  <input aria-label="Description" value={description} onChange={(event) => setDescription(event.target.value)} placeholder="e.g. Flight to London" className={inputClassName} />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Amount</label>
-                    <input type="number" min={0} step="0.01" aria-label="Amount" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="0.00" className={inputClassName} />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Currency</label>
-                    <select value={currency} onChange={(event) => setCurrency(event.target.value)} className={inputClassName}>
-                      {["USD","EUR","GBP","TRY","CHF"].map((value) => <option key={value}>{value}</option>)}
-                    </select>
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Category</label>
-                  <select value={category} onChange={(event) => setCategory(event.target.value)} className={inputClassName}>
-                    {["Travel","Meals","Equipment","Software","Other"].map((value) => <option key={value}>{value}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Date</label>
-                  <input type="date" value={date} onChange={(event) => setDate(event.target.value)} className={inputClassName + " [color-scheme:light] dark:[color-scheme:dark]"} />
-                </div>
-              </div>
-              <div className="px-5 py-4 border-t border-slate-200 dark:border-[#2a3044] flex justify-end gap-2">
-                <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">Cancel</button>
-                <button onClick={handleSave} disabled={!description.trim() || !amountValid || !date || saving} className="px-5 py-2 text-sm bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg transition-colors font-medium">
-                  {saving ? "Adding..." : "Add"}
-                </button>
-              </div>
-            </div>
-          </motion.div>
+          <button type="button" onClick={onClose} className={hrSecondaryButton}>Cancel</button>
+          <button type="submit" form="add-expense-form" disabled={!description.trim() || !amountValid || !date || saving} className={hrPrimaryButton}>
+            {saving ? "Adding..." : "Add"}
+          </button>
         </>
       )}
-    </AnimatePresence>
+    >
+      <form id="add-expense-form" onSubmit={(event) => { event.preventDefault(); handleSave(); }} className="space-y-3">
+        <div>
+          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Description</label>
+          <input aria-label="Description" value={description} onChange={(event) => setDescription(event.target.value)} placeholder="e.g. Flight to London" className={inputClassName} data-autofocus />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Amount</label>
+            <input type="number" min={0} step="0.01" aria-label="Amount" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="0.00" className={inputClassName} />
+          </div>
+          <div>
+            <label htmlFor="expense-currency" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Currency</label>
+            <select id="expense-currency" value={currency} onChange={(event) => setCurrency(event.target.value)} className={inputClassName}>
+              {["USD","EUR","GBP","TRY","CHF"].map((value) => <option key={value}>{value}</option>)}
+            </select>
+          </div>
+        </div>
+        <div>
+          <label htmlFor="expense-category" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Category</label>
+          <select id="expense-category" value={category} onChange={(event) => setCategory(event.target.value)} className={inputClassName}>
+            {["Travel","Meals","Equipment","Software","Other"].map((value) => <option key={value}>{value}</option>)}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="expense-date" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Date</label>
+          <input id="expense-date" type="date" value={date} onChange={(event) => setDate(event.target.value)} className={inputClassName + " [color-scheme:light] dark:[color-scheme:dark]"} />
+        </div>
+      </form>
+    </HRModal>
   );
 }
 
@@ -133,55 +128,50 @@ function AddBankAccountModal({ open, onClose, onAdd }) {
   };
 
   const inputClassName = "w-full px-3 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#232838] text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500";
+  const dirty = Boolean(bankName.trim() || holder.trim() || accountNumber.trim() || routing.trim());
 
   return (
-    <AnimatePresence>
-      {open && (
+    <HRModal
+      open={open}
+      onClose={onClose}
+      title="Add bank account"
+      size="sm"
+      dirty={dirty}
+      footer={(
         <>
-          <motion.div key="bd" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-          <motion.div key="md" initial={{ opacity: 0, scale: 0.95, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 16 }} transition={{ duration: 0.2 }} className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
-            <div className="pointer-events-auto w-full max-w-sm bg-white dark:bg-[#1a1f2e] rounded-2xl shadow-2xl border border-slate-200 dark:border-[#2a3044]" onClick={(event) => event.stopPropagation()}>
-              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-[#2a3044]">
-                <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Add bank account</h2>
-                <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#232838] transition-colors">
-                  <FaTimes className="w-3.5 h-3.5" />
-                </button>
-              </div>
-              <div className="px-5 py-4 space-y-3">
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Bank name</label>
-                  <input value={bankName} onChange={(event) => setBankName(event.target.value)} placeholder="e.g. Chase" className={inputClassName} />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Account holder name</label>
-                  <input value={holder} onChange={(event) => setHolder(event.target.value)} placeholder="Full name on account" className={inputClassName} />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Account number / IBAN</label>
-                  <input value={accountNumber} onChange={(event) => setAccountNumber(event.target.value)} placeholder="Account number" className={inputClassName} />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Routing / BIC / SWIFT (optional)</label>
-                  <input value={routing} onChange={(event) => setRouting(event.target.value)} placeholder="Routing number" className={inputClassName} />
-                </div>
-              </div>
-              <div className="px-5 py-4 border-t border-slate-200 dark:border-[#2a3044] flex justify-end gap-2">
-                <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">Cancel</button>
-                <button onClick={handleSave} disabled={!bankName.trim() || !accountNumber.trim() || saving} className="px-5 py-2 text-sm bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg transition-colors font-medium">
-                  {saving ? "Adding..." : "Add"}
-                </button>
-              </div>
-            </div>
-          </motion.div>
+          <button type="button" onClick={onClose} className={hrSecondaryButton}>Cancel</button>
+          <button type="submit" form="add-bank-account-form" disabled={!bankName.trim() || !accountNumber.trim() || saving} className={hrPrimaryButton}>
+            {saving ? "Adding..." : "Add"}
+          </button>
         </>
       )}
-    </AnimatePresence>
+    >
+      <form id="add-bank-account-form" onSubmit={(event) => { event.preventDefault(); handleSave(); }} className="space-y-3">
+        <div>
+          <label htmlFor="bank-name" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Bank name</label>
+          <input id="bank-name" value={bankName} onChange={(event) => setBankName(event.target.value)} placeholder="e.g. Chase" className={inputClassName} data-autofocus />
+        </div>
+        <div>
+          <label htmlFor="bank-holder" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Account holder name</label>
+          <input id="bank-holder" value={holder} onChange={(event) => setHolder(event.target.value)} placeholder="Full name on account" className={inputClassName} />
+        </div>
+        <div>
+          <label htmlFor="bank-account-number" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Account number / IBAN</label>
+          <input id="bank-account-number" value={accountNumber} onChange={(event) => setAccountNumber(event.target.value)} placeholder="Account number" className={inputClassName} />
+        </div>
+        <div>
+          <label htmlFor="bank-routing" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Routing / BIC / SWIFT (optional)</label>
+          <input id="bank-routing" value={routing} onChange={(event) => setRouting(event.target.value)} placeholder="Routing number" className={inputClassName} />
+        </div>
+      </form>
+    </HRModal>
   );
 }
 
 export function FinanceTab({ userName, setActiveTab }) {
   const { expenses, bankAccounts, addExpense, deleteExpense, addBankAccount, deleteBankAccount, setPrimaryBankAccount } = useHR();
   const { addToast } = useToast();
+  const confirm = useConfirm();
   const [subTab, setSubTab] = useState("payslips");
 
   const run = async (action, successMessage, rethrow = false) => {
@@ -196,12 +186,24 @@ export function FinanceTab({ userName, setActiveTab }) {
 
   const handleAddExpense = (expense) => run(() => addExpense(expense), "Expense submitted for approval", true);
   const handleAddBank = (account) => run(() => addBankAccount(account), "Bank account added", true);
-  const handleDeleteExpense = (expense) => {
-    if (!window.confirm(`Delete expense “${expense.description}”?`)) return;
+  const handleDeleteExpense = async (expense) => {
+    const ok = await confirm({
+      title: `Delete expense “${expense.description}”?`,
+      description: "The expense report will be withdrawn and removed permanently.",
+      confirmLabel: "Delete expense",
+      tone: "danger",
+    });
+    if (!ok) return;
     run(() => deleteExpense(expense.id), "Expense deleted");
   };
-  const handleDeleteBank = (account) => {
-    if (!window.confirm(`Remove ${account.bankName} account ending ${account.accountNumber?.slice(-4) || ""}?`)) return;
+  const handleDeleteBank = async (account) => {
+    const ok = await confirm({
+      title: `Remove ${account.bankName} account?`,
+      description: `The account ending ${account.accountNumber?.slice(-4) || "····"} will no longer receive payments.`,
+      confirmLabel: "Remove account",
+      tone: "danger",
+    });
+    if (!ok) return;
     run(() => deleteBankAccount(account.id), "Bank account removed");
   };
   const [expenseModal, setExpenseModal] = useState(false);

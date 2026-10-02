@@ -13,6 +13,9 @@ import { WorkspaceTab } from "../tabs/WorkspaceTab";
 import { AppButton, AppEmptyState } from "../../../shared/components/AppPrimitives";
 import { usePermissions } from "../../../shared/context/hooks/usePermissions";
 import { requiresConfirmation } from "../../../shared/constants/permissions";
+import { useConfirm } from "../../../shared/context/ConfirmContext";
+import { PanelSkeleton } from "../../../shared/components/Skeleton";
+import { useToast } from "../../../shared/context/ToastContext";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -44,12 +47,17 @@ function ColorPicker({ value, onChange }) {
   );
 }
 
-function DeleteConfirm({ label, onConfirm, onCancel }) {
+/** Inline confirm with labelled, finger-sized buttons (used in People rows). */
+function DeleteConfirm({ label, onConfirm, onCancel, confirmLabel = "Remove" }) {
   return (
-    <div className="flex items-center gap-1.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg px-2 py-1">
+    <div role="group" aria-label={label} className="flex items-center gap-1.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg pl-2.5 pr-1 py-1">
       <span className="text-xs text-red-600 dark:text-red-400">{label}</span>
-      <button onClick={onConfirm} className="p-0.5 text-red-600 hover:text-red-700"><FaCheck className="w-3 h-3" /></button>
-      <button onClick={onCancel}  className="p-0.5 text-slate-400 hover:text-slate-600"><FaTimes className="w-3 h-3" /></button>
+      <button type="button" onClick={onConfirm} className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-semibold text-white bg-red-600 hover:bg-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400">
+        <FaCheck className="w-2.5 h-2.5" aria-hidden="true" /> {confirmLabel}
+      </button>
+      <button type="button" onClick={onCancel} autoFocus className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-white/60 dark:hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
+        <FaTimes className="w-2.5 h-2.5" aria-hidden="true" /> Cancel
+      </button>
     </div>
   );
 }
@@ -131,8 +139,21 @@ function ProjectForm({ initial, onSave, onCancel }) {
 }
 
 function ProjectCard({ project, teams, onEdit, onDelete, isOnly, canManage = true, confirmDelete = true }) {
-  const { users } = useApp();
-  const [del, setDel] = useState(false);
+  const { users, activeTasks } = useApp();
+  const confirm = useConfirm();
+  const handleDelete = async () => {
+    if (confirmDelete) {
+      const taskCount = (activeTasks || []).filter((task) => task.projectId === project.id).length;
+      const ok = await confirm({
+        title: `Delete project "${project.name}"?`,
+        description: `It disappears for everyone. Its ${taskCount} sprint task${taskCount === 1 ? "" : "s"}, backlog and sprints are kept and the project can be restored from the Archive.`,
+        confirmLabel: "Delete project",
+        requireText: project.name,
+      });
+      if (!ok) return;
+    }
+    onDelete();
+  };
   const assigned = teams.filter((t) => (t.projectIds||[]).includes(project.id));
   const members = new Set([
     ...assigned.flatMap((t) => t.memberNames||[]),
@@ -151,11 +172,8 @@ function ProjectCard({ project, teams, onEdit, onDelete, isOnly, canManage = tru
         </div>
         {canManage && (
           <div className="flex items-center gap-1">
-            <button onClick={onEdit} title="Edit project" className="p-1.5 rounded-lg text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"><FaEdit className="w-3.5 h-3.5" /></button>
-            {!del
-              ? <button onClick={() => (confirmDelete ? setDel(true) : onDelete())} disabled={isOnly} title={isOnly ? "Cannot delete the last project" : "Delete project"} className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"><FaTrash className="w-3.5 h-3.5" /></button>
-              : <DeleteConfirm label="Delete?" onConfirm={onDelete} onCancel={() => setDel(false)} />
-            }
+            <button type="button" onClick={onEdit} aria-label={`Edit project ${project.name}`} title="Edit project" className="p-2 rounded-lg text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"><FaEdit className="w-3.5 h-3.5" /></button>
+            <button type="button" onClick={handleDelete} disabled={isOnly} aria-label={`Delete project ${project.name}`} title={isOnly ? "Cannot delete the last project" : "Delete project"} className="p-2 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400"><FaTrash className="w-3.5 h-3.5" /></button>
           </div>
         )}
       </div>
@@ -239,7 +257,19 @@ function TeamForm({ initial, projects, onSave, onCancel }) {
 }
 
 function TeamCard({ team, projects, users, onEdit, onDelete, onUpdateTeam, canManage = true, confirmDelete = true }) {
-  const [del,         setDel]         = useState(false);
+  const confirm = useConfirm();
+  const { addToast } = useToast();
+  const handleDelete = async () => {
+    if (confirmDelete) {
+      const ok = await confirm({
+        title: `Delete team "${team.name}"?`,
+        description: `${(team.memberNames || []).length} member(s) lose this team. People and projects are not deleted.`,
+        confirmLabel: "Delete team",
+      });
+      if (!ok) return;
+    }
+    onDelete();
+  };
   const [addingUser,  setAddingUser]  = useState(false);
   const [userSearch,  setUserSearch]  = useState("");
 
@@ -260,7 +290,11 @@ function TeamCard({ team, projects, users, onEdit, onDelete, onUpdateTeam, canMa
   }, [users, members, userSearch, addingUser]);
 
   const removeMember = (username) => {
+    const previous = team;
     onUpdateTeam?.({ ...team, memberNames: members.filter((m) => m !== username) });
+    addToast(`${resolveUser(username).name || username} removed from ${team.name}`, "info", {
+      action: { label: "Undo", onClick: () => onUpdateTeam?.(previous) },
+    });
   };
 
   const addMember = (username) => {
@@ -281,9 +315,8 @@ function TeamCard({ team, projects, users, onEdit, onDelete, onUpdateTeam, canMa
         </div>
         {canManage && (
           <div className="flex items-center gap-1">
-            <button onClick={onEdit} title="Edit team" className="p-1.5 rounded-lg text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"><FaEdit className="w-3.5 h-3.5" /></button>
-            {!del ? <button onClick={() => (confirmDelete ? setDel(true) : onDelete())} title="Delete team" className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"><FaTrash className="w-3.5 h-3.5" /></button>
-                  : <DeleteConfirm label="Delete?" onConfirm={onDelete} onCancel={() => setDel(false)} />}
+            <button type="button" onClick={onEdit} aria-label={`Edit team ${team.name}`} title="Edit team" className="p-2 rounded-lg text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"><FaEdit className="w-3.5 h-3.5" /></button>
+            <button type="button" onClick={handleDelete} aria-label={`Delete team ${team.name}`} title="Delete team" className="p-2 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400"><FaTrash className="w-3.5 h-3.5" /></button>
           </div>
         )}
       </div>
@@ -307,9 +340,11 @@ function TeamCard({ team, projects, users, onEdit, onDelete, onUpdateTeam, canMa
                   <span className="text-xs text-slate-600 dark:text-slate-300 capitalize">{u.label || u.name}</span>
                   {canManage && (
                     <button
+                      type="button"
                       onClick={() => removeMember(m)}
-                      className="opacity-0 group-hover:opacity-100 ml-0.5 text-slate-300 hover:text-red-400 transition-all leading-none"
+                      className="opacity-60 sm:opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 ml-0.5 p-0.5 rounded text-slate-400 hover:text-red-500 transition-all leading-none focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
                       title="Remove from team"
+                      aria-label={`Remove ${u.label || u.name} from team`}
                     >
                       <FaTimes className="w-2.5 h-2.5" />
                     </button>
@@ -450,7 +485,7 @@ export default function AdminPage() {
     teams, createTeam, updateTeam, deleteTeam,
     projects, createProject, updateProject, deleteProject,
     users, deletedUserIds, createUser, updateUser, deleteUser,
-    workspaceSettings,
+    workspaceSettings, dbReady,
   } = useApp();
 
   const { user: authUser } = useAuth();
@@ -481,6 +516,15 @@ export default function AdminPage() {
     ...(canPerform("workspace:manage") ? [{ id: "workspace", label: "Workspace", icon: FaCog }] : []),
     ...(canPerform("audit:view") ? [{ id: "audit", label: "Audit", icon: FaStream }] : []),
   ];
+
+  // Avoid flashing "No teams yet" / zero stats before the workspace loads.
+  if (dbReady === false) {
+    return (
+      <div className="h-full overflow-y-auto p-4 md:p-6 max-w-6xl mx-auto">
+        <PanelSkeleton testId="admin-skeleton" />
+      </div>
+    );
+  }
 
   return (
     <div className="h-full overflow-y-auto p-4 md:p-6 max-w-6xl mx-auto">

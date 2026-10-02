@@ -5,7 +5,7 @@ import { TASK_PRIORITY_HEX, TASK_TYPE_HEX, TASK_TYPE_LABELS } from "../../../sha
 import {
   format, startOfMonth, endOfMonth, startOfWeek, endOfWeek,
   addDays, isSameMonth, isToday, parseISO, isValid, addMonths, subMonths,
-  isPast, differenceInDays, differenceInCalendarDays, isSameDay, addWeeks, subWeeks,
+  isPast, differenceInCalendarDays, isSameDay, addWeeks, subWeeks,
   startOfDay, isBefore,
 } from "date-fns";
 import {
@@ -14,6 +14,7 @@ import {
   FaThLarge, FaListUl,
 } from "react-icons/fa";
 import { isInProject } from "../../../shared/utils/helpers";
+import { getDueStatus } from "../../../shared/utils/dueDate";
 const TaskSidePanel = lazy(() => import("../../board/components/TaskSidePanel"));
 
 function safeParse(value) {
@@ -86,21 +87,9 @@ const STATUS_CONFIG = {
   done:       { label: "Done",        color: "#22c55e" },
 };
 
-function getDueDateStatus(dueDate, status) {
-  if (status === "done") return "done";
-  try {
-    const d = parseISO(dueDate);
-    if (!isValid(d)) return "none";
-    const diff = differenceInDays(d, new Date());
-    if (diff < 0) return "overdue";
-    if (diff <= 2) return "soon";
-    return "ok";
-  } catch { return "none"; }
-}
-
 function TaskPill({ task, onClick }) {
   const pColor = TASK_PRIORITY_HEX[task.priority?.toLowerCase()] || "#3b82f6";
-  const dueSt = getDueDateStatus(task.dueDate, task.status);
+  const dueSt = getDueStatus(task.dueDate, task.status);
   const isOverdue = dueSt === "overdue";
 
   return (
@@ -266,7 +255,7 @@ export default function CalendarPage() {
               {selectedDayTasks.map((task) => {
                 const pColor = TASK_PRIORITY_HEX[task.priority?.toLowerCase()] || "#3b82f6";
                 const sCfg = STATUS_CONFIG[task.status] || STATUS_CONFIG.todo;
-                const dueSt = getDueDateStatus(task.dueDate, task.status);
+                const dueSt = getDueStatus(task.dueDate, task.status);
                 return (
                   <button
                     key={task.id}

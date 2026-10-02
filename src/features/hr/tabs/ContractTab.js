@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { AnimatePresence, motion } from "framer-motion";
-import { FaCheckCircle, FaInfoCircle, FaPen, FaTimes } from "react-icons/fa";
+import { FaCheckCircle, FaInfoCircle, FaPen } from "react-icons/fa";
 import { useHR } from "../../../shared/context/HRContext";
 import { useAuth } from "../../../shared/context/AuthContext";
 import { useToast } from "../../../shared/context/ToastContext";
 import { Badge, Card, InfoRow } from "../components/HRSharedUI";
+import { HRModal, hrPrimaryButton, hrSecondaryButton } from "../components/HRModal";
 import { formatMoney } from "../utils/payslips";
 import { toLocalIsoDate } from "../utils/dates";
 import { DEFAULT_VACATION_DAYS } from "../utils/timeOff";
@@ -14,11 +14,12 @@ const DATE_FIELDS = new Set(["startDate", "contractStartDate"]);
 
 function EditContractModal({ open, onClose, employeeProfile, onSave }) {
   const [fields, setFields] = useState({});
+  const [initialFields, setInitialFields] = useState({});
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (open) {
-      setFields({
+      const next = {
         jobTitle: employeeProfile?.jobTitle || "",
         employmentType: employeeProfile?.employmentType || "",
         seniorityLevel: employeeProfile?.seniorityLevel || "",
@@ -34,11 +35,14 @@ function EditContractModal({ open, onClose, employeeProfile, onSave }) {
         employeeNumber: employeeProfile?.employeeNumber || "",
         vacationDays: employeeProfile?.vacationDays ?? DEFAULT_VACATION_DAYS,
         standardDailyHours: employeeProfile?.standardDailyHours ?? DEFAULT_DAILY_HOURS,
-      });
+      };
+      setFields(next);
+      setInitialFields(next);
     }
   }, [open, employeeProfile]);
 
   const setField = (key, value) => setFields((previous) => ({ ...previous, [key]: value }));
+  const dirty = Object.keys(fields).some((key) => String(fields[key] ?? "") !== String(initialFields[key] ?? ""));
   const inputClassName = "w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#232838] text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500";
 
   const handleSave = async () => {
@@ -56,81 +60,75 @@ function EditContractModal({ open, onClose, employeeProfile, onSave }) {
   };
 
   return (
-    <AnimatePresence>
-      {open && (
+    <HRModal
+      open={open}
+      onClose={onClose}
+      title="Edit contract details"
+      size="lg"
+      dirty={dirty}
+      footer={(
         <>
-          <motion.div key="bd" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-          <motion.div key="md" initial={{ opacity: 0, scale: 0.95, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 16 }} transition={{ duration: 0.2 }} className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
-            <div className="pointer-events-auto w-full max-w-lg bg-white dark:bg-[#1a1f2e] rounded-2xl shadow-2xl border border-slate-200 dark:border-[#2a3044] max-h-[90vh] overflow-y-auto" onClick={(event) => event.stopPropagation()}>
-              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-[#2a3044] sticky top-0 bg-white dark:bg-[#1a1f2e] z-10">
-                <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Edit contract details</h2>
-                <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#232838] transition-colors">
-                  <FaTimes className="w-3.5 h-3.5" />
-                </button>
-              </div>
-              <div className="px-5 py-4 space-y-3">
-                {[
-                  ["Job title", "jobTitle"],
-                  ["Employment type", "employmentType"],
-                  ["Worker type", "workerType"],
-                  ["Seniority level", "seniorityLevel"],
-                  ["Work location", "workLocation"],
-                  ["Work schedule", "workSchedule"],
-                  ["Start date", "startDate"],
-                  ["Contract start date", "contractStartDate"],
-                  ["National ID", "nationalId"],
-                  ["Employee number", "employeeNumber"],
-                ].map(([label, key]) => (
-                  <div key={key}>
-                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{label}</label>
-                    <input
-                      type={DATE_FIELDS.has(key) ? "date" : "text"}
-                      value={fields[key] || ""}
-                      onChange={(event) => setField(key, event.target.value)}
-                      className={inputClassName + (DATE_FIELDS.has(key) ? " [color-scheme:light] dark:[color-scheme:dark]" : "")}
-                    />
-                  </div>
-                ))}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label htmlFor="contract-vacation-days" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Annual leave (days / year)</label>
-                    <input id="contract-vacation-days" type="number" min={0} max={365} value={fields.vacationDays ?? ""} onChange={(event) => setField("vacationDays", event.target.value)} className={inputClassName} />
-                  </div>
-                  <div>
-                    <label htmlFor="contract-daily-hours" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Standard working day (hours)</label>
-                    <input id="contract-daily-hours" type="number" min={0.5} max={24} step={0.5} value={fields.standardDailyHours ?? ""} onChange={(event) => setField("standardDailyHours", event.target.value)} className={inputClassName} />
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Currency</label>
-                    <input value={fields.salaryCurrency || ""} onChange={(event) => setField("salaryCurrency", event.target.value.toUpperCase().slice(0, 3))} placeholder="USD" className={inputClassName} />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Salary</label>
-                    <input type="number" value={fields.salary || ""} onChange={(event) => setField("salary", event.target.value)} className={inputClassName} />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Type</label>
-                    <select value={fields.salaryType || "Annual"} onChange={(event) => setField("salaryType", event.target.value)} className={inputClassName}>
-                      <option>Annual</option>
-                      <option>Monthly</option>
-                      <option>Hourly</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-              <div className="px-5 py-4 border-t border-slate-200 dark:border-[#2a3044] flex justify-end gap-2">
-                <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">Cancel</button>
-                <button onClick={handleSave} disabled={saving} className="px-5 py-2 text-sm bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg transition-colors font-medium">
-                  {saving ? "Saving..." : "Save"}
-                </button>
-              </div>
-            </div>
-          </motion.div>
+          <button type="button" onClick={onClose} className={hrSecondaryButton}>Cancel</button>
+          <button type="submit" form="edit-contract-form" disabled={saving} className={hrPrimaryButton}>
+            {saving ? "Saving..." : "Save"}
+          </button>
         </>
       )}
-    </AnimatePresence>
+    >
+      <form id="edit-contract-form" onSubmit={(event) => { event.preventDefault(); handleSave(); }} className="space-y-3">
+        {[
+          ["Job title", "jobTitle"],
+          ["Employment type", "employmentType"],
+          ["Worker type", "workerType"],
+          ["Seniority level", "seniorityLevel"],
+          ["Work location", "workLocation"],
+          ["Work schedule", "workSchedule"],
+          ["Start date", "startDate"],
+          ["Contract start date", "contractStartDate"],
+          ["National ID", "nationalId"],
+          ["Employee number", "employeeNumber"],
+        ].map(([label, key]) => (
+          <div key={key}>
+            <label htmlFor={`contract-${key}`} className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{label}</label>
+            <input
+              id={`contract-${key}`}
+              type={DATE_FIELDS.has(key) ? "date" : "text"}
+              value={fields[key] || ""}
+              onChange={(event) => setField(key, event.target.value)}
+              className={inputClassName + (DATE_FIELDS.has(key) ? " [color-scheme:light] dark:[color-scheme:dark]" : "")}
+            />
+          </div>
+        ))}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label htmlFor="contract-vacation-days" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Annual leave (days / year)</label>
+            <input id="contract-vacation-days" type="number" min={0} max={365} value={fields.vacationDays ?? ""} onChange={(event) => setField("vacationDays", event.target.value)} className={inputClassName} />
+          </div>
+          <div>
+            <label htmlFor="contract-daily-hours" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Standard working day (hours)</label>
+            <input id="contract-daily-hours" type="number" min={0.5} max={24} step={0.5} value={fields.standardDailyHours ?? ""} onChange={(event) => setField("standardDailyHours", event.target.value)} className={inputClassName} />
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <label htmlFor="contract-salary-currency" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Currency</label>
+            <input id="contract-salary-currency" value={fields.salaryCurrency || ""} onChange={(event) => setField("salaryCurrency", event.target.value.toUpperCase().slice(0, 3))} placeholder="USD" className={inputClassName} />
+          </div>
+          <div>
+            <label htmlFor="contract-salary" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Salary</label>
+            <input id="contract-salary" type="number" value={fields.salary || ""} onChange={(event) => setField("salary", event.target.value)} className={inputClassName} />
+          </div>
+          <div>
+            <label htmlFor="contract-salary-type" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Type</label>
+            <select id="contract-salary-type" value={fields.salaryType || "Annual"} onChange={(event) => setField("salaryType", event.target.value)} className={inputClassName}>
+              <option>Annual</option>
+              <option>Monthly</option>
+              <option>Hourly</option>
+            </select>
+          </div>
+        </div>
+      </form>
+    </HRModal>
   );
 }
 

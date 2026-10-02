@@ -1,11 +1,19 @@
 import React, { useState } from "react";
 import { FaComment, FaLock, FaTrash } from "react-icons/fa";
 import { useApp } from "../../../../shared/context/AppContext";
+import { useToast } from "../../../../shared/context/ToastContext";
 import { extractMentionedUsernames, sameUser } from "../../utils/mentionUtils";
 import { relativeTime } from "../../utils/docsTime";
 
 export default function DocComments({ pageId, readOnly = false }) {
-  const { docPages, addDocComment, deleteDocComment, currentUser, users, addNotification } = useApp();
+  const { docPages, addDocComment, deleteDocComment, restoreDocComment, currentUser, users, addNotification } = useApp();
+  const { addToast } = useToast();
+  const handleDeleteComment = (commentId) => {
+    const removed = deleteDocComment(pageId, commentId);
+    addToast("Comment deleted", "info", removed && restoreDocComment ? {
+      action: { label: "Undo", onClick: () => restoreDocComment(pageId, removed) },
+    } : undefined);
+  };
   const [text, setText] = useState("");
   const page = docPages.find((entry) => entry.id === pageId);
   const comments = page?.comments || [];
@@ -68,7 +76,7 @@ export default function DocComments({ pageId, readOnly = false }) {
                 <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">{comment.text}</p>
               </div>
               {!readOnly && sameUser(comment.author, currentUser) && (
-                <button onClick={() => deleteDocComment(pageId, comment.id)} title="Delete comment" aria-label="Delete comment" className="opacity-0 group-hover:opacity-100 focus:opacity-100 p-1 rounded text-slate-300 hover:text-red-500 transition-all flex-shrink-0">
+                <button type="button" onClick={() => handleDeleteComment(comment.id)} title="Delete comment" aria-label="Delete comment" className="opacity-60 sm:opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 p-1.5 rounded text-slate-400 hover:text-red-500 transition-all flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400">
                   <FaTrash className="w-3 h-3" />
                 </button>
               )}

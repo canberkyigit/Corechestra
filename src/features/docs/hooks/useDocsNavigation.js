@@ -1,14 +1,31 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { UNSAVED_CONFIRM_MESSAGE } from "../constants/docsMessages";
+import { useConfirm } from "../../../shared/context/ConfirmContext";
+import { useNavigationGuard } from "../../../shared/navigation/navigationGuard";
+
+const DISCARD_DIALOG = {
+  title: "Discard unsaved changes?",
+  description: UNSAVED_CONFIRM_MESSAGE,
+  confirmLabel: "Discard changes",
+  cancelLabel: "Keep editing",
+  tone: "danger",
+};
 
 /**
  * Tracks whether the open page editor has unsaved edits and asks before
- * navigating away. `dirtyRef` is shared with handlers that reset it after a
- * page/space disappears.
+ * switching pages/spaces inside Docs AND before leaving Docs through the app
+ * shell (sidebar, palette, notifications). `dirtyRef` is shared with handlers
+ * that reset it after a page/space disappears.
+ *
+ * `confirmDiscardChanges()` returns `true` synchronously when there is
+ * nothing to lose (so clean navigation stays synchronous), otherwise a
+ * Promise<boolean> from the confirm dialog. `whenDiscardConfirmed(fn)` wraps
+ * both cases.
  */
 export function useUnsavedChangesGuard() {
   const dirtyRef = useRef(false);
+  const confirm = useConfirm();
 
   const handleDirtyChange = useCallback((dirty) => {
     dirtyRef.current = Boolean(dirty);
@@ -16,13 +33,26 @@ export function useUnsavedChangesGuard() {
 
   const confirmDiscardChanges = useCallback(() => {
     if (!dirtyRef.current) return true;
-    // eslint-disable-next-line no-alert
-    const ok = window.confirm(UNSAVED_CONFIRM_MESSAGE);
-    if (ok) dirtyRef.current = false;
-    return ok;
-  }, []);
+    return confirm(DISCARD_DIALOG).then((ok) => {
+      if (ok) dirtyRef.current = false;
+      return ok;
+    });
+  }, [confirm]);
 
-  return { dirtyRef, handleDirtyChange, confirmDiscardChanges };
+  const whenDiscardConfirmed = useCallback((callback) => {
+    const result = confirmDiscardChanges();
+    if (result === true) return callback();
+    return result.then((ok) => (ok ? callback() : undefined));
+  }, [confirmDiscardChanges]);
+
+  useNavigationGuard(() => dirtyRef.current, {
+    title: "Leave without saving?",
+    description: "This doc page has unsaved edits. A local draft is kept, but the page itself won't be updated.",
+    confirmLabel: "Leave page",
+    onDiscard: () => { dirtyRef.current = false; },
+  });
+
+  return { dirtyRef, handleDirtyChange, confirmDiscardChanges, whenDiscardConfirmed };
 }
 
 /**

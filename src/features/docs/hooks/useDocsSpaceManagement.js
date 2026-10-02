@@ -42,13 +42,17 @@ export function useDocsSpaceManagement({
       setShowCreateSpace(false);
       return;
     }
-    if (!confirmDiscardChanges()) return;
-    const id = createSpace(data);
-    setShowCreateSpace(false);
-    if (data.projectId && currentProjectId && data.projectId !== currentProjectId) setShowAllProjectSpaces(true);
-    setSelectedSpaceId(id || null);
-    setSelectedPageId(null);
-    addToast(`Space "${data.name}" created`, "success");
+    const proceed = () => {
+      const id = createSpace(data);
+      setShowCreateSpace(false);
+      if (data.projectId && currentProjectId && data.projectId !== currentProjectId) setShowAllProjectSpaces(true);
+      setSelectedSpaceId(id || null);
+      setSelectedPageId(null);
+      addToast(`Space "${data.name}" created`, "success");
+    };
+    const verdict = confirmDiscardChanges();
+    if (verdict === true) proceed();
+    else verdict.then((ok) => { if (ok) proceed(); });
   }, [addToast, confirmDiscardChanges, createSpace, currentProjectId, ensureCanEdit, setSelectedPageId, setSelectedSpaceId, setShowAllProjectSpaces]);
 
   const handleUpdateSpace = useCallback((data) => {

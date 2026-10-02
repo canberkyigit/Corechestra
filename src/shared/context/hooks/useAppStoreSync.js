@@ -1,12 +1,42 @@
 import { useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { loadAllDomains, saveDomain, setStorageActor, subscribeToAll } from "../../services/storage";
+import {
+  getLegacyPersonalPrefs,
+  loadAllDomains,
+  loadPersonalPrefs,
+  markPersonalPrefsHydrated,
+  saveDomain,
+  savePersonalPrefs,
+  setStorageActor,
+  subscribeToAll,
+} from "../../services/storage";
 import { useAppStore } from "../../store/useAppStore";
 import { isInProject } from "../../utils/helpers";
 
 const SHOULD_LOG_SYNC_DIAGNOSTICS = process.env.NODE_ENV !== "production";
 
-export function useAppStoreSync() {
+/**
+ * Loads the shared workspace (`appData/*`) and the signed-in user's own
+ * preferences (`userPrefs/{uid}`) together. A failed read rejects so the
+ * caller can show an error instead of an empty (overwritable) workspace.
+ */
+export async function loadWorkspaceSnapshot(uid) {
+  const [shared, personal] = await Promise.all([
+    loadAllDomains(),
+    uid ? loadPersonalPrefs(uid) : Promise.resolve(null),
+  ]);
+  return {
+    shared,
+    personal: personal || getLegacyPersonalPrefs(),
+    personalExists: Boolean(personal),
+  };
+}
+
+/**
+ * @param {string|null} uid  Firebase Auth uid of the signed-in user (per-user prefs key).
+ * @returns {{ loadError: boolean, retryLoad: () => void, isRetrying: boolean }}
+ */
+export function useAppStoreSync(uid = null) {
   const {
     projects,
     currentProjectId,
@@ -56,7 +86,6 @@ export function useAppStoreSync() {
     dbReady,
     setProjects,
     setCurrentProjectId,
-    setCurrentUser,
     setEpics,
     setLabels,
     setPerProjectSprint,
@@ -105,7 +134,6 @@ export function useAppStoreSync() {
   const fieldSetters = useMemo(() => ({
     projects: setProjects,
     currentProjectId: setCurrentProjectId,
-    currentUser: setCurrentUser,
     epics: setEpics,
     labels: setLabels,
     perProjectSprint: setPerProjectSprint,
@@ -151,7 +179,6 @@ export function useAppStoreSync() {
   }), [
     setProjects,
     setCurrentProjectId,
-    setCurrentUser,
     setEpics,
     setLabels,
     setPerProjectSprint,
@@ -196,11 +223,15 @@ export function useAppStoreSync() {
     setArchivedEpics,
   ]);
 
-  const { data: remoteData, isError: loadFailed } = useQuery({
-    queryKey: ["corechestra-app-data"],
-    queryFn: loadAllDomains,
-    retry: 3,
-    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
+  const {
+    data: remoteData,
+    isError: loadFailed,
+    refetch,
+    isFetching,
+  } = useQuery({
+    queryKey: ["corechestra-app-data", uid || "anonymous"],
+    queryFn: () => loadWorkspaceSnapshot(uid),
+    // retry/backoff come from the app QueryClient defaults (3 attempts).
     staleTime: Infinity,
     gcTime: Infinity,
     refetchOnWindowFocus: false,
@@ -209,21 +240,26 @@ export function useAppStoreSync() {
 
   useEffect(() => {
     if (remoteData === undefined) return;
-    if (remoteData) {
-      Object.entries(remoteData).forEach(([field, value]) => {
+    const { shared, personal, personalExists } = remoteData || {};
+    if (shared) {
+      Object.entries(shared).forEach(([field, value]) => {
         if (value !== undefined) fieldSetters[field]?.(value);
       });
     }
+    if (personal) {
+      Object.entries(personal).forEach(([field, value]) => {
+        if (value !== undefined) fieldSetters[field]?.(value);
+      });
+    }
+    markPersonalPrefsHydrated(uid, personalExists ? personal : {});
     setDbReady(true);
-  }, [remoteData, fieldSetters, setDbReady]);
+  }, [remoteData, fieldSetters, setDbReady, uid]);
 
   useEffect(() => {
-    if (!loadFailed) return;
-    if (SHOULD_LOG_SYNC_DIAGNOSTICS) {
-      console.warn("[AppContext] Initial load failed — starting with empty state");
-    }
-    setDbReady(true);
-  }, [loadFailed, setDbReady]);
+    if (!loadFailed || !SHOULD_LOG_SYNC_DIAGNOSTICS) return;
+    // Writes stay disabled (dbReady=false) until a retry succeeds.
+    console.warn("[AppContext] Initial load failed — waiting for retry");
+  }, [loadFailed]);
 
   useEffect(() => {
     const unsubscribe = subscribeToAll((field, value) => {
@@ -263,11 +299,19 @@ export function useAppStoreSync() {
 
   useEffect(() => {
     if (!dbReady) return;
-    saveDomain("config", {
-      currentUser,
+    savePersonalPrefs(uid, {
       currentProjectId,
+      darkMode,
+      sidebarCollapsed,
+      projectsViewMode,
+      perProjectBoardFilters,
+      savedViews,
+      recentItems,
+      favoriteItems,
+      pinnedItems,
+      notificationPreferences,
     });
-  }, [currentUser, currentProjectId, dbReady]);
+  }, [uid, currentProjectId, darkMode, sidebarCollapsed, projectsViewMode, perProjectBoardFilters, savedViews, recentItems, favoriteItems, pinnedItems, notificationPreferences, dbReady]);
 
   useEffect(() => {
     if (!dbReady) return;
@@ -276,24 +320,13 @@ export function useAppStoreSync() {
 
   useEffect(() => {
     if (!dbReady) return;
-    saveDomain("config", { darkMode, sidebarCollapsed, projectsViewMode });
-  }, [darkMode, sidebarCollapsed, projectsViewMode, dbReady]);
-
-  useEffect(() => {
-    if (!dbReady) return;
     saveDomain("config", {
-      perProjectBoardFilters,
       templateRegistry,
-      savedViews,
-      recentItems,
-      favoriteItems,
-      pinnedItems,
-      notificationPreferences,
       permissionMatrix,
       workspaceSettings,
       sensitiveActionPolicy,
     });
-  }, [perProjectBoardFilters, templateRegistry, savedViews, recentItems, favoriteItems, pinnedItems, notificationPreferences, permissionMatrix, workspaceSettings, sensitiveActionPolicy, dbReady]);
+  }, [templateRegistry, permissionMatrix, workspaceSettings, sensitiveActionPolicy, dbReady]);
 
   useEffect(() => {
     if (!dbReady) return;
@@ -417,4 +450,10 @@ export function useAppStoreSync() {
     if (!dbReady) return;
     saveDomain("archive", { archivedProjects, archivedEpics });
   }, [archivedProjects, archivedEpics, dbReady]);
+
+  return {
+    loadError: loadFailed && !dbReady,
+    retryLoad: refetch,
+    isRetrying: isFetching,
+  };
 }

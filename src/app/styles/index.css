@@ -17,6 +17,19 @@
   -webkit-overflow-scrolling: touch;
 }
 
+/* Match the app shell so rubber-band overscroll never reveals a white canvas,
+   and stop scroll chaining from inner panels into the document. */
+html,
+body {
+  background-color: #f1f5f9;
+  overscroll-behavior: none;
+}
+html.dark,
+html.dark body {
+  background-color: #141720;
+  color-scheme: dark;
+}
+
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',

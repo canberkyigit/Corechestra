@@ -4,7 +4,7 @@ export default function AppErrorFallback({ error, resetErrorBoundary }) {
   const isDev = process.env.NODE_ENV === "development";
 
   return (
-    <div className="min-h-screen bg-[#0f1117] flex items-center justify-center p-6">
+    <div className="min-h-screen bg-slate-100 dark:bg-[#0f1117] flex items-center justify-center p-6" role="alert">
       <div className="max-w-lg w-full">
         {/* Icon */}
         <div className="flex justify-center mb-6">
@@ -17,24 +17,24 @@ export default function AppErrorFallback({ error, resetErrorBoundary }) {
         </div>
 
         {/* Title */}
-        <h1 className="text-xl font-bold text-slate-100 text-center mb-2">
+        <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100 text-center mb-2">
           Something went wrong
         </h1>
-        <p className="text-sm text-slate-400 text-center mb-6">
+        <p className="text-sm text-slate-600 dark:text-slate-400 text-center mb-6">
           An unexpected error occurred. Your data is safe — this is a UI issue.
         </p>
 
         {/* Error details (dev only) */}
         {isDev && error && (
           <div className="mb-6 rounded-xl border border-red-500/20 bg-red-500/5 p-4">
-            <p className="text-xs font-semibold text-red-400 mb-2 uppercase tracking-wide">
+            <p className="text-xs font-semibold text-red-600 dark:text-red-400 mb-2 uppercase tracking-wide">
               Error Details (dev only)
             </p>
-            <p className="text-xs text-red-300 font-mono break-all">
+            <p className="text-xs text-red-700 dark:text-red-300 font-mono break-all">
               {error.message}
             </p>
             {error.stack && (
-              <pre className="mt-2 text-[10px] text-slate-500 overflow-auto max-h-32 font-mono">
+              <pre className="mt-2 text-[10px] text-slate-600 dark:text-slate-500 overflow-auto max-h-32 font-mono">
                 {error.stack}
               </pre>
             )}
@@ -50,7 +50,7 @@ export default function AppErrorFallback({ error, resetErrorBoundary }) {
             Try Again
           </button>
           <button
-            className="flex-1 px-4 py-2.5 bg-[#1c2030] hover:bg-[#232838] border border-[#2a3044] text-slate-300 text-sm font-semibold rounded-xl transition-colors"
+            className="flex-1 px-4 py-2.5 bg-white dark:bg-[#1c2030] hover:bg-slate-50 dark:hover:bg-[#232838] border border-slate-200 dark:border-[#2a3044] text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl transition-colors"
             onClick={() => window.location.reload()}
           >
             Reload App

@@ -2,10 +2,13 @@ import React, { useLayoutEffect, useState } from "react";
 import { useAppStoreSync } from "./hooks/useAppStoreSync";
 import { useAppFacade } from "./hooks/useAppFacade";
 import { AppFacadeContext, createAppFacadeStore } from "./appFacadeStore";
+import { useAuth } from "./AuthContext";
+import WorkspaceLoadError from "../components/WorkspaceLoadError";
 export { useApp } from "./hooks/useAppApi";
 
 export function AppProvider({ children }) {
-  useAppStoreSync();
+  const uid = useAuth()?.user?.uid || null;
+  const { loadError, retryLoad, isRetrying } = useAppStoreSync(uid);
 
   // Compute the full facade ONCE here instead of inside every useApp() consumer.
   const facade = useAppFacade();
@@ -19,5 +22,9 @@ export function AppProvider({ children }) {
     store.notify();
   }, [store, facade]);
 
-  return <AppFacadeContext.Provider value={store}>{children}</AppFacadeContext.Provider>;
+  return (
+    <AppFacadeContext.Provider value={store}>
+      {loadError ? <WorkspaceLoadError onRetry={retryLoad} retrying={isRetrying} /> : children}
+    </AppFacadeContext.Provider>
+  );
 }

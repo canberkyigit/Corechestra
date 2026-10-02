@@ -36,14 +36,17 @@ const SuiteItem = memo(function SuiteItem({ suite, caseCount, lastStatus, isSele
   );
 });
 
-export default function TestsSidebar({ projectName, suites, selectedSuiteId, caseCountBySuite, lastRunStatusBySuite, stats, readOnly, onSelectSuite, onNewSuite, onDeleteSuite }) {
+export default function TestsSidebar({ projectName, suites, selectedSuiteId, caseCountBySuite, lastRunStatusBySuite, stats, readOnly, onSelectSuite, onNewSuite, onDeleteSuite, mobileOpen = false }) {
   const passRateTone =
     stats.passRate === null ? "text-slate-600 dark:text-slate-400" :
     stats.passRate >= 80 ? "text-green-600 dark:text-green-400" :
     stats.passRate >= 50 ? "text-yellow-600 dark:text-yellow-400" : "text-red-600 dark:text-red-400";
 
   return (
-    <aside className="w-[260px] flex-shrink-0 bg-slate-50 dark:bg-[#1a1f2e] border-r border-slate-200 dark:border-[#2a3044] flex flex-col">
+    <aside
+      id="tests-suites-panel"
+      className={`${mobileOpen ? "flex" : "hidden"} md:flex w-full md:w-[260px] max-h-[55vh] md:max-h-none flex-shrink-0 bg-slate-50 dark:bg-[#1a1f2e] border-b md:border-b-0 md:border-r border-slate-200 dark:border-[#2a3044] flex-col overflow-y-auto`}
+    >
       <div className="flex items-center justify-between px-4 py-4 border-b border-slate-200 dark:border-[#252b3b]">
         <div className="flex items-center gap-2">
           <FaFlask className="text-blue-400 w-4 h-4" />

@@ -6,6 +6,8 @@ import { useAuth } from "../../../shared/context/AuthContext";
 import { useApp } from "../../../shared/context/AppContext";
 import { useToast } from "../../../shared/context/ToastContext";
 import { Avatar, Badge, Card } from "../components/HRSharedUI";
+import { HRModal } from "../components/HRModal";
+import { useConfirm } from "../../../shared/context/ConfirmContext";
 import { PUBLIC_HOLIDAY_COUNTRY, PUBLIC_HOLIDAYS, getHolidaysForYear } from "../constants/publicHolidays";
 import {
   TIME_OFF_KIND_STYLES,
@@ -45,17 +47,9 @@ function RequestTimeOffModal({ open, onClose, onSubmit }) {
     }
   }, [open]);
 
-  useEffect(() => {
-    if (!open) return undefined;
-    const handler = (event) => {
-      if (event.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [open, onClose]);
-
   const canSubmit = fromDate && toDate && fromDate <= toDate;
   const [fileError, setFileError] = useState("");
+  const dirty = Boolean(type !== TIME_OFF_TYPES[0] || fromDate || toDate || description.trim() || file);
   const workingDays = canSubmit ? countBusinessDays(fromDate, toDate, PUBLIC_HOLIDAYS.map((holiday) => holiday.date)) : 0;
 
   const handleFile = (nextFile) => {
@@ -94,108 +88,105 @@ function RequestTimeOffModal({ open, onClose, onSubmit }) {
   };
 
   return (
-    <AnimatePresence>
-      {open && (
-        <>
-          <motion.div key="backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }} className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-          <motion.div key="modal" initial={{ opacity: 0, scale: 0.95, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 16 }} transition={{ duration: 0.22, ease: "easeOut" }} className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
-            <div className="pointer-events-auto w-full max-w-lg bg-white dark:bg-[#1a1f2e] rounded-2xl shadow-2xl border border-slate-200 dark:border-[#2a3044] overflow-hidden" onClick={(event) => event.stopPropagation()}>
-              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-[#2a3044]">
-                <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100">Request time off</h2>
-                <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#232838] transition-colors">
-                  <FaTimes className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
-              <div className="px-6 py-5 space-y-4">
-                <div className="relative">
-                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Type</label>
-                  <button type="button" onClick={() => setTypeOpen((value) => !value)} className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#232838] text-sm text-slate-800 dark:text-slate-100 hover:border-blue-400 dark:hover:border-blue-500 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400">
-                    <span>{type}</span>
-                    <FaChevronDown className={`w-3 h-3 text-slate-400 transition-transform ${typeOpen ? "rotate-180" : ""}`} />
-                  </button>
-                  <AnimatePresence>
-                    {typeOpen && (
-                      <motion.ul initial={{ opacity: 0, y: -6, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -6, scale: 0.97 }} transition={{ duration: 0.12 }} className="absolute z-10 w-full mt-1 bg-white dark:bg-[#1c2030] border border-slate-200 dark:border-[#2a3044] rounded-xl shadow-xl overflow-hidden">
-                        {TIME_OFF_TYPES.map((value) => (
-                          <li key={value}>
-                            <button type="button" onClick={() => { setType(value); setTypeOpen(false); }} className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${value === type ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-medium" : "text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#232838]"}`}>
-                              {value}
-                            </button>
-                          </li>
-                        ))}
-                      </motion.ul>
-                    )}
-                  </AnimatePresence>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">From <span className="text-red-400">*</span></label>
-                    <input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#232838] text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-colors [color-scheme:light] dark:[color-scheme:dark]" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">To <span className="text-red-400">*</span></label>
-                    <input type="date" value={toDate} min={fromDate} onChange={(event) => setToDate(event.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#232838] text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-colors [color-scheme:light] dark:[color-scheme:dark]" />
-                  </div>
-                </div>
-                {canSubmit && (
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 -mt-2">
-                    {workingDays} working day{workingDays === 1 ? "" : "s"} (weekends and public holidays excluded)
-                  </p>
-                )}
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Description (optional)</label>
-                  <textarea value={description} onChange={(event) => setDescription(event.target.value.slice(0, 280))} rows={4} placeholder="Add a note for your manager..." className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#232838] text-sm text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 resize-none focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-colors" />
-                  <div className="flex justify-end mt-1">
-                    <span className="text-[11px] text-slate-400 dark:text-slate-500 tabular-nums">{description.length} / 280</span>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Attachment reference (optional)</label>
-                  <div
-                    onClick={() => fileRef.current?.click()}
-                    onDragOver={(event) => { event.preventDefault(); setDragOver(true); }}
-                    onDragLeave={() => setDragOver(false)}
-                    onDrop={(event) => { event.preventDefault(); setDragOver(false); handleFile(event.dataTransfer.files[0]); }}
-                    className={`relative flex flex-col items-center justify-center gap-2 px-4 py-6 rounded-xl border-2 border-dashed cursor-pointer transition-all ${
-                      dragOver
-                        ? "border-blue-400 bg-blue-50 dark:bg-blue-900/10"
-                        : file
-                        ? "border-green-400 bg-green-50 dark:bg-green-900/10"
-                        : "border-slate-200 dark:border-[#2a3044] hover:border-blue-400/60 hover:bg-slate-50 dark:hover:bg-[#232838]/60"
-                    }`}
-                  >
-                    <input ref={fileRef} type="file" accept=".jpg,.jpeg,.png,.heic,.pdf" className="hidden" onChange={(event) => handleFile(event.target.files[0])} />
-                    {file ? (
-                      <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
-                        <FaCheckCircle className="w-4 h-4" />
-                        <span className="text-sm font-medium truncate max-w-xs">{file.name}</span>
-                        <button type="button" onClick={(event) => { event.stopPropagation(); setFile(null); }} className="ml-1 text-slate-400 hover:text-red-400 transition-colors">
-                          <FaTimes className="w-3 h-3" />
-                        </button>
-                      </div>
-                    ) : (
-                      <p className="text-sm text-blue-500 dark:text-blue-400 font-medium">Click here or drag file to upload</p>
-                    )}
-                  </div>
-                  {fileError && <p className="text-[11px] text-red-500 mt-1.5">{fileError}</p>}
-                  <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1.5">Supported formats: JPEG, PNG, HEIC, PDF. Max file size: 5MB. File storage is not connected — only the file name is recorded with the request; share the document with your manager directly.</p>
-                </div>
-              </div>
-
-              <div className="px-6 py-4 border-t border-slate-200 dark:border-[#2a3044] flex justify-end">
-                <button type="button" disabled={!canSubmit || submitting} onClick={handleSubmit} className={`px-8 py-2.5 rounded-xl text-sm font-semibold transition-all ${canSubmit && !submitting ? "bg-blue-600 hover:bg-blue-500 text-white shadow-md shadow-blue-600/25 hover:shadow-blue-500/30" : "bg-slate-200 dark:bg-[#232838] text-slate-400 dark:text-slate-500 cursor-not-allowed"}`}>
-                  {submitting ? "Submitting..." : "Submit"}
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        </>
+    <HRModal
+      open={open}
+      onClose={onClose}
+      title="Request time off"
+      size="lg"
+      dirty={dirty}
+      footer={(
+        <button type="submit" form="request-time-off-form" disabled={!canSubmit || submitting} className={`px-8 py-2.5 rounded-xl text-sm font-semibold transition-all ${canSubmit && !submitting ? "bg-blue-600 hover:bg-blue-500 text-white shadow-md shadow-blue-600/25 hover:shadow-blue-500/30" : "bg-slate-200 dark:bg-[#232838] text-slate-400 dark:text-slate-500 cursor-not-allowed"}`}>
+          {submitting ? "Submitting..." : "Submit"}
+        </button>
       )}
-    </AnimatePresence>
+    >
+      <form id="request-time-off-form" onSubmit={(event) => { event.preventDefault(); handleSubmit(); }} className="space-y-4">
+        <div
+          className="relative"
+          onKeyDown={(event) => {
+            if (event.key === "Escape" && typeOpen) {
+              event.preventDefault();
+              setTypeOpen(false);
+            }
+          }}
+        >
+          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Type</label>
+          <button type="button" onClick={() => setTypeOpen((value) => !value)} className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#232838] text-sm text-slate-800 dark:text-slate-100 hover:border-blue-400 dark:hover:border-blue-500 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400">
+            <span>{type}</span>
+            <FaChevronDown className={`w-3 h-3 text-slate-400 transition-transform ${typeOpen ? "rotate-180" : ""}`} />
+          </button>
+          <AnimatePresence>
+            {typeOpen && (
+              <motion.ul initial={{ opacity: 0, y: -6, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -6, scale: 0.97 }} transition={{ duration: 0.12 }} className="absolute z-10 w-full mt-1 bg-white dark:bg-[#1c2030] border border-slate-200 dark:border-[#2a3044] rounded-xl shadow-xl overflow-hidden">
+                {TIME_OFF_TYPES.map((value) => (
+                  <li key={value}>
+                    <button type="button" onClick={() => { setType(value); setTypeOpen(false); }} className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${value === type ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-medium" : "text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#232838]"}`}>
+                      {value}
+                    </button>
+                  </li>
+                ))}
+              </motion.ul>
+            )}
+          </AnimatePresence>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">From <span className="text-red-400">*</span></label>
+            <input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#232838] text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-colors [color-scheme:light] dark:[color-scheme:dark]" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">To <span className="text-red-400">*</span></label>
+            <input type="date" value={toDate} min={fromDate} onChange={(event) => setToDate(event.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#232838] text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-colors [color-scheme:light] dark:[color-scheme:dark]" />
+          </div>
+        </div>
+        {canSubmit && (
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 -mt-2">
+            {workingDays} working day{workingDays === 1 ? "" : "s"} (weekends and public holidays excluded)
+          </p>
+        )}
+
+        <div>
+          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Description (optional)</label>
+          <textarea value={description} onChange={(event) => setDescription(event.target.value.slice(0, 280))} rows={4} placeholder="Add a note for your manager..." className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#232838] text-sm text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 resize-none focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-colors" />
+          <div className="flex justify-end mt-1">
+            <span className="text-[11px] text-slate-400 dark:text-slate-500 tabular-nums">{description.length} / 280</span>
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Attachment reference (optional)</label>
+          <div
+            onClick={() => fileRef.current?.click()}
+            onDragOver={(event) => { event.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(event) => { event.preventDefault(); setDragOver(false); handleFile(event.dataTransfer.files[0]); }}
+            className={`relative flex flex-col items-center justify-center gap-2 px-4 py-6 rounded-xl border-2 border-dashed cursor-pointer transition-all ${
+              dragOver
+                ? "border-blue-400 bg-blue-50 dark:bg-blue-900/10"
+                : file
+                ? "border-green-400 bg-green-50 dark:bg-green-900/10"
+                : "border-slate-200 dark:border-[#2a3044] hover:border-blue-400/60 hover:bg-slate-50 dark:hover:bg-[#232838]/60"
+            }`}
+          >
+            <input ref={fileRef} type="file" accept=".jpg,.jpeg,.png,.heic,.pdf" className="hidden" onChange={(event) => handleFile(event.target.files[0])} />
+            {file ? (
+              <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                <FaCheckCircle className="w-4 h-4" />
+                <span className="text-sm font-medium truncate max-w-xs">{file.name}</span>
+                <button type="button" onClick={(event) => { event.stopPropagation(); setFile(null); }} className="ml-1 text-slate-400 hover:text-red-400 transition-colors">
+                  <FaTimes className="w-3 h-3" />
+                </button>
+              </div>
+            ) : (
+              <p className="text-sm text-blue-500 dark:text-blue-400 font-medium">Click here or drag file to upload</p>
+            )}
+          </div>
+          {fileError && <p className="text-[11px] text-red-500 mt-1.5">{fileError}</p>}
+          <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1.5">Supported formats: JPEG, PNG, HEIC, PDF. Max file size: 5MB. File storage is not connected — only the file name is recorded with the request; share the document with your manager directly.</p>
+        </div>
+      </form>
+    </HRModal>
   );
 }
 
@@ -211,6 +202,7 @@ export function TimeOffTab() {
   const { user, profile } = useAuth();
   const { users } = useApp();
   const { addToast } = useToast();
+  const confirm = useConfirm();
   const [modalOpen, setModalOpen] = useState(false);
   const [calendarDate, setCalendarDate] = useState(new Date());
   const [calendarView, setCalendarView] = useState("mine");
@@ -266,7 +258,14 @@ export function TimeOffTab() {
   };
 
   const handleCancel = async (request) => {
-    if (!window.confirm(`Withdraw your ${request.typeName || request.type} request for ${request.fromDate} → ${request.toDate}?`)) return;
+    const ok = await confirm({
+      title: `Withdraw your ${request.typeName || request.type} request?`,
+      description: `The request for ${request.fromDate} → ${request.toDate} will be withdrawn and removed from your approver's queue.`,
+      confirmLabel: "Withdraw request",
+      cancelLabel: "Keep request",
+      tone: "warning",
+    });
+    if (!ok) return;
     setBusyId(request.id);
     try {
       await deleteTimeOffRequest(request.id);

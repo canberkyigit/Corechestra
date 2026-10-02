@@ -6,7 +6,11 @@ import { resetAppStore, useAppStore } from "../../store/useAppStore";
 
 jest.mock("../../services/storage", () => ({
   loadAllDomains: jest.fn(),
+  loadPersonalPrefs: jest.fn(),
+  getLegacyPersonalPrefs: jest.fn(),
+  markPersonalPrefsHydrated: jest.fn(),
   saveDomain: jest.fn(),
+  savePersonalPrefs: jest.fn(),
   setStorageActor: jest.fn(),
   subscribeToAll: jest.fn(),
 }));
@@ -29,11 +33,67 @@ describe("useAppStoreSync", () => {
     jest.clearAllMocks();
     storage.subscribeToAll.mockReturnValue(() => {});
     storage.loadAllDomains.mockResolvedValue(null);
+    storage.loadPersonalPrefs.mockResolvedValue(null);
+    storage.getLegacyPersonalPrefs.mockReturnValue({});
+  });
+
+  it("keeps writes disabled and reports an error when the initial load fails", async () => {
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    storage.loadAllDomains.mockRejectedValue(new Error("offline"));
+
+    const { result } = renderHook(() => useAppStoreSync("uid-1"), { wrapper: createWrapper() });
+
+    await waitFor(() => expect(result.current.loadError).toBe(true));
+    expect(useAppStore.getState().dbReady).toBe(false);
+    expect(storage.saveDomain).not.toHaveBeenCalled();
+    expect(storage.savePersonalPrefs).not.toHaveBeenCalled();
+
+    storage.loadAllDomains.mockResolvedValue({ projects: [{ id: "proj-1" }] });
+    await act(async () => { await result.current.retryLoad(); });
+
+    await waitFor(() => expect(useAppStore.getState().dbReady).toBe(true));
+    expect(result.current.loadError).toBe(false);
+    warnSpy.mockRestore();
+  });
+
+  it("hydrates the user's own prefs over legacy shared values and saves them per user", async () => {
+    storage.loadAllDomains.mockResolvedValue({ projects: [{ id: "proj-1" }, { id: "proj-2" }] });
+    storage.getLegacyPersonalPrefs.mockReturnValue({ currentProjectId: "proj-1" });
+    storage.loadPersonalPrefs.mockResolvedValue({ currentProjectId: "proj-2", darkMode: true });
+
+    renderHook(() => useAppStoreSync("uid-1"), { wrapper: createWrapper() });
+
+    await waitFor(() => expect(useAppStore.getState().dbReady).toBe(true));
+    expect(storage.loadPersonalPrefs).toHaveBeenCalledWith("uid-1");
+    expect(useAppStore.getState().currentProjectId).toBe("proj-2");
+    expect(useAppStore.getState().darkMode).toBe(true);
+    expect(storage.markPersonalPrefsHydrated).toHaveBeenCalledWith("uid-1", { currentProjectId: "proj-2", darkMode: true });
+
+    act(() => { useAppStore.getState().setSidebarCollapsed(true); });
+
+    await waitFor(() => {
+      expect(storage.savePersonalPrefs).toHaveBeenLastCalledWith("uid-1", expect.objectContaining({
+        currentProjectId: "proj-2",
+        sidebarCollapsed: true,
+      }));
+    });
+    expect(storage.saveDomain).not.toHaveBeenCalledWith("config", expect.objectContaining({ sidebarCollapsed: true }));
+  });
+
+  it("seeds a missing prefs doc from the legacy shared config", async () => {
+    storage.getLegacyPersonalPrefs.mockReturnValue({ currentProjectId: "proj-7" });
+
+    renderHook(() => useAppStoreSync("uid-1"), { wrapper: createWrapper() });
+
+    await waitFor(() => expect(useAppStore.getState().dbReady).toBe(true));
+    expect(useAppStore.getState().currentProjectId).toBe("proj-7");
+    // Empty "known" state → the first save creates the doc with every field.
+    expect(storage.markPersonalPrefsHydrated).toHaveBeenCalledWith("uid-1", {});
   });
 
   it("hydrates remote data into the store and marks dbReady", async () => {
+    storage.getLegacyPersonalPrefs.mockReturnValue({ currentProjectId: "proj-1" });
     storage.loadAllDomains.mockResolvedValue({
-      currentProjectId: "proj-1",
       projects: [{ id: "proj-1", name: "Corechestra" }],
       activeTasks: [{ id: "task-1", title: "Loaded task", projectId: "proj-1" }],
     });
@@ -66,8 +126,8 @@ describe("useAppStoreSync", () => {
   });
 
   it("creates burndown snapshots from only the current project's tasks", async () => {
+    storage.getLegacyPersonalPrefs.mockReturnValue({ currentProjectId: "proj-1" });
     storage.loadAllDomains.mockResolvedValue({
-      currentProjectId: "proj-1",
       activeTasks: [
         { id: "p1-open", projectId: "proj-1", status: "todo", storyPoint: 5 },
         { id: "p1-done", projectId: "proj-1", status: "done", storyPoint: 3 },
@@ -89,8 +149,8 @@ describe("useAppStoreSync", () => {
   });
 
   it("queues changed sprint capacities for the persisted sprints domain", async () => {
+    storage.getLegacyPersonalPrefs.mockReturnValue({ currentProjectId: "proj-1" });
     storage.loadAllDomains.mockResolvedValue({
-      currentProjectId: "proj-1",
       perProjectSprint: {
         "proj-1": { id: "sprint-1", teamCapacities: { "u-1": 80 } },
       },

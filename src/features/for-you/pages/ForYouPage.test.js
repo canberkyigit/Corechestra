@@ -1,6 +1,6 @@
 import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
-import ForYouPage, { selectDueSoonTasks } from "./ForYouPage";
+import ForYouPage, { selectDueSoonTasks, selectOverdueTasks } from "./ForYouPage";
 import { NAVIGATE_EVENT, OPEN_TASK_EVENT } from "../../../shared/components/appNavigation";
 
 const mockUseApp = jest.fn();
@@ -158,5 +158,16 @@ describe("ForYouPage", () => {
     ];
 
     expect(selectDueSoonTasks(tasks, now).map((task) => task.id)).toEqual(["a", "b"]);
+  });
+
+  it("lists open overdue tasks, most overdue first", () => {
+    const now = new Date(2026, 9, 2, 15, 0);
+    const tasks = [
+      { id: "late-1", dueDate: "2026-09-30", status: "todo" },
+      { id: "late-2", dueDate: "2026-09-01", status: "inprogress" },
+      { id: "done", dueDate: "2026-09-01", status: "done" },
+      { id: "today", dueDate: "2026-10-02", status: "todo" },
+    ];
+    expect(selectOverdueTasks(tasks, now).map((task) => task.id)).toEqual(["late-2", "late-1"]);
   });
 });

@@ -3,6 +3,7 @@ import { DragDropContext } from "@hello-pangea/dnd";
 import { FaUserAlt, FaChevronDown, FaChevronRight } from "react-icons/fa";
 import KanbanColumn from "./KanbanColumn";
 import { useApp } from "../../../shared/context/AppContext";
+import { useToast } from "../../../shared/context/ToastContext";
 import { useBoardPermissions } from "../hooks/useBoardPermissions";
 import { useWorkflowGuard } from "../hooks/useWorkflowGuard";
 import { groupTasksByColumn, UNMAPPED_COLUMN_ID } from "../utils/boardColumns";
@@ -76,6 +77,7 @@ export default function KanbanBoard({
     createTask,
   } = useApp();
   const { canEditTask, canCreateTask } = useBoardPermissions();
+  const { addToast } = useToast();
   const readOnly = !canEditTask;
   const { guardStatusChange, reportResult, dialog } = useWorkflowGuard();
   const [collapsedLanes, setCollapsedLanes] = useState(() => new Set());
@@ -116,9 +118,31 @@ export default function KanbanBoard({
     return lane?.groups[columnId] || [];
   }, [groups, laneMode, swimlanes]);
 
-  const handleInlineCreate = useCallback((columnId, title) => {
-    createTask({ title, status: columnId, priority: "medium", type: "task", description: "" }, "active");
-  }, [createTask]);
+  // Quick-create inherits the context it was typed in: the swimlane's
+  // assignee/epic/priority and the active type/member filters, so the new
+  // card lands where the user is looking instead of vanishing.
+  const handleInlineCreate = useCallback((columnId, title, laneKey = null) => {
+    const lanePatch = laneKey != null && laneMode !== "none" ? getLanePatch(laneMode, laneKey) : {};
+    const contextPatch = {};
+    if (filter) contextPatch.type = filter;
+    if (member && !("assignedTo" in lanePatch)) contextPatch.assignedTo = member;
+    const created = createTask({
+      title,
+      status: columnId,
+      priority: "medium",
+      type: "task",
+      description: "",
+      ...contextPatch,
+      ...lanePatch,
+    }, "active");
+    const query = (search || "").trim().toLowerCase();
+    const hiddenBySearch = Boolean(query) && !title.toLowerCase().includes(query);
+    addToast(
+      hiddenBySearch ? `"${title}" created (hidden by the current search)` : `"${title}" created`,
+      "success",
+      created && onTaskClick ? { action: { label: "Open", onClick: () => onTaskClick(created) } } : undefined
+    );
+  }, [addToast, createTask, filter, laneMode, member, onTaskClick, search]);
 
   const toggleLane = useCallback((laneKey) => {
     setCollapsedLanes((prev) => {
@@ -229,6 +253,7 @@ export default function KanbanBoard({
                             title={col.title}
                             columnId={col.id}
                             droppableId={encodeDroppableId(col.id, lane.key)}
+                            laneKey={lane.key}
                             unmapped={Boolean(col.unmapped)}
                             tasks={lane.groups[col.id] || []}
                           />

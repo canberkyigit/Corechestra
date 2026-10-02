@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { FaFlask, FaPlus } from "react-icons/fa";
+import { FaChevronDown, FaFlask, FaPlus } from "react-icons/fa";
+import { AppButton } from "../../../shared/components/AppPrimitives";
 import { useApp } from "../../../shared/context/AppContext";
 import { useToast } from "../../../shared/context/ToastContext";
 import { usePermissions } from "../../../shared/context/hooks/usePermissions";
@@ -39,6 +40,7 @@ export default function TestsPage() {
   const [selectedSuiteId, setSelectedSuiteId] = useState(null);
   const [activeTab, setActiveTab] = useState("queue");
   const [newSuiteModal, setNewSuiteModal] = useState(false);
+  const [suitesOpenMobile, setSuitesOpenMobile] = useState(false);
   const [focusedRunId, setFocusedRunId] = useState(null);
   const [confirmRequest, setConfirmRequest] = useState(null);
 
@@ -85,6 +87,7 @@ export default function TestsPage() {
 
   if (!dbReady) return <TestsSkeleton />;
 
+
   const currentProject = projects.find((project) => project.id === currentProjectId);
   const tabCounts = {
     queue: workspace.activeRunCount,
@@ -96,8 +99,22 @@ export default function TestsPage() {
   const showSuiteEmptyState = !selectedSuite && SUITE_SCOPED_TABS.includes(activeTab);
 
   return (
-    <div className="flex h-full bg-slate-100 dark:bg-[#141720] overflow-hidden">
+    <div className="flex flex-col md:flex-row h-full bg-slate-100 dark:bg-[#141720] overflow-hidden">
+      {/* Mobile: suites collapse into a toggle so the content keeps full width */}
+      <button
+        type="button"
+        onClick={() => setSuitesOpenMobile((value) => !value)}
+        aria-expanded={suitesOpenMobile}
+        aria-controls="tests-suites-panel"
+        className="md:hidden flex items-center justify-between gap-2 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-[#1a1f2e] border-b border-slate-200 dark:border-[#2a3044]"
+      >
+        <span className="truncate">
+          {selectedSuite ? `Suite: ${selectedSuite.name}` : `Test suites (${suites.length})`}
+        </span>
+        <FaChevronDown className={`w-3 h-3 flex-shrink-0 transition-transform ${suitesOpenMobile ? "rotate-180" : ""}`} />
+      </button>
       <TestsSidebar
+        mobileOpen={suitesOpenMobile}
         projectName={currentProject?.name}
         suites={suites}
         selectedSuiteId={selectedSuiteId}
@@ -105,7 +122,7 @@ export default function TestsPage() {
         lastRunStatusBySuite={workspace.lastRunStatusBySuite}
         stats={workspace.stats}
         readOnly={readOnly}
-        onSelectSuite={selectSuite}
+        onSelectSuite={(suiteId) => { selectSuite(suiteId); setSuitesOpenMobile(false); }}
         onNewSuite={() => setNewSuiteModal(true)}
         onDeleteSuite={workflows.deleteSuite}
       />
@@ -122,9 +139,9 @@ export default function TestsPage() {
                 {suites.length === 0 ? "Create your first test suite to get started." : "Select a suite from the sidebar."}
               </p>
               {suites.length === 0 && !readOnly && (
-                <button type="button" onClick={() => setNewSuiteModal(true)} className="mt-4 flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-xl transition-colors">
+                <AppButton variant="primary" onClick={() => setNewSuiteModal(true)} className="mt-4">
                   <FaPlus className="w-3.5 h-3.5" /> New Test Suite
-                </button>
+                </AppButton>
               )}
             </div>
           )}

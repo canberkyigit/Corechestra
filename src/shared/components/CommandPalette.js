@@ -9,6 +9,8 @@ import {
 import { useApp } from "../context/AppContext";
 import { TASK_STATUS_BADGE_STYLES, TASK_STATUS_SHORT_LABELS, TASK_TYPE_ICON_META } from "../constants/taskMeta";
 import { usePermissions } from "../context/hooks/usePermissions";
+import { useEscapeKey } from "../hooks/useEscapeKey";
+import { useFocusTrap } from "../hooks/useFocusTrap";
 
 const PAGES = [
   { id: "dashboard", label: "Dashboard",  icon: FaTachometerAlt },
@@ -111,11 +113,17 @@ export default function CommandPalette({ open, onClose, onOpenTask, onNavigate, 
 
   const navItems = query.trim() ? results : quickItems;
 
+  // Esc goes through the shared overlay stack so it closes only the palette,
+  // not a task panel/modal underneath it.
+  useEscapeKey(onClose, open);
+  const panelRef = useRef(null);
+  useFocusTrap(panelRef, open, { autoFocus: false });
+
   // Keyboard navigation
   useEffect(() => {
     if (!open) return;
     const handler = (e) => {
-      if (e.key === "Escape") { onClose(); return; }
+      if (e.key === "Escape") return;
       if (e.key === "ArrowDown") { e.preventDefault(); setCursor((c) => Math.min(c + 1, navItems.length - 1)); }
       if (e.key === "ArrowUp")   { e.preventDefault(); setCursor((c) => Math.max(c - 1, 0)); }
       if (e.key === "Enter" && navItems[cursor]) { e.preventDefault(); handleSelect(navItems[cursor]); }
@@ -174,6 +182,10 @@ export default function CommandPalette({ open, onClose, onOpenTask, onNavigate, 
           exit={{ opacity: 0 }}
         >
           <motion.div
+            ref={panelRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Command palette"
             className="w-full max-w-xl bg-white dark:bg-[#1c2030] rounded-2xl shadow-2xl border border-slate-200 dark:border-[#2a3044] overflow-hidden"
             onClick={(e) => e.stopPropagation()}
             initial={{ opacity: 0, scale: 0.95, y: -20 }}
@@ -186,13 +198,17 @@ export default function CommandPalette({ open, onClose, onOpenTask, onNavigate, 
           <FaSearch className="w-4 h-4 text-slate-400 flex-shrink-0" />
           <input
             ref={inputRef}
+            aria-label="Search"
+            role="combobox"
+            aria-expanded="true"
+            aria-controls="command-palette-results"
             className="flex-1 text-sm text-slate-800 dark:text-slate-200 bg-transparent border-none outline-none placeholder-slate-400 dark:placeholder-slate-500"
-            placeholder="Search tasks, epics, pages…"
+            placeholder="Search tasks, docs, releases, tests or pages…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
           {query && (
-            <button onClick={() => setQuery("")} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+            <button type="button" aria-label="Clear search" onClick={() => setQuery("")} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
               <FaTimes className="w-3.5 h-3.5" />
             </button>
           )}
@@ -204,7 +220,7 @@ export default function CommandPalette({ open, onClose, onOpenTask, onNavigate, 
         {/* Results */}
         {query.trim() ? (
           results.length > 0 ? (
-            <div ref={listRef} className="max-h-80 overflow-y-auto py-1">
+            <div ref={listRef} id="command-palette-results" role="listbox" className="max-h-80 overflow-y-auto py-1">
               {results.map((r, i) => {
                 const isFocused = i === cursor;
                 if (r.kind === "task") {

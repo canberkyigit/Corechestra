@@ -5,6 +5,34 @@ import { INPUT_CLASS } from "../constants/testingConstants";
 import { findNextUntestedIndex, getRunResultMap, normalizeTestSteps, summarizeRun } from "../utils/testingOperations";
 import { PriorityBadge, StatusChip } from "../components/TestingPrimitives";
 
+const DRAFT_PREFIX = "corechestra_test_run_draft:";
+
+function readRunDraft(runId) {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(`${DRAFT_PREFIX}${runId}`) || "null");
+    return { notes: parsed?.notes || {}, actualResults: parsed?.actualResults || {} };
+  } catch {
+    return { notes: {}, actualResults: {} };
+  }
+}
+
+function writeRunDraft(runId, notes, actualResults) {
+  try {
+    const hasContent = Object.keys(notes).length > 0 || Object.keys(actualResults).length > 0;
+    if (hasContent) localStorage.setItem(`${DRAFT_PREFIX}${runId}`, JSON.stringify({ notes, actualResults }));
+    else localStorage.removeItem(`${DRAFT_PREFIX}${runId}`);
+  } catch {
+    // storage disabled / full: drafts stay in memory only
+  }
+}
+
+function omitKey(map, key) {
+  if (!(key in map)) return map;
+  const next = { ...map };
+  delete next[key];
+  return next;
+}
+
 /**
  * Step-through executor. `cases` must already be the run's scoped cases.
  * Mount with `key={run.id}` so switching runs resets local drafts.
@@ -12,8 +40,16 @@ import { PriorityBadge, StatusChip } from "../components/TestingPrimitives";
 export default function ExecuteRunView({ run, cases, readOnly = false, canCreateBug = true, onUpdateResult, onCompleteRun, onExit, onCreateBug }) {
   const resultMap = useMemo(() => getRunResultMap(run), [run]);
   const summary = useMemo(() => summarizeRun(run, cases), [run, cases]);
-  const [notes, setNotes] = useState({});
-  const [actualResults, setActualResults] = useState({});
+  // Typed notes / actual results survive "Save & Exit", navigation and
+  // reloads: judged cases are written to the run, untested ones are kept as
+  // a local draft per run and restored here.
+  const [notes, setNotes] = useState(() => readRunDraft(run.id).notes);
+  const [actualResults, setActualResults] = useState(() => readRunDraft(run.id).actualResults);
+
+  useEffect(() => {
+    if (readOnly) return;
+    writeRunDraft(run.id, notes, actualResults);
+  }, [actualResults, notes, readOnly, run.id]);
   const [currentIdx, setCurrentIdx] = useState(() => findNextUntestedIndex(cases, run, -1));
 
   // Keep the cursor valid when the scoped case list changes (cases loaded later, removed, synced).
@@ -71,12 +107,37 @@ export default function ExecuteRunView({ run, cases, readOnly = false, canCreate
 
   const handleResult = (status) => {
     onUpdateResult(run.id, currentCase.id, { status, notes: noteValue, actualResult: actualValue });
+    setNotes((prev) => omitKey(prev, currentCase.id));
+    setActualResults((prev) => omitKey(prev, currentCase.id));
     const projectedRun = {
       ...run,
       results: [...(run.results || []).filter((item) => item.caseId !== currentCase.id), { caseId: currentCase.id, status }],
     };
     setCurrentIdx(findNextUntestedIndex(cases, projectedRun, currentIdx));
   };
+
+  const handleSaveAndExit = () => {
+    if (!readOnly) {
+      const draftedIds = new Set([...Object.keys(notes), ...Object.keys(actualResults)]);
+      const remainingNotes = { ...notes };
+      const remainingActual = { ...actualResults };
+      draftedIds.forEach((caseId) => {
+        const existing = resultMap[caseId];
+        if (!existing || existing.status === "untested") return;
+        onUpdateResult(run.id, caseId, {
+          status: existing.status,
+          notes: notes[caseId] ?? existing.notes ?? "",
+          actualResult: actualResults[caseId] ?? existing.actualResult ?? "",
+        });
+        delete remainingNotes[caseId];
+        delete remainingActual[caseId];
+      });
+      writeRunDraft(run.id, remainingNotes, remainingActual);
+    }
+    onExit?.();
+  };
+
+  const pendingDraftCount = new Set([...Object.keys(notes), ...Object.keys(actualResults)]).size;
 
   return (
     <div className="flex flex-col h-full">
@@ -99,10 +160,16 @@ export default function ExecuteRunView({ run, cases, readOnly = false, canCreate
           )}
           <button
             type="button"
-            onClick={onExit}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-[#232838] text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white text-sm rounded-lg transition-colors"
+            onClick={handleSaveAndExit}
+            title={readOnly ? undefined : "Saves notes on judged cases; notes on untested cases are kept as a draft for this run"}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-[#232838] text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white text-sm rounded-lg transition-colors"
           >
             {readOnly ? "Back" : "Save & Exit"}
+            {!readOnly && pendingDraftCount > 0 && (
+              <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300" aria-label={`${pendingDraftCount} unsaved notes`}>
+                {pendingDraftCount}
+              </span>
+            )}
           </button>
         </div>
       </div>

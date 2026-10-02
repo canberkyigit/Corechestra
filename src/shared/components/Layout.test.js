@@ -1,7 +1,9 @@
 import React from "react";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import Layout from "./Layout";
 import { requestNavigate, requestOpenTask } from "./appNavigation";
+
+const mockLogout = jest.fn();
 
 const mockUseApp = jest.fn();
 const mockUsePermissions = jest.fn();
@@ -22,7 +24,7 @@ jest.mock("../context/AppContext", () => ({
 }));
 
 jest.mock("../context/AuthContext", () => ({
-  useAuth: () => ({ user: { email: "alice@example.com" }, role: "member", profile: null, logout: jest.fn() }),
+  useAuth: () => ({ user: { email: "alice@example.com" }, role: "member", profile: null, logout: mockLogout }),
 }));
 
 jest.mock("../context/ToastContext", () => ({
@@ -147,15 +149,26 @@ describe("Layout", () => {
     expect(markAllNotifsRead).toHaveBeenCalledWith(["mine", "broadcast"]);
   });
 
-  it("only lists permitted pages in the quick navigation", () => {
-    setupLayout();
-    fireEvent.focus(screen.getByLabelText(/search tasks, epics and pages/i));
+  it("only lists permitted pages and opens the command palette from the header search", () => {
+    const onSearchClick = jest.fn();
+    setupLayout({ onSearchClick });
 
-    expect(screen.getByText("Quick navigation")).toBeInTheDocument();
-    // sidebar entry + quick-navigation entry
-    expect(screen.getAllByRole("button", { name: "Documentation" })).toHaveLength(2);
+    expect(screen.getByRole("button", { name: "Documentation" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Admin" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Archive" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Search \(Ctrl or Cmd \+ K\)/ }));
+    expect(onSearchClick).toHaveBeenCalled();
+  });
+
+  it("asks before signing out", async () => {
+    const confirmSpy = jest.spyOn(window, "confirm").mockReturnValue(false);
+    setupLayout();
+
+    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+    await waitFor(() => expect(confirmSpy).toHaveBeenCalled());
+    expect(mockLogout).not.toHaveBeenCalled();
+    confirmSpy.mockRestore();
   });
 
   it("forwards open-task and navigate requests from feature pages", () => {

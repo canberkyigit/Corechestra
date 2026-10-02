@@ -1,5 +1,5 @@
 import React from "react";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import KanbanBoard from "./KanbanBoard";
 
 const mockUseApp = jest.fn();
@@ -136,6 +136,30 @@ describe("KanbanBoard", () => {
       status: "inprogress",
       patch: { assignedTo: "bob" },
     }));
+  });
+
+  it("quick-creates inside a swimlane with that lane's assignee and offers to open it", () => {
+    const created = { id: "CY-9", title: "Lane task" };
+    const app = appMock({ createTask: jest.fn(() => created) });
+    mockUseApp.mockReturnValue(app);
+    const onTaskClick = jest.fn();
+    renderBoard({ swimlaneMode: "assignee", onTaskClick, filter: "bug" });
+
+    const bobLane = screen.getByTestId("swimlane-bob");
+    fireEvent.click(within(bobLane).getByRole("button", { name: "Add task to In Progress" }));
+    const input = within(bobLane).getByPlaceholderText("What needs to be done?");
+    fireEvent.change(input, { target: { value: "Lane task" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    expect(app.createTask).toHaveBeenCalledWith(expect.objectContaining({
+      title: "Lane task",
+      status: "inprogress",
+      assignedTo: "bob",
+      type: "bug",
+    }), "active");
+    const [, , options] = mockAddToast.mock.calls.at(-1);
+    options.action.onClick();
+    expect(onTaskClick).toHaveBeenCalledWith(created);
   });
 
   it("asks for a blocker reason before moving into Blocked", async () => {

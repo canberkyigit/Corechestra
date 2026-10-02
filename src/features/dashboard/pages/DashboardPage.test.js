@@ -6,7 +6,8 @@ import { OPEN_TASK_EVENT } from "../../../shared/components/appNavigation";
 const mockUseApp = jest.fn();
 
 jest.mock("framer-motion", () => ({
-  motion: { div: ({ children, initial, animate, transition, ...props }) => <div {...props}>{children}</div> },
+  AnimatePresence: ({ children }) => children,
+  motion: { div: ({ children, initial, animate, exit, transition, ...props }) => <div {...props}>{children}</div> },
 }));
 jest.mock("../../../shared/context/AppContext", () => ({ useApp: () => mockUseApp() }));
 jest.mock("../../../shared/context/hooks/usePermissions", () => ({

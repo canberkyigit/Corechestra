@@ -386,3 +386,30 @@ export function RoadmapSkeleton() {
     </div>
   );
 }
+
+// ─── Generic panel skeleton (HR, Admin, Profile) ──────────────────────────────
+export function PanelSkeleton({ rows = 4, testId = "panel-skeleton" }) {
+  return (
+    <div className="space-y-4" data-testid={testId} aria-busy="true" aria-live="polite">
+      <span className="sr-only">Loading…</span>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="rounded-2xl border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#1c2030] p-4 space-y-2">
+            <SkeletonBlock className="h-3 w-20" />
+            <SkeletonBlock className="h-6 w-12" />
+          </div>
+        ))}
+      </div>
+      {Array.from({ length: rows }).map((_, i) => (
+        <div key={i} className="rounded-2xl border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#1c2030] p-4 flex items-center gap-4">
+          <SkeletonBlock className="h-10 w-10 rounded-full" />
+          <div className="flex-1 space-y-2">
+            <SkeletonBlock className="h-3.5 w-1/3" />
+            <SkeletonBlock className="h-3 w-1/2" />
+          </div>
+          <SkeletonBlock className="h-8 w-20 rounded-lg" />
+        </div>
+      ))}
+    </div>
+  );
+}

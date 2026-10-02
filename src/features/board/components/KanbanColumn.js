@@ -32,6 +32,7 @@ function KanbanColumn({
   subtaskButtonsOpen,
   onTaskClick,
   onInlineCreate,
+  laneKey = null,
   epicsById,
   labelsById,
   users,
@@ -61,16 +62,19 @@ function KanbanColumn({
 
   const handleInlineCreate = () => {
     if (!inlineTitle.trim()) { closeInline(); return; }
-    onInlineCreate(columnId, inlineTitle.trim());
+    onInlineCreate(columnId, inlineTitle.trim(), laneKey);
     closeInline();
   };
 
   if (isCollapsed) {
     return (
-      <div
-        className="flex flex-col h-full min-h-[300px] bg-slate-200/70 dark:bg-[#1a1f2e] rounded-xl border border-slate-300/80 dark:border-[#252b3b] cursor-pointer hover:bg-slate-300/60 dark:hover:bg-[#1e2438] transition-colors overflow-hidden"
+      <button
+        type="button"
+        className="flex flex-col w-full h-full min-h-[300px] bg-slate-200/70 dark:bg-[#1a1f2e] rounded-xl border border-slate-300/80 dark:border-[#252b3b] cursor-pointer hover:bg-slate-300/60 dark:hover:bg-[#1e2438] transition-colors overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
         onClick={toggleCollapse || undefined}
         title={`Expand ${title}`}
+        aria-label={`Expand ${title} column (${tasks.length} tasks)`}
+        aria-expanded="false"
       >
         <div className="flex flex-col items-center gap-2 py-3 flex-1">
           <span className={`w-2 h-2 rounded-full flex-shrink-0 ${colors.dot}`} />
@@ -84,7 +88,7 @@ function KanbanColumn({
             {title}
           </span>
         </div>
-      </div>
+      </button>
     );
   }
 
@@ -97,8 +101,11 @@ function KanbanColumn({
           : "bg-slate-200/70 dark:bg-[#1a1f2e] border-slate-300/80 dark:border-[#252b3b]"
       }`}
     >
-      {/* Column Header */}
-      <div className="flex items-center gap-2 px-3 pt-3 pb-2">
+      {/* Column Header — sticks to the top of the board's scroll area so long
+          columns keep their title and count in view. */}
+      <div className={`sticky top-0 z-10 flex items-center gap-2 px-3 pt-3 pb-2 rounded-t-xl backdrop-blur-sm ${
+        unmapped ? "bg-amber-50/95 dark:bg-[#1f1d1a]/95" : "bg-slate-200/95 dark:bg-[#1a1f2e]/95"
+      }`}>
         <span className={`w-2 h-2 rounded-full flex-shrink-0 ${colors.dot}`} />
         <span className={`font-semibold text-xs uppercase tracking-wider truncate flex-1 ${colors.header}`}>
           {title}
@@ -115,9 +122,10 @@ function KanbanColumn({
         {toggleCollapse && (
           <button
             type="button"
-            className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-slate-200 dark:hover:bg-[#2a3044] text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-all"
+            className="opacity-60 sm:opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 p-1 rounded hover:bg-slate-200 dark:hover:bg-[#2a3044] text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
             onClick={toggleCollapse}
             title="Collapse column"
+            aria-label={`Collapse ${title} column`}
           >
             <FaChevronLeft className="w-3 h-3" />
           </button>
@@ -125,9 +133,10 @@ function KanbanColumn({
         {canCreate && (
           <button
             type="button"
-            className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-slate-200 dark:hover:bg-[#2a3044] text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-all"
+            className="opacity-60 sm:opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 p-1 rounded hover:bg-slate-200 dark:hover:bg-[#2a3044] text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
             onClick={openInline}
             title="Add task"
+            aria-label={`Add task to ${title}`}
           >
             <FaPlus className="w-3 h-3" />
           </button>
@@ -174,7 +183,14 @@ function KanbanColumn({
                         ? `${dragProvided.draggableProps.style?.transform ?? ""} rotate(1.5deg)`
                         : dragProvided.draggableProps.style?.transform,
                     }}
-                    className={`transition-shadow duration-150 ${dragSnapshot.isDragging ? "shadow-2xl ring-2 ring-blue-400/50 rounded-lg" : ""}`}
+                    className={`transition-shadow duration-150 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#141720] ${dragSnapshot.isDragging ? "shadow-2xl ring-2 ring-blue-400/50" : ""}`}
+                    aria-label={`${task.title}. Press Enter to open, Space to move.`}
+                    onKeyDown={(event) => {
+                      dragProvided.dragHandleProps?.onKeyDown?.(event);
+                      if (event.defaultPrevented || event.key !== "Enter" || event.target !== event.currentTarget) return;
+                      event.preventDefault();
+                      onTaskClick?.(task);
+                    }}
                   >
                     <TaskCard
                       task={task}

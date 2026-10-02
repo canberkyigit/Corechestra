@@ -207,7 +207,7 @@ const PlanningPoker = ({
 
         {/* Cards */}
         <div className="p-6">
-          <div className="grid grid-cols-6 gap-4 mb-6">
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 sm:gap-4 mb-6">
             {cards.map((card, index) => (
               <button
                 key={index}

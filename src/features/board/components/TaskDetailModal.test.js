@@ -147,6 +147,17 @@ describe("TaskDetailModal", () => {
     expect(mockAddToast).toHaveBeenCalledWith("Task created", "info");
   });
 
+  it("focuses the title in create mode and creates with Ctrl/Cmd+Enter", () => {
+    const { onTaskUpdate } = renderModal({ isCreate: true, task: {} });
+
+    const titleInput = screen.getByRole("textbox", { name: "Task title" });
+    expect(titleInput).toHaveFocus();
+    fireEvent.change(titleInput, { target: { value: "Keyboard task" } });
+    fireEvent.keyDown(titleInput, { key: "Enter", ctrlKey: true });
+
+    expect(onTaskUpdate).toHaveBeenCalledWith(expect.objectContaining({ title: "Keyboard task" }));
+  });
+
   it("keeps typed create-mode input when the parent re-renders with a fresh empty task object", () => {
     const baseProps = {
       open: true,

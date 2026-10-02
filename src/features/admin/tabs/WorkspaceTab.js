@@ -15,6 +15,7 @@ import {
 import { buildWorkspaceSetupState } from "../../../shared/utils/workspaceSetup";
 import { WorkspaceSetupChecklist } from "../../../shared/components/WorkspaceSetupChecklist";
 import { AppBadge, AppButton, AppDataCard, AppInput, AppSelect } from "../../../shared/components/AppPrimitives";
+import { WorkspaceDangerZone } from "../components/WorkspaceDangerZone";
 
 const TEMPLATE_KINDS = ["doc", "sprint", "release", "onboarding", "approval", "incident"];
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -440,6 +441,8 @@ export function WorkspaceTab() {
           <FaCheckCircle className="w-3 h-3" /> Save workspace controls
         </AppButton>
       </div>
+
+      <WorkspaceDangerZone />
     </div>
   );
 }

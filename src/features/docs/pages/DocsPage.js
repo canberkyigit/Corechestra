@@ -48,7 +48,7 @@ export default function DocsPage() {
   const [pendingNewPage, setPendingNewPage] = useState(null); // { parentId }
   const [showGlobalSearch, setShowGlobalSearch] = useState(false);
   const [showAllProjectSpaces, setShowAllProjectSpaces] = useState(false);
-  const { dirtyRef, handleDirtyChange, confirmDiscardChanges } = useUnsavedChangesGuard();
+  const { dirtyRef, handleDirtyChange, confirmDiscardChanges, whenDiscardConfirmed } = useUnsavedChangesGuard();
   const pageTemplates = templateRegistry?.doc?.length ? templateRegistry.doc : DEFAULT_TEMPLATE_REGISTRY.doc;
 
   // Spaces are scoped to the current project; legacy spaces without a
@@ -188,16 +188,16 @@ export default function DocsPage() {
 
   const handleSelectPage = useCallback((id) => {
     if (id === selectedPageId) return;
-    if (!confirmDiscardChanges()) return;
-    setSelectedPageId(id);
-  }, [confirmDiscardChanges, selectedPageId]);
+    whenDiscardConfirmed(() => setSelectedPageId(id));
+  }, [whenDiscardConfirmed, selectedPageId]);
 
   const handleSelectSpace = useCallback((spaceId) => {
     if (spaceId === selectedSpaceId && !selectedPageId) return;
-    if (!confirmDiscardChanges()) return;
-    setSelectedSpaceId(spaceId);
-    setSelectedPageId(null);
-  }, [confirmDiscardChanges, selectedPageId, selectedSpaceId]);
+    whenDiscardConfirmed(() => {
+      setSelectedSpaceId(spaceId);
+      setSelectedPageId(null);
+    });
+  }, [whenDiscardConfirmed, selectedPageId, selectedSpaceId]);
 
   const handleAddChild = useCallback((parentId) => {
     if (!ensureCanEdit()) return;
@@ -244,9 +244,9 @@ export default function DocsPage() {
       updatedAt: now,
     });
     setNewPageForm(null);
-    if (id && confirmDiscardChanges()) setSelectedPageId(id);
+    if (id) whenDiscardConfirmed(() => setSelectedPageId(id));
     addToast(`Page "${title}" created`, "success");
-  }, [docPages, createDocPage, currentUser, addToast, confirmDiscardChanges, ensureCanEdit]);
+  }, [docPages, createDocPage, currentUser, addToast, whenDiscardConfirmed, ensureCanEdit]);
 
   // DnD reordering + nesting. Every change is collected and written in a single
   // batch; position-only changes do not bump `updatedAt`.
@@ -265,6 +265,23 @@ export default function DocsPage() {
       addToast(`Moved "${plan.draggedPage.title}" under "${plan.combinedInto?.title}"`, "success");
     }
   }, [addToast, ensureCanEdit, isFiltering, reorderDocPages, spacePages]);
+
+  const deleteTarget = useMemo(() => {
+    if (!deleteConfirm) return { title: "", descendantCount: 0 };
+    const page = docPages.find((entry) => entry.id === deleteConfirm);
+    const seen = new Set([deleteConfirm]);
+    const queue = [deleteConfirm];
+    while (queue.length) {
+      const parentId = queue.shift();
+      docPages.forEach((entry) => {
+        if (entry.parentId === parentId && !seen.has(entry.id)) {
+          seen.add(entry.id);
+          queue.push(entry.id);
+        }
+      });
+    }
+    return { title: page?.title || "this page", descendantCount: seen.size - 1 };
+  }, [deleteConfirm, docPages]);
 
   const handleDeletePage = useCallback((pageId) => {
     if (!ensureCanEdit()) return;
@@ -399,8 +416,8 @@ export default function DocsPage() {
           spaces={visibleSpaces}
           docPages={docPages.filter((page) => visibleSpaces.some((space) => space.id === page.spaceId))}
           onSelectPage={(spaceId, pageId) => {
-            if (pageId !== selectedPageId && !confirmDiscardChanges()) return;
-            revealPage(spaceId, pageId);
+            if (pageId === selectedPageId) revealPage(spaceId, pageId);
+            else whenDiscardConfirmed(() => revealPage(spaceId, pageId));
           }}
           onClose={() => setShowGlobalSearch(false)}
         />
@@ -425,8 +442,12 @@ export default function DocsPage() {
       )}
 
       {deleteConfirm && canEditDocs && (
-        <DocsConfirmDialog title="Delete Page" onConfirm={confirmDelete} onCancel={() => setDeleteConfirm(null)}>
-          Are you sure you want to delete this page and all its child pages? This action cannot be undone.
+        <DocsConfirmDialog title="Delete Page" confirmLabel="Delete Page" onConfirm={confirmDelete} onCancel={() => setDeleteConfirm(null)}>
+          {deleteTarget.descendantCount > 0 ? (
+            <>Delete <strong>{deleteTarget.title}</strong> and its <strong>{deleteTarget.descendantCount} child page{deleteTarget.descendantCount === 1 ? "" : "s"}</strong>? This action cannot be undone.</>
+          ) : (
+            <>Delete <strong>{deleteTarget.title}</strong>? This action cannot be undone.</>
+          )}
         </DocsConfirmDialog>
       )}
 

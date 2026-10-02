@@ -26,7 +26,10 @@ export default function TaskModalHeader({
         </span>
       )}
       <input
-        className={`flex-1 text-lg font-semibold bg-transparent border-none outline-none focus:ring-0 disabled:cursor-not-allowed ${titleError ? "text-red-500 placeholder-red-300" : "text-slate-800 dark:text-slate-100 placeholder-slate-300 dark:placeholder-slate-600"}`}
+        aria-label="Task title"
+        autoFocus={isCreate && !readOnly}
+        data-autofocus={isCreate ? true : undefined}
+        className={`flex-1 min-w-0 text-lg font-semibold bg-transparent border-none outline-none focus:ring-0 disabled:cursor-not-allowed ${titleError ? "text-red-500 placeholder-red-300" : "text-slate-800 dark:text-slate-100 placeholder-slate-300 dark:placeholder-slate-600"}`}
         placeholder={titleError ? "Title is required!" : "Task title..."}
         value={title}
         disabled={readOnly}

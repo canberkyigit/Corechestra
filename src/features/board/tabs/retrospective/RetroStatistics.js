@@ -10,7 +10,7 @@ export default function RetroStatistics({ retrospectiveItems, activeTasks }) {
 
   return (
     <div>
-      <div className="grid grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {COLUMNS.map((col) => {
           const columnItems = items[col.key] || [];
           const resolved = columnItems.filter((item) => item.checked).length;

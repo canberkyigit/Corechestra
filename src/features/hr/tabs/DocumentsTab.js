@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
 import { FaBuilding, FaCheckCircle, FaClipboardList, FaDownload, FaEye, FaFileAlt, FaFolder, FaInfoCircle, FaPen, FaPlus, FaTimes, FaUserCircle, FaUserPlus } from "react-icons/fa";
 import { useAuth } from "../../../shared/context/AuthContext";
 import { useApp } from "../../../shared/context/AppContext";
 import { useHR } from "../../../shared/context/HRContext";
 import { useToast } from "../../../shared/context/ToastContext";
+import { useConfirm } from "../../../shared/context/ConfirmContext";
 import { Badge, Card, InfoRow } from "../components/HRSharedUI";
 import { HRModal, hrInputClassName, hrPrimaryButton, hrSecondaryButton } from "../components/HRModal";
 import { downloadTextFile, escapeHtml, isSafeHttpUrl, slugify } from "../utils/download";
@@ -54,45 +54,39 @@ function AddDocumentModal({ open, onClose, onAdd }) {
   };
 
   const inputClassName = "w-full px-3 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#232838] text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500";
+  const dirty = Boolean(name.trim() || url.trim() || category !== "company");
 
   return (
-    <AnimatePresence>
-      {open && (
+    <HRModal
+      open={open}
+      onClose={onClose}
+      title="Add document"
+      size="sm"
+      dirty={dirty}
+      footer={(
         <>
-          <motion.div key="bd" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-          <motion.div key="md" initial={{ opacity: 0, scale: 0.95, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 16 }} transition={{ duration: 0.2 }} className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
-            <div className="pointer-events-auto w-full max-w-sm bg-white dark:bg-[#1a1f2e] rounded-2xl shadow-2xl border border-slate-200 dark:border-[#2a3044]" onClick={(event) => event.stopPropagation()}>
-              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-[#2a3044]">
-                <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Add document</h2>
-                <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#232838] transition-colors">
-                  <FaTimes className="w-3.5 h-3.5" />
-                </button>
-              </div>
-              <div className="px-5 py-4 space-y-3">
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Document name</label>
-                  <input aria-label="Document name" value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Employment Contract" className={inputClassName} />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Category</label>
-                  <select value={category} onChange={(event) => setCategory(event.target.value)} className={inputClassName}>
-                    <option value="company">Company</option>
-                    <option value="personal">Personal</option>
-                  </select>
-                </div>
-                <LinkField id="add-document-link" value={url} onChange={setUrl} />
-              </div>
-              <div className="px-5 py-4 border-t border-slate-200 dark:border-[#2a3044] flex justify-end gap-2">
-                <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">Cancel</button>
-                <button onClick={handleSave} disabled={!name.trim() || saving || urlInvalid} className="px-5 py-2 text-sm bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg transition-colors font-medium">
-                  {saving ? "Adding..." : "Add"}
-                </button>
-              </div>
-            </div>
-          </motion.div>
+          <button type="button" onClick={onClose} className={hrSecondaryButton}>Cancel</button>
+          <button type="submit" form="add-document-form" disabled={!name.trim() || saving || urlInvalid} className={hrPrimaryButton}>
+            {saving ? "Adding..." : "Add"}
+          </button>
         </>
       )}
-    </AnimatePresence>
+    >
+      <form id="add-document-form" onSubmit={(event) => { event.preventDefault(); handleSave(); }} className="space-y-3">
+        <div>
+          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Document name</label>
+          <input aria-label="Document name" value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Employment Contract" className={inputClassName} data-autofocus />
+        </div>
+        <div>
+          <label htmlFor="add-document-category" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Category</label>
+          <select id="add-document-category" value={category} onChange={(event) => setCategory(event.target.value)} className={inputClassName}>
+            <option value="company">Company</option>
+            <option value="personal">Personal</option>
+          </select>
+        </div>
+        <LinkField id="add-document-link" value={url} onChange={setUrl} />
+      </form>
+    </HRModal>
   );
 }
 
@@ -137,61 +131,53 @@ function AssignDocumentToUserModal({ open, onClose, onAssign, users }) {
   };
 
   const inputClassName = "w-full px-3 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#232838] text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500";
+  const dirty = Boolean(targetUserId || name.trim() || url.trim() || category !== "company" || !requiresSign);
 
   return (
-    <AnimatePresence>
-      {open && (
+    <HRModal
+      open={open}
+      onClose={onClose}
+      title="Assign document to user"
+      subtitle="Delivered to the employee's Documents tab the next time they open the app"
+      size="sm"
+      dirty={dirty}
+      footer={(
         <>
-          <motion.div key="bd" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-          <motion.div key="md" initial={{ opacity: 0, scale: 0.95, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 16 }} transition={{ duration: 0.2 }} className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
-            <div className="pointer-events-auto w-full max-w-sm bg-white dark:bg-[#1a1f2e] rounded-2xl shadow-2xl border border-slate-200 dark:border-[#2a3044]" onClick={(event) => event.stopPropagation()}>
-              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-[#2a3044]">
-                <div>
-                  <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Assign document to user</h2>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Delivered to the employee's Documents tab the next time they open the app</p>
-                </div>
-                <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#232838] transition-colors">
-                  <FaTimes className="w-3.5 h-3.5" />
-                </button>
-              </div>
-              <div className="px-5 py-4 space-y-3">
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Assign to</label>
-                  <select aria-label="Assign to" value={targetUserId} onChange={(event) => setTargetUserId(event.target.value)} className={inputClassName}>
-                    <option value="">Select employee…</option>
-                    {dedupeById(users).map((user) => (
-                      <option key={user.id} value={user.id}>{user.name || user.email || user.id}{user.email && user.name ? ` (${user.email})` : ""}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Document name</label>
-                  <input aria-label="Assigned document name" value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. NDA Agreement" className={inputClassName} />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Category</label>
-                  <select value={category} onChange={(event) => setCategory(event.target.value)} className={inputClassName}>
-                    <option value="company">Company</option>
-                    <option value="personal">Personal</option>
-                  </select>
-                </div>
-                <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                  <input type="checkbox" checked={requiresSign} onChange={(event) => setRequiresSign(event.target.checked)} className="w-4 h-4 accent-blue-600" />
-                  <span className="text-xs text-slate-700 dark:text-slate-300">Requires employee signature</span>
-                </label>
-                <LinkField id="assign-document-link" value={url} onChange={setUrl} />
-              </div>
-              <div className="px-5 py-4 border-t border-slate-200 dark:border-[#2a3044] flex justify-end gap-2">
-                <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">Cancel</button>
-                <button onClick={handleSave} disabled={!targetUserId || !name.trim() || saving || urlInvalid} className="px-5 py-2 text-sm bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg transition-colors font-medium">
-                  {saving ? "Assigning…" : "Assign"}
-                </button>
-              </div>
-            </div>
-          </motion.div>
+          <button type="button" onClick={onClose} className={hrSecondaryButton}>Cancel</button>
+          <button type="submit" form="assign-document-form" disabled={!targetUserId || !name.trim() || saving || urlInvalid} className={hrPrimaryButton}>
+            {saving ? "Assigning…" : "Assign"}
+          </button>
         </>
       )}
-    </AnimatePresence>
+    >
+      <form id="assign-document-form" onSubmit={(event) => { event.preventDefault(); handleSave(); }} className="space-y-3">
+        <div>
+          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Assign to</label>
+          <select aria-label="Assign to" value={targetUserId} onChange={(event) => setTargetUserId(event.target.value)} className={inputClassName} data-autofocus>
+            <option value="">Select employee…</option>
+            {dedupeById(users).map((user) => (
+              <option key={user.id} value={user.id}>{user.name || user.email || user.id}{user.email && user.name ? ` (${user.email})` : ""}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Document name</label>
+          <input aria-label="Assigned document name" value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. NDA Agreement" className={inputClassName} />
+        </div>
+        <div>
+          <label htmlFor="assign-document-category" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Category</label>
+          <select id="assign-document-category" value={category} onChange={(event) => setCategory(event.target.value)} className={inputClassName}>
+            <option value="company">Company</option>
+            <option value="personal">Personal</option>
+          </select>
+        </div>
+        <label className="flex items-center gap-2.5 cursor-pointer select-none">
+          <input type="checkbox" checked={requiresSign} onChange={(event) => setRequiresSign(event.target.checked)} className="w-4 h-4 accent-blue-600" />
+          <span className="text-xs text-slate-700 dark:text-slate-300">Requires employee signature</span>
+        </label>
+        <LinkField id="assign-document-link" value={url} onChange={setUrl} />
+      </form>
+    </HRModal>
   );
 }
 
@@ -227,6 +213,7 @@ function SignDocumentModal({ document, defaultName, onClose, onSign }) {
       title={document ? `Sign “${document.name}”` : ""}
       subtitle="Simple electronic acknowledgement — your typed name and the time are recorded."
       size="sm"
+      dirty={agreed || signature.trim() !== (defaultName || "").trim()}
       footer={(
         <>
           <button type="button" onClick={onClose} className={hrSecondaryButton}>Cancel</button>
@@ -322,6 +309,7 @@ export function DocumentsTab() {
   const { isAdmin, profile, user } = useAuth();
   const { users } = useApp();
   const { addToast } = useToast();
+  const confirm = useConfirm();
   const [addModal, setAddModal] = useState(false);
   const [assignModal, setAssignModal] = useState(false);
   const [signTarget, setSignTarget] = useState(null);
@@ -351,7 +339,13 @@ export function DocumentsTab() {
     `${document.name} signed`,
   );
   const handleDelete = async (document) => {
-    if (!window.confirm(`Delete “${document.name}”?`)) return;
+    const ok = await confirm({
+      title: `Delete “${document.name}”?`,
+      description: "The document record will be removed for everyone who can see it. This cannot be undone.",
+      confirmLabel: "Delete document",
+      tone: "danger",
+    });
+    if (!ok) return;
     try {
       await run(() => deleteDocument(document.id), "Document deleted");
     } catch {

@@ -1,5 +1,5 @@
 import React from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { WorkspaceTab } from "./WorkspaceTab";
 import { DEFAULT_PERMISSION_MATRIX } from "../../../shared/constants/permissions";
 
@@ -149,5 +149,30 @@ describe("WorkspaceTab", () => {
 
     expect(screen.getByDisplayValue("Doc A")).toBeDisabled();
     expect(screen.getByText(/Requires “Manage default templates”/i)).toBeInTheDocument();
+  });
+
+  it("requires typing the workspace name before resetting everything", async () => {
+    const resetAllData = jest.fn().mockResolvedValue(true);
+    mockUseApp.mockReturnValue(createAppMock({
+      resetAllData,
+      projects: [{ id: "p1" }, { id: "p2" }],
+      docPages: [{ id: "d1" }],
+    }));
+    render(<WorkspaceTab />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Reset workspace/ }));
+    expect(screen.getByText("2 projects")).toBeInTheDocument();
+    expect(screen.getByText(/0 doc spaces and 1 page/)).toBeInTheDocument();
+
+    const confirmButton = screen.getByTestId("workspace-reset-dialog-confirm");
+    expect(confirmButton).toBeDisabled();
+    fireEvent.change(screen.getByTestId("workspace-reset-dialog-input"), { target: { value: "Acm" } });
+    expect(confirmButton).toBeDisabled();
+    fireEvent.change(screen.getByTestId("workspace-reset-dialog-input"), { target: { value: "Acme" } });
+    expect(confirmButton).toBeEnabled();
+
+    fireEvent.click(confirmButton);
+    await waitFor(() => expect(resetAllData).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mockAddToast).toHaveBeenCalledWith("Workspace reset. Reloading…", "success"));
   });
 });

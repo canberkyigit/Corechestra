@@ -160,7 +160,7 @@ export default function DocsSidebar({
             <DragDropContext onDragEnd={onDragEnd}>
               <Droppable droppableId="dnd-root" type="PAGE" isCombineEnabled>
                 {(provided) => (
-                  <div ref={provided.innerRef} {...provided.droppableProps}>
+                  <div ref={provided.innerRef} {...provided.droppableProps} role="tree" aria-label="Pages">
                     {pageTree.map((node, index) => (
                       <Draggable key={node.id} draggableId={node.id} index={index} isDragDisabled={isFiltering || readOnly}>
                         {(dragProvided, dragSnapshot) => (

@@ -51,15 +51,17 @@ describe("BoardSettingsTab", () => {
     expect(screen.getByTestId("board-stat-total-tasks")).toHaveTextContent(/^3\s*Total Tasks$/);
   });
 
-  it("only shows Reset All Data to people who can manage the workspace", () => {
+  it("no longer hosts the workspace reset and points admins to Admin → Workspace", () => {
     mockUseAuth.mockReturnValue({ role: "member", isAdmin: false });
     mockUseApp.mockReturnValue(appMock());
     const { unmount } = render(<BoardSettingsTab />);
     expect(screen.queryByText(/Reset All Data/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/moved to/)).not.toBeInTheDocument();
     unmount();
 
     mockUseAuth.mockReturnValue({ role: "admin", isAdmin: true });
     render(<BoardSettingsTab />);
-    expect(screen.getByText(/Reset All Data/)).toBeInTheDocument();
+    expect(screen.queryByText(/Reset All Data/)).not.toBeInTheDocument();
+    expect(screen.getByText(/Admin → Workspace → Danger Zone/)).toBeInTheDocument();
   });
 });

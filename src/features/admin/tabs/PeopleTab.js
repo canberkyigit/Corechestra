@@ -21,6 +21,7 @@ import { TASK_STATUS_SHORT_LABELS } from "../../../shared/constants/taskMeta";
 import { db } from "../../../shared/services/firebase";
 import { E2E_AUTH_USERS_KEY, isE2EMode, subscribeE2EKey } from "../../../shared/e2e/testMode";
 import { useToast } from "../../../shared/context/ToastContext";
+import { useConfirm } from "../../../shared/context/ConfirmContext";
 import { usePermissions } from "../../../shared/context/hooks/usePermissions";
 import {
   getSensitiveAuditMeta,
@@ -289,6 +290,7 @@ export function PeopleTab({
 }) {
   const { allTasks, updateTask, deletedUserIds, logAuditEvent } = useApp();
   const { addToast } = useToast();
+  const confirm = useConfirm();
   const { canPerform, sensitiveActionPolicy } = usePermissions();
   const e2eMode = isE2EMode();
   const [search, setSearch] = useState("");
@@ -399,6 +401,9 @@ export function PeopleTab({
     const project = projects.find((item) => item.id === projectId);
     if (!project) return;
     updateProject({ ...project, memberUsernames: (project.memberUsernames || []).filter((name) => name !== username) });
+    addToast(`${username} removed from ${project.name}`, "info", {
+      action: { label: "Undo", onClick: () => updateProject(project) },
+    });
   };
 
   const tasksByUser = useMemo(() => {
@@ -426,6 +431,9 @@ export function PeopleTab({
     const team = teams.find((item) => item.id === teamId);
     if (!team) return;
     updateTeam({ ...team, memberNames: (team.memberNames || []).filter((name) => name !== username) });
+    addToast(`${username} removed from ${team.name}`, "info", {
+      action: { label: "Undo", onClick: () => updateTeam(team) },
+    });
   };
 
   // updateTask touches activeTasks and every project's backlog (not only the current one).
@@ -581,7 +589,12 @@ export function PeopleTab({
         addToast("This is the last active admin. Promote another admin first.", "error");
         return;
       }
-      if (confirmDestructive && !window.confirm(`Deactivate ${user.name}? They will be signed out and cannot log in until reactivated.`)) {
+      if (confirmDestructive && !(await confirm({
+        title: `Deactivate ${user.name}?`,
+        description: "They will be signed out and cannot log in until reactivated.",
+        confirmLabel: "Deactivate",
+        tone: "warning",
+      }))) {
         return;
       }
     }
@@ -667,9 +680,13 @@ export function PeopleTab({
   };
 
   // Explicit, idempotent clean-up of legacy demo accounts (replaces the old silent mount effect).
-  const removeLegacyRecords = () => {
+  const removeLegacyRecords = async () => {
     if (!canManageUsers || legacyRecords.length === 0) return;
-    if (confirmDestructive && !window.confirm(`Remove ${legacyRecords.length} legacy demo record(s) (@corechestra.io)? Task assignments are not changed.`)) {
+    if (confirmDestructive && !(await confirm({
+      title: `Remove ${legacyRecords.length} legacy demo record(s)?`,
+      description: "Accounts ending in @corechestra.io are removed from People. Task assignments are not changed.",
+      confirmLabel: "Remove records",
+    }))) {
       return;
     }
     legacyRecords.forEach((user) => deleteUser(user.id));
@@ -832,7 +849,7 @@ export function PeopleTab({
                         <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: team.color }} />
                         {team.name}
                         {canManageTeams && (
-                          <button className="opacity-0 group-hover:opacity-100 ml-0.5 hover:text-red-500 transition-all leading-none" onClick={() => removeFromTeam(team.id, user.username)} title={`Remove from ${team.name}`}>
+                          <button type="button" className="opacity-60 sm:opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 ml-0.5 p-0.5 rounded hover:text-red-500 transition-all leading-none focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400" onClick={() => removeFromTeam(team.id, user.username)} title={`Remove from ${team.name}`} aria-label={`Remove ${user.name || user.username} from ${team.name}`}>
                             <FaTimes className="w-2.5 h-2.5" />
                           </button>
                         )}
@@ -870,7 +887,7 @@ export function PeopleTab({
                         <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: project.color }} />
                         {project.name}
                         {canManageProjects && (
-                          <button className="opacity-0 group-hover:opacity-100 ml-0.5 hover:text-red-500 transition-all leading-none" onClick={() => removeFromProject(project.id, user.username)} title={`Remove from ${project.name}`}>
+                          <button type="button" className="opacity-60 sm:opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 ml-0.5 p-0.5 rounded hover:text-red-500 transition-all leading-none focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400" onClick={() => removeFromProject(project.id, user.username)} title={`Remove from ${project.name}`} aria-label={`Remove ${user.name || user.username} from ${project.name}`}>
                             <FaTimes className="w-2.5 h-2.5" />
                           </button>
                         )}

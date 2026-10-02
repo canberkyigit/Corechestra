@@ -22,6 +22,8 @@ import MentionDropdown from "./MentionDropdown";
 import InsertImageModal from "./InsertImageModal";
 import ChildPagesList from "./ChildPagesList";
 import UnsavedChangesBar from "./UnsavedChangesBar";
+import { clearDocDraft, getRecoverableDraft, writeDocDraft } from "../../utils/docDrafts";
+import { formatDueRelative } from "../../../../shared/utils/dueDate";
 
 export default function PageView(props) {
   if (!props.page) {
@@ -58,6 +60,7 @@ function PageViewEditor({
   const [isEditing, setIsEditing] = useState(false);
   const [unsaved, setUnsaved] = useState(false);
   const [remoteChanged, setRemoteChanged] = useState(false);
+  const [recoverableDraft, setRecoverableDraft] = useState(() => (readOnly ? null : getRecoverableDraft(page)));
   const [imageBusy, setImageBusy] = useState(false);
   const [mentionDropdown, setMentionDropdown] = useState({ open: false, items: [], rect: null, selectedIndex: 0 });
   const [showImageModal, setShowImageModal] = useState(false);
@@ -205,8 +208,11 @@ function PageViewEditor({
   // user to confirm before switching while there are unsaved edits.
   useEffect(() => {
     if (lastPageIdRef.current === page.id) return;
+    // DocsPage only switches pages after the user confirmed discarding.
+    if (unsavedRef.current) clearDocDraft(lastPageIdRef.current);
     lastPageIdRef.current = page.id;
     unsavedRef.current = false;
+    setRecoverableDraft(readOnly ? null : getRecoverableDraft(page));
     setDraftContent(page.content || "");
     setDraftTitle(page.title || "");
     setIsEditing(false);
@@ -214,7 +220,7 @@ function PageViewEditor({
     setUnsaved(false);
     setRemoteChanged(false);
     editor?.commands.setContent(page.content || "", { emitUpdate: false });
-  }, [editor, page.id, page.content, page.title]);
+  }, [editor, page, readOnly]);
 
   // Same page changed in the store (own save or remote sync). Never wipe
   // local unsaved edits: flag the conflict instead.
@@ -267,9 +273,28 @@ function PageViewEditor({
 
   useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
 
+  // Back up unsaved edits locally (debounced, flushed on unmount) so they
+  // survive browser Back, tab close or leaving Docs.
+  const draftBackupRef = useRef(null);
+  draftBackupRef.current = unsaved && !readOnly ? { pageId: page.id, title: draftTitle, content: draftContent } : null;
+  useEffect(() => {
+    if (!unsaved || readOnly) return undefined;
+    const timer = setTimeout(() => {
+      const backup = draftBackupRef.current;
+      if (backup) writeDocDraft(backup.pageId, backup);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [unsaved, readOnly, draftContent, draftTitle]);
+  useEffect(() => () => {
+    const backup = draftBackupRef.current;
+    if (backup) writeDocDraft(backup.pageId, backup);
+  }, []);
+
   useEffect(() => {
     if (!unsaved) return undefined;
     const handler = (event) => {
+      const backup = draftBackupRef.current;
+      if (backup) writeDocDraft(backup.pageId, backup);
       event.preventDefault();
       event.returnValue = "";
       return "";
@@ -282,11 +307,31 @@ function PageViewEditor({
     if (readOnly) return;
     const result = onSave({ ...page, title: draftTitle.trim() || page.title, content: draftContent, updatedAt: new Date().toISOString() });
     if (result === false) return;
+    draftBackupRef.current = null;
+    clearDocDraft(page.id);
+    setRecoverableDraft(null);
     setIsEditing(false);
     setUnsaved(false);
     setRemoteChanged(false);
   };
   commitSaveRef.current = commitSave;
+
+  const handleRestoreDraft = () => {
+    if (!recoverableDraft || readOnly) return;
+    const content = recoverableDraft.content || "";
+    setDraftContent(content);
+    if (recoverableDraft.title) setDraftTitle(recoverableDraft.title);
+    editor?.commands.setContent(content, { emitUpdate: false });
+    setIsEditing(true);
+    unsavedRef.current = true;
+    setUnsaved(true);
+    setRecoverableDraft(null);
+  };
+
+  const handleDismissDraft = () => {
+    clearDocDraft(page.id);
+    setRecoverableDraft(null);
+  };
 
   useEffect(() => {
     if (!unsaved || readOnly) return undefined;
@@ -301,6 +346,8 @@ function PageViewEditor({
   }, [unsaved, readOnly]);
 
   const handleDiscard = () => {
+    draftBackupRef.current = null;
+    clearDocDraft(page.id);
     const original = page.content || "";
     setDraftContent(original);
     setDraftTitle(page.title || "");
@@ -370,6 +417,25 @@ function PageViewEditor({
         onDelete={onDelete}
         onSelectPage={onSelectPage}
       />
+
+      {recoverableDraft && !readOnly && !unsaved && (
+        <div
+          role="status"
+          data-testid="docs-draft-recovery"
+          className="mb-3 flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-900/15 px-4 py-2.5 text-sm"
+        >
+          <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" aria-hidden="true" />
+          <span className="text-amber-800 dark:text-amber-200 flex-1 min-w-0">
+            You have unsaved edits on this page from {formatDueRelative(recoverableDraft.savedAt).toLowerCase()}.
+          </span>
+          <button type="button" onClick={handleDismissDraft} className="text-sm text-amber-700 dark:text-amber-300 hover:underline">
+            Discard draft
+          </button>
+          <button type="button" onClick={handleRestoreDraft} className="px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white text-sm rounded-lg font-medium transition-colors">
+            Restore draft
+          </button>
+        </div>
+      )}
 
       <div
         className={`docs-tiptap app-surface transition-all relative w-full ${canEditNow ? "ring-1 ring-blue-400/30" : ""}`}
