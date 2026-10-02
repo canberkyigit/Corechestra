@@ -6,6 +6,7 @@ import { resetAppStore, useAppStore } from "../../store/useAppStore";
 import { isApplyingRemoteUpdate } from "../../automation/automationRunner";
 
 jest.mock("../../services/storage", () => ({
+  flushPendingWrites: jest.fn(),
   loadAllDomains: jest.fn(),
   saveDomain: jest.fn(),
   setStorageActor: jest.fn(),
@@ -200,5 +201,43 @@ describe("useAppStoreSync", () => {
 
     expect(seenRemote).toContain(true);
     expect(isApplyingRemoteUpdate()).toBe(false);
+  });
+  describe("flushing pending writes", () => {
+    let visibilityState;
+
+    beforeEach(() => {
+      visibilityState = "visible";
+      jest.spyOn(document, "visibilityState", "get").mockImplementation(() => visibilityState);
+    });
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it("flushes on beforeunload and when the page becomes hidden", async () => {
+      renderHook(() => useAppStoreSync(), { wrapper: createWrapper() });
+      await waitFor(() => expect(useAppStore.getState().dbReady).toBe(true));
+
+      window.dispatchEvent(new Event("beforeunload"));
+      expect(storage.flushPendingWrites).toHaveBeenCalledTimes(1);
+
+      document.dispatchEvent(new Event("visibilitychange"));
+      expect(storage.flushPendingWrites).toHaveBeenCalledTimes(1);
+
+      visibilityState = "hidden";
+      document.dispatchEvent(new Event("visibilitychange"));
+      expect(storage.flushPendingWrites).toHaveBeenCalledTimes(2);
+    });
+
+    it("removes the listeners on unmount", async () => {
+      const { unmount } = renderHook(() => useAppStoreSync(), { wrapper: createWrapper() });
+      await waitFor(() => expect(useAppStore.getState().dbReady).toBe(true));
+      unmount();
+
+      visibilityState = "hidden";
+      window.dispatchEvent(new Event("beforeunload"));
+      document.dispatchEvent(new Event("visibilitychange"));
+      expect(storage.flushPendingWrites).not.toHaveBeenCalled();
+    });
   });
 });

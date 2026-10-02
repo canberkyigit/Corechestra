@@ -18,11 +18,19 @@ jest.mock("firebase/firestore", () => ({
   onSnapshot: (...args) => mockOnSnapshot(...args),
 }));
 
+async function flushAsync() {
+  for (let i = 0; i < 5; i += 1) {
+    // eslint-disable-next-line no-await-in-loop
+    await Promise.resolve();
+  }
+}
+
 describe("storage service", () => {
   beforeEach(() => {
     jest.resetModules();
     jest.clearAllMocks();
     jest.useRealTimers();
+    jest.restoreAllMocks();
     localStorage.clear();
     mockDoc.mockImplementation((db, collection, id) => ({ collection, id }));
   });
@@ -89,7 +97,7 @@ describe("storage service", () => {
     warnSpy.mockRestore();
   });
 
-  it("merges pending domain patches and writes with Firestore merge mode", async () => {
+  it("merges pending domain patches and replaces only the changed fields", async () => {
     jest.useFakeTimers();
     const { saveDomain } = await import("./storage");
 
@@ -107,7 +115,9 @@ describe("storage service", () => {
       darkMode: true,
       _updatedAt: expect.any(Number),
     }));
-    expect(mockSetDoc.mock.calls[0][2]).toEqual({ merge: true });
+    expect(mockSetDoc.mock.calls[0][2]).toEqual({
+      mergeFields: ["currentUser", "darkMode", "_updatedAt", "_updatedBy", "_version", "_lastMutationId"],
+    });
   });
 
   it("skips redundant writes when the domain patch matches the last known data", async () => {
@@ -211,5 +221,231 @@ describe("storage service", () => {
       type: "corechestra:storage-error",
     }));
     warnSpy.mockRestore();
+  });
+  describe("map key deletions", () => {
+    it("writes a map field without the removed key and replaces it as a whole", async () => {
+      jest.useFakeTimers();
+      const { saveDomain } = await import("./storage");
+
+      saveDomain("sprints", {
+        perProjectSprint: { "proj-1": { id: "s-1" }, "proj-2": { id: "s-2" } },
+        projectColumns: { "proj-1": [{ id: "todo" }] },
+      });
+      await act(async () => {
+        jest.advanceTimersByTime(1500);
+        await flushAsync();
+      });
+      mockSetDoc.mockClear();
+
+      saveDomain("sprints", {
+        perProjectSprint: { "proj-1": { id: "s-1" } },
+        projectColumns: { "proj-1": [{ id: "todo" }] },
+      });
+      await act(async () => {
+        jest.advanceTimersByTime(1500);
+        await flushAsync();
+      });
+
+      expect(mockSetDoc).toHaveBeenCalledTimes(1);
+      const [, payload, options] = mockSetDoc.mock.calls[0];
+      expect(payload.perProjectSprint).toEqual({ "proj-1": { id: "s-1" } });
+      // Unchanged fields stay out of the payload and the field mask.
+      expect(payload).not.toHaveProperty("projectColumns");
+      expect(options).toEqual({
+        mergeFields: ["perProjectSprint", "_updatedAt", "_updatedBy", "_version", "_lastMutationId"],
+      });
+      expect(options).not.toHaveProperty("merge");
+    });
+
+    it("keeps a local key deletion when a remote edit to another key is merged in", async () => {
+      jest.useFakeTimers();
+      mockOnSnapshot.mockImplementation(() => jest.fn());
+      const { saveDomain, subscribeToAll } = await import("./storage");
+
+      saveDomain("workspace", {
+        perProjectNotes: { "proj-1": [{ id: "n-1", text: "Base" }], "proj-2": [{ id: "n-2", text: "Remove me" }] },
+      });
+      await act(async () => {
+        jest.advanceTimersByTime(1500);
+        await flushAsync();
+      });
+      mockSetDoc.mockClear();
+
+      const unsubscribe = subscribeToAll(() => {});
+      const listener = mockOnSnapshot.mock.calls.find((call) => call[0]?.id === "workspace")?.[1];
+
+      // Local: drop proj-2. Remote (meanwhile): edit proj-1 only.
+      saveDomain("workspace", { perProjectNotes: { "proj-1": [{ id: "n-1", text: "Base" }] } });
+      listener({
+        exists: () => true,
+        data: () => ({
+          perProjectNotes: { "proj-1": [{ id: "n-1", text: "Remote edit" }], "proj-2": [{ id: "n-2", text: "Remove me" }] },
+          _updatedAt: Date.now() + 1000,
+        }),
+      });
+
+      await act(async () => {
+        jest.advanceTimersByTime(1500);
+        await flushAsync();
+      });
+
+      expect(mockSetDoc).toHaveBeenCalledTimes(1);
+      const [, payload, options] = mockSetDoc.mock.calls[0];
+      expect(payload.perProjectNotes).toEqual({ "proj-1": [{ id: "n-1", text: "Remote edit" }] });
+      expect(options.mergeFields).toContain("perProjectNotes");
+      unsubscribe();
+    });
+  });
+
+  describe("flushPendingWrites", () => {
+    it("writes pending domains immediately and cancels their debounce timers", async () => {
+      jest.useFakeTimers();
+      const { flushPendingWrites, saveDomain } = await import("./storage");
+
+      saveDomain("tasks", { activeTasks: [{ id: "task-1" }] });
+      saveDomain("config", { darkMode: true });
+      expect(mockSetDoc).not.toHaveBeenCalled();
+
+      flushPendingWrites();
+      expect(mockSetDoc).toHaveBeenCalledTimes(2);
+      expect(mockSetDoc.mock.calls.map((call) => call[0].id).sort()).toEqual(["config", "tasks"]);
+
+      await act(async () => {
+        jest.advanceTimersByTime(5000);
+        await flushAsync();
+      });
+      expect(mockSetDoc).toHaveBeenCalledTimes(2);
+    });
+
+    it("does nothing when no write is pending", async () => {
+      const { flushPendingWrites } = await import("./storage");
+      await flushPendingWrites();
+      expect(mockSetDoc).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("in-flight writes", () => {
+    it("does not report a conflict for edits queued while its own write was in flight", async () => {
+      jest.useFakeTimers();
+      let resolveFirst;
+      mockSetDoc
+        .mockImplementationOnce(() => new Promise((resolve) => { resolveFirst = resolve; }))
+        .mockResolvedValue();
+      const dispatchSpy = jest.spyOn(window, "dispatchEvent");
+      const { saveDomain } = await import("./storage");
+
+      saveDomain("config", { recentItems: ["a", "b"] });
+      await act(async () => {
+        jest.advanceTimersByTime(1500);
+        await flushAsync();
+      });
+      saveDomain("config", { recentItems: ["a"] });
+      await act(async () => {
+        resolveFirst();
+        jest.advanceTimersByTime(1500);
+        await flushAsync();
+      });
+
+      expect(mockSetDoc).toHaveBeenCalledTimes(2);
+      expect(mockSetDoc.mock.calls[1][1].recentItems).toEqual(["a"]);
+      expect(dispatchSpy.mock.calls.some(([event]) => event.type === "corechestra:storage-conflict")).toBe(false);
+    });
+  });
+
+  describe("failed writes", () => {
+    it("retries a failed write with the same data", async () => {
+      jest.useFakeTimers();
+      jest.spyOn(console, "warn").mockImplementation(() => {});
+      mockSetDoc.mockRejectedValueOnce(new Error("offline")).mockResolvedValue();
+      const { saveDomain } = await import("./storage");
+
+      saveDomain("tasks", { activeTasks: [{ id: "task-1" }] });
+      await act(async () => {
+        jest.advanceTimersByTime(1500);
+        await flushAsync();
+      });
+      expect(mockSetDoc).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        jest.advanceTimersByTime(2000);
+        await flushAsync();
+      });
+      expect(mockSetDoc).toHaveBeenCalledTimes(2);
+      expect(mockSetDoc.mock.calls[1][1].activeTasks).toEqual([{ id: "task-1" }]);
+
+      // Succeeded: nothing else is retried.
+      await act(async () => {
+        jest.advanceTimersByTime(30000);
+        await flushAsync();
+      });
+      expect(mockSetDoc).toHaveBeenCalledTimes(2);
+    });
+
+    it("keeps newer data queued while the failed write was in flight", async () => {
+      jest.useFakeTimers();
+      jest.spyOn(console, "warn").mockImplementation(() => {});
+      let rejectFirst;
+      mockSetDoc
+        .mockImplementationOnce(() => new Promise((resolve, reject) => { rejectFirst = reject; }))
+        .mockResolvedValue();
+      const { flushPendingWrites, saveDomain } = await import("./storage");
+
+      saveDomain("config", { currentUser: "alice", darkMode: true });
+      await act(async () => {
+        jest.advanceTimersByTime(1500);
+        await flushAsync();
+      });
+      expect(mockSetDoc).toHaveBeenCalledTimes(1);
+
+      // Queued during the in-flight write: a newer darkMode and a new field.
+      saveDomain("config", { darkMode: false, sidebarCollapsed: true });
+
+      await act(async () => {
+        rejectFirst(new Error("offline"));
+        await flushAsync();
+      });
+
+      flushPendingWrites();
+      expect(mockSetDoc).toHaveBeenCalledTimes(2);
+      const [, payload, options] = mockSetDoc.mock.calls[1];
+      expect(payload).toEqual(expect.objectContaining({
+        currentUser: "alice",
+        darkMode: false,
+        sidebarCollapsed: true,
+      }));
+      expect(options.mergeFields).toEqual(expect.arrayContaining(["currentUser", "darkMode", "sidebarCollapsed"]));
+    });
+
+    it("stops retrying after the last backoff step but keeps the data pending", async () => {
+      jest.useFakeTimers();
+      jest.spyOn(console, "warn").mockImplementation(() => {});
+      mockSetDoc.mockRejectedValue(new Error("offline"));
+      const { flushPendingWrites, saveDomain } = await import("./storage");
+
+      saveDomain("docs", { spaces: [{ id: "space-1" }] });
+      await act(async () => {
+        jest.advanceTimersByTime(1500);
+        await flushAsync();
+      });
+      for (const delay of [2000, 5000, 15000]) {
+        // eslint-disable-next-line no-await-in-loop
+        await act(async () => {
+          jest.advanceTimersByTime(delay);
+          await flushAsync();
+        });
+      }
+      expect(mockSetDoc).toHaveBeenCalledTimes(4);
+
+      await act(async () => {
+        jest.advanceTimersByTime(60000);
+        await flushAsync();
+      });
+      expect(mockSetDoc).toHaveBeenCalledTimes(4);
+
+      mockSetDoc.mockResolvedValue();
+      flushPendingWrites();
+      expect(mockSetDoc).toHaveBeenCalledTimes(5);
+      expect(mockSetDoc.mock.calls[4][1].spaces).toEqual([{ id: "space-1" }]);
+    });
   });
 });

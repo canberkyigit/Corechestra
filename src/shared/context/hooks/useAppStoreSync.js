@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { loadAllDomains, saveDomain, setStorageActor, subscribeToAll } from "../../services/storage";
+import { flushPendingWrites, loadAllDomains, saveDomain, setStorageActor, subscribeToAll } from "../../services/storage";
 import { useAppStore } from "../../store/useAppStore";
 import { isInProject } from "../../utils/helpers";
 import { runAsRemote } from "../../automation/automationRunner";
@@ -248,6 +248,21 @@ export function useAppStoreSync() {
     });
     return unsubscribe;
   }, [fieldSetters]);
+
+  useEffect(() => {
+    // Debounced writes would be lost if the tab closed within the debounce
+    // window. "hidden" is the event that reliably fires on mobile/Safari.
+    const flush = () => { flushPendingWrites(); };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    window.addEventListener("beforeunload", flush);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      window.removeEventListener("beforeunload", flush);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
 
   useEffect(() => {
     if (!currentProjectId) return;
