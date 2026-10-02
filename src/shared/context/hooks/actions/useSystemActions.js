@@ -54,6 +54,8 @@ export function useSystemActions({
   setPermissionMatrix,
   setWorkspaceSettings,
   setSensitiveActionPolicy,
+  setAutomationRules,
+  setAutomationLog,
 }) {
   const resetAllData = useCallback(async () => {
     const cleared = await clearAllDomains();
@@ -127,6 +129,8 @@ export function useSystemActions({
     setPermissionMatrix(DEFAULT_PERMISSION_MATRIX);
     setWorkspaceSettings(preferencesInitialState.workspaceSettings);
     setSensitiveActionPolicy(preferencesInitialState.sensitiveActionPolicy);
+    setAutomationRules?.([]);
+    setAutomationLog?.([]);
     return true;
   }, [
     setActiveTasks,
@@ -176,6 +180,8 @@ export function useSystemActions({
     setUsers,
     setWorkspaceSettings,
     setSensitiveActionPolicy,
+    setAutomationRules,
+    setAutomationLog,
   ]);
 
   return {

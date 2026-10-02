@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { loadAllDomains, saveDomain, setStorageActor, subscribeToAll } from "../../services/storage";
 import { useAppStore } from "../../store/useAppStore";
 import { isInProject } from "../../utils/helpers";
+import { runAsRemote } from "../../automation/automationRunner";
 
 const SHOULD_LOG_SYNC_DIAGNOSTICS = process.env.NODE_ENV !== "production";
 
@@ -54,6 +55,8 @@ export function useAppStoreSync() {
     permissionMatrix,
     workspaceSettings,
     sensitiveActionPolicy,
+    automationRules,
+    automationLog,
     dbReady,
     setProjects,
     setCurrentProjectId,
@@ -101,6 +104,8 @@ export function useAppStoreSync() {
     setPermissionMatrix,
     setWorkspaceSettings,
     setSensitiveActionPolicy,
+    setAutomationRules,
+    setAutomationLog,
     setDbReady,
   } = useAppStore();
 
@@ -151,6 +156,8 @@ export function useAppStoreSync() {
     archivedTasks: setArchivedTasks,
     archivedProjects: setArchivedProjects,
     archivedEpics: setArchivedEpics,
+    automationRules: setAutomationRules,
+    automationLog: setAutomationLog,
   }), [
     setProjects,
     setCurrentProjectId,
@@ -198,6 +205,8 @@ export function useAppStoreSync() {
     setArchivedTasks,
     setArchivedProjects,
     setArchivedEpics,
+    setAutomationRules,
+    setAutomationLog,
   ]);
 
   const { data: remoteData, isError: loadFailed } = useQuery({
@@ -214,8 +223,11 @@ export function useAppStoreSync() {
   useEffect(() => {
     if (remoteData === undefined) return;
     if (remoteData) {
-      Object.entries(remoteData).forEach(([field, value]) => {
-        if (value !== undefined) fieldSetters[field]?.(value);
+      // Hydration is not a local change: automation rules must not fire on it.
+      runAsRemote(() => {
+        Object.entries(remoteData).forEach(([field, value]) => {
+          if (value !== undefined) fieldSetters[field]?.(value);
+        });
       });
     }
     setDbReady(true);
@@ -230,8 +242,9 @@ export function useAppStoreSync() {
   }, [loadFailed, setDbReady]);
 
   useEffect(() => {
+    // Remote edits already ran their automations on the client that made them.
     const unsubscribe = subscribeToAll((field, value) => {
-      fieldSetters[field]?.(value);
+      runAsRemote(() => fieldSetters[field]?.(value));
     });
     return unsubscribe;
   }, [fieldSetters]);
@@ -426,4 +439,14 @@ export function useAppStoreSync() {
     if (!dbReady) return;
     saveDomain("archive", { archivedProjects, archivedEpics });
   }, [archivedProjects, archivedEpics, dbReady]);
+
+  useEffect(() => {
+    if (!dbReady) return;
+    saveDomain("automation", { automationRules });
+  }, [automationRules, dbReady]);
+
+  useEffect(() => {
+    if (!dbReady) return;
+    saveDomain("automation", { automationLog });
+  }, [automationLog, dbReady]);
 }

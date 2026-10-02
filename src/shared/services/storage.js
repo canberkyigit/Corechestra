@@ -151,6 +151,7 @@ export const DOMAIN_FIELDS = {
   releases:  ["releases"],
   testing:   ["testPlans", "testSuites", "testCases", "testRuns", "testSharedSteps"],
   archive:   ["archivedTasks", "archivedProjects", "archivedEpics"],
+  automation: ["automationRules", "automationLog"],
 };
 
 // ── Load all domains (one-time, for initial hydration) ──────────────────────

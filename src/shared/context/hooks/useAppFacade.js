@@ -1,6 +1,7 @@
 import { useAppStateDomains } from "./useAppStateDomains";
 import { useAppStore } from "../../store/useAppStore";
 import { useActivityActions } from "./actions/useActivityActions";
+import { useAutomationActions } from "./actions/useAutomationActions";
 import { useBoardActions } from "./actions/useBoardActions";
 import { useDocsActions } from "./actions/useDocsActions";
 import { useNotificationActions } from "./actions/useNotificationActions";
@@ -8,6 +9,7 @@ import { useSystemActions } from "./actions/useSystemActions";
 import { useTestingActions } from "./actions/useTestingActions";
 import { useWorkspaceActions } from "./actions/useWorkspaceActions";
 import { useWorkspaceEventBridge } from "./actions/useWorkspaceEventBridge";
+import { useAutomationApi } from "./api/useAutomationApi";
 import { useBoardApi } from "./api/useBoardApi";
 import { useDocsApi } from "./api/useDocsApi";
 import { useTestingApi } from "./api/useTestingApi";
@@ -109,6 +111,10 @@ export function useAppFacade() {
     setWorkspaceSettings,
     sensitiveActionPolicy,
     setSensitiveActionPolicy,
+    automationRules,
+    setAutomationRules,
+    automationLog,
+    setAutomationLog,
     columns,
     sprint,
     setSprint,
@@ -206,6 +212,13 @@ export function useAppFacade() {
   // Announces local release / test-run changes to the Chats project channels.
   const testingActions = useWorkspaceEventBridge(rawTestingActions, { currentUser, currentProjectId });
 
+  const automationActions = useAutomationActions({
+    currentUser,
+    setAutomationRules,
+    setAutomationLog,
+    logAuditEvent,
+  });
+
   const { resetAllData } = useSystemActions({
     setProjects,
     setCurrentProjectId,
@@ -254,6 +267,8 @@ export function useAppFacade() {
     setPermissionMatrix,
     setWorkspaceSettings,
     setSensitiveActionPolicy,
+    setAutomationRules,
+    setAutomationLog,
   });
 
   const workspaceApi = useWorkspaceApi({
@@ -353,12 +368,19 @@ export function useAppFacade() {
     currentUser,
   });
 
+  const automationApi = useAutomationApi({
+    automationRules,
+    automationLog,
+    automationActions,
+  });
+
   return {
     ...workspaceApi,
     ...boardApi,
     ...uiApi,
     ...docsApi,
     ...testingApi,
+    ...automationApi,
     logAuditEvent,
   };
 }

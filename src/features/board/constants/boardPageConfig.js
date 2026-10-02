@@ -9,6 +9,7 @@ export const BOARD_TABS = [
   { id: "retrospective", label: "Retrospective" },
   { id: "planning", label: "Planning" },
   { id: "allsprints", label: "All Sprints" },
+  { id: "automation", label: "Automation" },
   { id: "settings", label: "Board Settings" },
 ];
 

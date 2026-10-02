@@ -106,6 +106,10 @@ export function useAppStateDomains() {
     setWorkspaceSettings,
     sensitiveActionPolicy,
     setSensitiveActionPolicy,
+    automationRules,
+    setAutomationRules,
+    automationLog,
+    setAutomationLog,
   } = useAppStore();
 
   const [sprint, setSprint] = useProjectScopedState({
@@ -276,6 +280,10 @@ export function useAppStateDomains() {
     setWorkspaceSettings,
     sensitiveActionPolicy,
     setSensitiveActionPolicy,
+    automationRules,
+    setAutomationRules,
+    automationLog,
+    setAutomationLog,
     columns,
     sprint,
     setSprint,

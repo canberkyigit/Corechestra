@@ -12,6 +12,8 @@ import EpicsTab from "../tabs/EpicsTab";
 import SprintReviewTab from "../tabs/SprintReviewTab";
 import { BoardActiveContent } from "./BoardActiveContent";
 
+const AutomationTab = lazy(() => import("../../automation/components/AutomationTab"));
+
 const TaskDetailModal = lazy(() => import("./TaskDetailModal"));
 const TaskSidePanel = lazy(() => import("./TaskSidePanel"));
 
@@ -124,6 +126,11 @@ export function BoardTabContent({
         {activeTab === "allsprints" && (
           <div className="flex-1 overflow-y-auto">
             <AllSprintsTab onNavigate={(tab, sectionId) => { if (sectionId) setBacklogFocusSectionId(sectionId); setActiveTab(tab); }} />
+          </div>
+        )}
+        {activeTab === "automation" && (
+          <div className="flex-1 overflow-y-auto">
+            <Suspense fallback={null}><AutomationTab /></Suspense>
           </div>
         )}
         {activeTab === "settings" && <div className="flex-1 overflow-y-auto"><BoardSettingsTab /></div>}
