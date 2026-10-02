@@ -65,18 +65,50 @@ const PATH_TO_PAGE = {
   "/hr":        "hr",
 };
 
+// Enter-only transition. Exit animations are intentionally not wired with
+// AnimatePresence: it would need a keyed <Routes location> and mode="wait",
+// which delays every navigation by the exit duration, keeps the old lazy page
+// mounted (still reading the new location from router context) and stacks two
+// full-height pages otherwise.
 function PageTransition({ children, fullHeight = false }) {
   return (
     <motion.div
       className={fullHeight ? "h-full overflow-hidden" : "min-h-full"}
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -8 }}
       transition={{ duration: 0.2, ease: "easeOut" }}
     >
       {children}
     </motion.div>
   );
+}
+
+const IS_MAC_PLATFORM = typeof navigator !== "undefined"
+  && /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent || "");
+
+function isTextField(target) {
+  if (!target || typeof target.tagName !== "string") return false;
+  const tag = target.tagName.toLowerCase();
+  return tag === "input" || tag === "textarea" || tag === "select";
+}
+
+/**
+ * ⌘K (macOS) / Ctrl+K toggles the command palette from anywhere, including
+ * plain inputs, but never steals the key from:
+ * - rich-text editors (contenteditable, e.g. TipTap, where ⌘K means "link"),
+ * - IME composition,
+ * - Ctrl+K inside text fields on macOS (native "delete to end of line").
+ * Exported for tests.
+ */
+export function isCommandPaletteShortcut(event, isMac = IS_MAC_PLATFORM) {
+  if (!event || event.defaultPrevented || event.isComposing) return false;
+  if (String(event.key || "").toLowerCase() !== "k") return false;
+  if (event.altKey || event.shiftKey) return false;
+  if (!event.metaKey && !event.ctrlKey) return false;
+  const target = event.target;
+  if (target?.isContentEditable || target?.closest?.('[contenteditable="true"], [contenteditable=""]')) return false;
+  if (isMac && event.ctrlKey && !event.metaKey && isTextField(target)) return false;
+  return true;
 }
 
 // Shown while Firebase resolves the auth state on first load
@@ -127,8 +159,9 @@ function AppInner() {
     darkMode,
     setDarkMode,
     users,
+    deletedUserIds,
     createUser,
-    updateUser,
+    relinkUser,
     setCurrentUser,
     pushRecentItem,
     dbReady,
@@ -138,17 +171,20 @@ function AppInner() {
 
   // Sync Firebase Auth user → People list + currentUser (runs once after Firestore is ready)
   useEffect(() => {
-    if (!dbReady || !authUser || !role) return;
+    if (!dbReady || !authUser?.email || !role) return;
     const prefix = authUser.email.split("@")[0];
     // Always keep currentUser in sync so "My Tasks" filters work correctly
     setCurrentUser(prefix);
+    const deleted = new Set(deletedUserIds || []);
+    if (deleted.has(authUser.uid)) return;
     const byUid   = users.find((u) => u.id === authUser.uid);
-    const byEmail = users.find((u) => u.email === authUser.email);
+    const byEmail = users.find((u) => u.email === authUser.email && !deleted.has(u.id));
     // Already linked by UID — nothing to do
     if (byUid) return;
-    // Pre-created via "Invite User" form (matched by email, wrong id) — fix the id
+    // Pre-created via "Invite User" / hire flow (matched by email, placeholder id) — re-key to the auth uid,
+    // keeping the record's own status.
     if (byEmail) {
-      updateUser({ ...byEmail, id: authUser.uid, role });
+      relinkUser(byEmail.id, authUser.uid, { role });
       return;
     }
     // Brand-new user — create the AppContext record
@@ -200,7 +236,7 @@ function AppInner() {
   // Cmd+K / Ctrl+K global shortcut
   useEffect(() => {
     const handler = (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+      if (isCommandPaletteShortcut(e)) {
         e.preventDefault();
         setCmdPaletteOpen((p) => !p);
       }
@@ -319,7 +355,8 @@ function AppInner() {
             open={sidePanelOpen}
             onClose={() => setSidePanelOpen(false)}
             onTaskUpdate={(updated) => { updateActiveTask(updated); setSelectedTask(updated); }}
-            onOpenModal={(t) => { setSelectedTask(t); setSidePanelOpen(false); }}
+            /* No onOpenModal: "Open full view" opens the full TaskDetailModal
+               from inside the panel, carrying over unsaved edits. */
           />
         </Suspense>
       )}

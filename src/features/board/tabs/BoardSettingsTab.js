@@ -1,6 +1,9 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { FaCog, FaEye, FaFlag, FaHashtag, FaBars, FaTags, FaTrash, FaUserPlus, FaCheck, FaColumns, FaWindowMaximize } from "react-icons/fa";
 import { useApp } from "../../../shared/context/AppContext";
+import { useBoardPermissions } from "../hooks/useBoardPermissions";
+import { getInitial, getUserColor } from "../utils/userColors";
+import { isInProject } from "../../../shared/utils/helpers";
 
 function ToggleRow({ label, description, checked, onChange, icon: Icon, iconColor }) {
   return (
@@ -38,14 +41,57 @@ const STAT_STYLES = {
 };
 
 export default function BoardSettingsTab() {
-  const { boardSettings, updateBoardSettings, resetAllData, activeTasks, backlogSections, columns } = useApp();
+  const {
+    boardSettings,
+    updateBoardSettings,
+    resetAllData,
+    activeTasks,
+    backlogSections,
+    columns,
+    users,
+    projects,
+    currentProjectId,
+  } = useApp();
+  const { canManageWorkspace, canManageProject } = useBoardPermissions();
   const [resetConfirm, setResetConfirm] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [savedFeedback, setSavedFeedback] = useState(false);
 
-  const backlogTasks = backlogSections.flatMap((s) => s.tasks);
-  const totalTasks = activeTasks.length + backlogTasks.length;
-  const doneTasks = activeTasks.filter((t) => t.status === "done").length;
+  // Everything on this tab is scoped to the current project.
+  const projectActiveTasks = useMemo(
+    () => (activeTasks || []).filter((t) => isInProject(t, currentProjectId)),
+    [activeTasks, currentProjectId]
+  );
+  const backlogTasks = useMemo(() => (backlogSections || []).flatMap((s) => s.tasks || []), [backlogSections]);
+  const totalTasks = projectActiveTasks.length + backlogTasks.length;
+  const doneTasks = projectActiveTasks.filter((t) => t.status === "done").length;
+
+  // Real team: the project's members (or every active person when the project
+  // has no explicit member list) with their active-sprint workload.
+  const teamMembers = useMemo(() => {
+    const project = (projects || []).find((item) => item.id === currentProjectId);
+    const memberKeys = new Set(project?.memberUsernames || []);
+    const seen = new Set();
+    return (users || [])
+      .filter((user) => user && user.status !== "deleted" && user.status !== "inactive")
+      .filter((user) => memberKeys.size === 0 || memberKeys.has(user.username) || memberKeys.has(user.id))
+      .filter((user) => {
+        const key = String(user.username || user.email || user.id).toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .map((user) => {
+        const key = user.username || user.id;
+        return {
+          key,
+          name: user.name || user.username || user.email || user.id,
+          title: user.title || user.role || "",
+          color: getUserColor(key, users),
+          activeCount: projectActiveTasks.filter((task) => task.assignedTo === key || task.assignedTo === user.id).length,
+        };
+      });
+  }, [currentProjectId, projectActiveTasks, projects, users]);
 
   const handleNameSave = (e) => {
     if (e.key === "Enter" || e.type === "blur") {
@@ -68,7 +114,8 @@ export default function BoardSettingsTab() {
             <div className="relative">
               <input
                 type="text"
-                value={boardSettings.boardName}
+                value={boardSettings.boardName || ""}
+                disabled={!canManageProject}
                 onChange={(e) => updateBoardSettings({ boardName: e.target.value })}
                 onKeyDown={handleNameSave}
                 onBlur={handleNameSave}
@@ -85,12 +132,13 @@ export default function BoardSettingsTab() {
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Project Key</label>
             <input
               type="text"
-              value={boardSettings.projectKey}
-              onChange={(e) => updateBoardSettings({ projectKey: e.target.value.toUpperCase().slice(0, 6) })}
+              value={boardSettings.projectKey || ""}
+              disabled={!canManageProject}
+              onChange={(e) => updateBoardSettings({ projectKey: e.target.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 6) })}
               className="w-full px-3 py-2 border border-slate-300 dark:border-[#2a3044] bg-white dark:bg-[#141720] text-slate-800 dark:text-slate-200 rounded-lg text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-blue-300"
               maxLength={6}
             />
-            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Used as task ID prefix (e.g. {boardSettings.projectKey}-123)</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Shown on project cards and board headers. Task IDs keep the workspace-wide CY- format.</p>
           </div>
         </div>
       </div>
@@ -121,7 +169,7 @@ export default function BoardSettingsTab() {
         />
         <ToggleRow
           label="Show Task IDs"
-          description="Show task ID (e.g. CY-1) on cards"
+          description="Show the task key (e.g. CY-1024) on cards"
           checked={boardSettings.showTaskIds}
           onChange={(v) => updateBoardSettings({ showTaskIds: v })}
           icon={FaHashtag}
@@ -177,8 +225,8 @@ export default function BoardSettingsTab() {
           <h2 className="text-lg font-bold text-slate-800 dark:text-slate-200">Board Columns</h2>
         </div>
         <div className="grid grid-cols-3 gap-3">
-          {columns.map((col) => {
-            const count = activeTasks.filter((t) => t.status === col.id).length;
+          {(columns || []).map((col) => {
+            const count = projectActiveTasks.filter((t) => t.status === col.id).length;
             return (
               <div
                 key={col.id}
@@ -200,20 +248,26 @@ export default function BoardSettingsTab() {
             <h2 className="text-lg font-bold text-slate-800 dark:text-slate-200">Team Members</h2>
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          {["Alice", "Bob", "Carol", "Dave"].map((name) => (
-            <div key={name} className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-[#141720] rounded-lg border border-slate-200 dark:border-[#2a3044]">
-              <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold">
-                {name[0]}
+        {teamMembers.length === 0 ? (
+          <p className="text-sm text-slate-400 dark:text-slate-500">No people are assigned to this project yet.</p>
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            {teamMembers.map((member) => (
+              <div key={member.key} className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-[#141720] rounded-lg border border-slate-200 dark:border-[#2a3044]">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0" style={{ backgroundColor: member.color }}>
+                  {getInitial(member.name)}
+                </div>
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{member.name}</div>
+                  <div className="text-xs text-slate-400 dark:text-slate-500">
+                    {member.activeCount} active task{member.activeCount === 1 ? "" : "s"}{member.title ? ` · ${member.title}` : ""}
+                  </div>
+                </div>
               </div>
-              <div>
-                <div className="text-sm font-medium text-slate-800 dark:text-slate-200">{name}</div>
-                <div className="text-xs text-slate-400 dark:text-slate-500">{activeTasks.filter((t) => t.assignedTo === name.toLowerCase()).length} active tasks</div>
-              </div>
-            </div>
-          ))}
-        </div>
-        <p className="text-xs text-slate-400 dark:text-slate-500 mt-3">Full team management will be available when backend is connected.</p>
+            ))}
+          </div>
+        )}
+        <p className="text-xs text-slate-400 dark:text-slate-500 mt-3">Manage project membership from Projects → Project settings → Members.</p>
       </div>
 
       {/* Board Stats */}
@@ -222,13 +276,13 @@ export default function BoardSettingsTab() {
         <div className="grid grid-cols-4 gap-4">
           {[
             { label: "Total Tasks", value: totalTasks, color: "blue" },
-            { label: "Active Sprint", value: activeTasks.length, color: "purple" },
+            { label: "Active Sprint", value: projectActiveTasks.length, color: "purple" },
             { label: "In Backlog", value: backlogTasks.length, color: "orange" },
             { label: "Done", value: doneTasks, color: "green" },
           ].map(({ label, value, color }) => {
             const s = STAT_STYLES[color];
             return (
-              <div key={label} className={`text-center p-4 ${s.bg} rounded-lg border border-transparent`}>
+              <div key={label} data-testid={`board-stat-${label.toLowerCase().replace(/\s+/g, "-")}`} className={`text-center p-4 ${s.bg} rounded-lg border border-transparent`}>
                 <div className={`text-3xl font-bold ${s.text}`}>{value}</div>
                 <div className={`text-sm ${s.sub} mt-1`}>{label}</div>
               </div>
@@ -238,6 +292,7 @@ export default function BoardSettingsTab() {
       </div>
 
       {/* Danger Zone */}
+      {canManageWorkspace && (
       <div className="bg-white dark:bg-[#1c2030] rounded-xl border border-red-200 dark:border-red-900/50 shadow-sm p-6">
         <h2 className="text-lg font-bold text-red-700 dark:text-red-400 mb-2">Danger Zone</h2>
         <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">Permanently erase all workspace data. This cannot be undone.</p>
@@ -274,6 +329,7 @@ export default function BoardSettingsTab() {
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }

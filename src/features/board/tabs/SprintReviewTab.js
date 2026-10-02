@@ -1,7 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { taskKey } from "../../../shared/utils/helpers";
+import { taskKey, isInProject } from "../../../shared/utils/helpers";
 import { FaCheckCircle, FaRegCircle, FaStickyNote, FaHistory, FaChevronDown, FaChevronRight } from "react-icons/fa";
 import { useApp } from "../../../shared/context/AppContext";
+import { useBoardPermissions } from "../hooks/useBoardPermissions";
+import { getStatusTitle } from "../utils/boardColumns";
+import { sumStoryPoints, toStoryPoints } from "../utils/sprintMetrics";
+import { getUserDisplayName } from "../utils/userColors";
 
 const PRI_COLOR = {
   critical: "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400",
@@ -70,7 +74,19 @@ function SprintHistoryCard({ sprint }) {
 }
 
 export default function SprintReviewTab({ onTaskClick }) {
-  const { activeTasks, setActiveTasks, sprint, updateSprint, currentProjectId, completedSprints } = useApp();
+  const {
+    activeTasks,
+    setActiveTasks,
+    sprint,
+    updateSprint,
+    currentProjectId,
+    completedSprints: completedSprintsRaw,
+    columns,
+    users,
+    teamMembers,
+  } = useApp();
+  const { canEditTask } = useBoardPermissions();
+  const completedSprints = completedSprintsRaw || [];
   const [meetingNotes, setMeetingNotes] = useState(sprint?.reviewNotes || "");
   const [editingNotes, setEditingNotes] = useState(false);
 
@@ -88,14 +104,15 @@ export default function SprintReviewTab({ onTaskClick }) {
     setEditingNotes(false);
   };
 
-  const projectTasks = activeTasks.filter((t) => (t.projectId || "proj-1") === currentProjectId);
+  const projectTasks = (activeTasks || []).filter((t) => isInProject(t, currentProjectId));
   const doneTasks = projectTasks.filter((t) => t.status === "done");
   const notDone   = projectTasks.filter((t) => t.status !== "done");
-  const totalSP   = projectTasks.reduce((s, t) => s + (Number(t.storyPoint) || 0), 0);
-  const doneSP    = doneTasks.reduce((s, t) => s + (Number(t.storyPoint) || 0), 0);
+  const totalSP   = sumStoryPoints(projectTasks);
+  const doneSP    = sumStoryPoints(doneTasks);
   const pct       = totalSP > 0 ? Math.round((doneSP / totalSP) * 100) : 0;
 
   const toggleDemo = (taskId) => {
+    if (!canEditTask) return;
     setActiveTasks((prev) =>
       prev.map((t) => t.id === taskId ? { ...t, demoReady: !t.demoReady } : t)
     );
@@ -161,6 +178,8 @@ export default function SprintReviewTab({ onTaskClick }) {
               >
                 {/* Demo ready toggle */}
                 <button
+                  type="button"
+                  disabled={!canEditTask}
                   onClick={() => toggleDemo(task.id)}
                   className={`flex-shrink-0 transition-colors ${task.demoReady ? "text-green-500" : "text-slate-300 dark:text-slate-600 hover:text-green-400"}`}
                   title={task.demoReady ? "Demo ready" : "Mark as demo ready"}
@@ -186,11 +205,11 @@ export default function SprintReviewTab({ onTaskClick }) {
                 )}
 
                 {task.assignedTo && task.assignedTo !== "unassigned" && (
-                  <span className="text-xs text-slate-400 flex-shrink-0 capitalize">{task.assignedTo}</span>
+                  <span className="text-xs text-slate-400 flex-shrink-0">{getUserDisplayName(task.assignedTo, users, teamMembers)}</span>
                 )}
 
                 <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex-shrink-0 w-8 text-right">
-                  {task.storyPoint ? `${task.storyPoint} SP` : "—"}
+                  {toStoryPoints(task.storyPoint) ? `${toStoryPoints(task.storyPoint)} SP` : "—"}
                 </span>
 
                 {task.demoReady && (
@@ -228,7 +247,7 @@ export default function SprintReviewTab({ onTaskClick }) {
                   : task.status === "inprogress" ? "bg-blue-100 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400"
                   : "bg-slate-100 text-slate-500 dark:bg-[#2a3044] dark:text-slate-400"
                 }`}>
-                  {task.status}
+                  {getStatusTitle(task.status, columns)}
                 </span>
               </div>
             ))}
@@ -268,7 +287,7 @@ export default function SprintReviewTab({ onTaskClick }) {
             <div className="flex justify-end gap-2 mt-2">
               <button
                 onClick={cancelMeetingNotes}
-                className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 dark:border-[#2a3044] text-slate-500 dark:text-slate-400 hover:bg-slate-50 transition-colors"
+                className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 dark:border-[#2a3044] text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors"
               >
                 Cancel
               </button>

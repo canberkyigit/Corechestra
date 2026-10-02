@@ -1,6 +1,10 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { FaRocket, FaPlus, FaEdit, FaTrash, FaCheck } from "react-icons/fa";
 import { useApp } from "../../../shared/context/AppContext";
+import { useBoardPermissions } from "../hooks/useBoardPermissions";
+import { isInProject } from "../../../shared/utils/helpers";
+
+const INPUT_CLS = "w-full border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#1c2030] text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400";
 
 const PRESET_COLORS = [
   "#ef4444", "#f97316", "#eab308", "#22c55e", "#14b8a6",
@@ -15,19 +19,23 @@ function EpicForm({ initial = {}, onSave, onCancel }) {
   return (
     <div className="bg-slate-50 dark:bg-[#141720] border border-slate-200 dark:border-[#2a3044] rounded-xl p-4 space-y-3">
       <div>
-        <label className="text-xs font-medium text-slate-500 mb-1 block">Epic Name</label>
+        <label className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1 block">Epic Name</label>
         <input
-          className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+          className={INPUT_CLS}
           placeholder="Epic name..."
           value={title}
           onChange={(e) => setTitle(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && title.trim()) onSave({ title: title.trim(), description, color });
+            if (e.key === "Escape") { e.preventDefault(); onCancel(); }
+          }}
           autoFocus
         />
       </div>
       <div>
-        <label className="text-xs font-medium text-slate-500 mb-1 block">Description</label>
+        <label className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1 block">Description</label>
         <textarea
-          className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none"
+          className={`${INPUT_CLS} resize-none`}
           rows={2}
           placeholder="Optional description..."
           value={description}
@@ -35,19 +43,21 @@ function EpicForm({ initial = {}, onSave, onCancel }) {
         />
       </div>
       <div>
-        <label className="text-xs font-medium text-slate-500 mb-1.5 block">Color</label>
+        <label className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5 block">Color</label>
         <div className="flex flex-wrap gap-2">
           {PRESET_COLORS.map((c) => (
             <button
+              type="button"
               key={c}
-              className={`w-7 h-7 rounded-full border-2 transition-all ${color === c ? "border-slate-600 scale-110" : "border-transparent"}`}
+              aria-label={`Color ${c}`}
+              className={`w-7 h-7 rounded-full border-2 transition-all ${color === c ? "border-slate-600 dark:border-white scale-110" : "border-transparent"}`}
               style={{ backgroundColor: c }}
               onClick={() => setColor(c)}
             />
           ))}
           <input
             type="color"
-            className="w-7 h-7 rounded-full cursor-pointer border border-slate-200"
+            className="w-7 h-7 rounded-full cursor-pointer border border-slate-200 dark:border-[#2a3044] bg-transparent"
             value={color}
             onChange={(e) => setColor(e.target.value)}
             title="Custom color"
@@ -56,13 +66,16 @@ function EpicForm({ initial = {}, onSave, onCancel }) {
       </div>
       <div className="flex gap-2 pt-1">
         <button
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+          type="button"
+          disabled={!title.trim()}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-40 transition-colors"
           onClick={() => { if (title.trim()) onSave({ title: title.trim(), description, color }); }}
         >
           <FaCheck className="w-3 h-3" /> Save
         </button>
         <button
-          className="px-3 py-1.5 text-sm text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors"
+          type="button"
+          className="px-3 py-1.5 text-sm text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-100 dark:hover:bg-[#232838] transition-colors"
           onClick={onCancel}
         >
           Cancel
@@ -74,22 +87,27 @@ function EpicForm({ initial = {}, onSave, onCancel }) {
 
 export default function EpicsTab() {
   const { epics, createEpic, updateEpic, deleteEpic, activeTasks, backlogSections, currentProjectId } = useApp();
+  const { canEditTask } = useBoardPermissions();
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
 
-  const allTasks = [
-    ...activeTasks,
-    ...backlogSections.flatMap((s) => s.tasks),
-  ].filter((t) => (t.projectId || "proj-1") === currentProjectId);
+  // Backlog sections are already project-scoped (tasks there may lack projectId).
+  const allTasks = useMemo(() => [
+    ...(activeTasks || []).filter((t) => isInProject(t, currentProjectId)),
+    ...(backlogSections || []).flatMap((s) => s.tasks || []),
+  ], [activeTasks, backlogSections, currentProjectId]);
 
-  const projectEpics = epics.filter((e) => (e.projectId || "proj-1") === currentProjectId);
+  const projectEpics = useMemo(
+    () => (epics || []).filter((e) => isInProject(e, currentProjectId)),
+    [epics, currentProjectId]
+  );
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <div className="mb-6">
         <h2 className="text-lg font-bold text-slate-800 dark:text-white">Epics</h2>
-        <p className="text-sm text-slate-400">Group related issues into epics to track large bodies of work.</p>
+        <p className="text-sm text-slate-400 dark:text-slate-500">Group related issues into epics to track large bodies of work.</p>
       </div>
 
       {creating && (
@@ -111,12 +129,15 @@ export default function EpicsTab() {
           </svg>
           <h3 className="text-base font-semibold text-slate-600 dark:text-slate-300 mt-4">No epics yet</h3>
           <p className="text-sm text-slate-400 dark:text-slate-500 mt-1 max-w-xs">Create your first epic to organize related tasks</p>
-          <button
-            className="mt-4 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
-            onClick={() => setCreating(true)}
-          >
-            + Create Epic
-          </button>
+          {canEditTask && (
+            <button
+              type="button"
+              className="mt-4 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+              onClick={() => setCreating(true)}
+            >
+              + Create Epic
+            </button>
+          )}
         </div>
       ) : (
         <div className="space-y-3">
@@ -141,7 +162,7 @@ export default function EpicsTab() {
 
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="font-semibold text-slate-800">{epic.title}</span>
+                          <span className="font-semibold text-slate-800 dark:text-slate-100">{epic.title}</span>
                           <span
                             className="text-xs px-1.5 py-0.5 rounded font-medium"
                             style={{ backgroundColor: epic.color + "22", color: epic.color }}
@@ -150,54 +171,60 @@ export default function EpicsTab() {
                           </span>
                         </div>
                         {epic.description && (
-                          <p className="text-sm text-slate-500 mb-3">{epic.description}</p>
+                          <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">{epic.description}</p>
                         )}
                         {/* Progress */}
                         <div className="flex items-center gap-3">
-                          <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden max-w-xs">
+                          <div className="flex-1 h-1.5 bg-slate-100 dark:bg-[#2a3044] rounded-full overflow-hidden max-w-xs">
                             <div
                               className="h-full rounded-full transition-all"
                               style={{ width: `${pct}%`, backgroundColor: epic.color }}
                             />
                           </div>
-                          <span className="text-xs text-slate-400">{done}/{epicTasks.length} tasks · {pct}%</span>
+                          <span className="text-xs text-slate-400 dark:text-slate-500">{done}/{epicTasks.length} tasks · {pct}%</span>
                         </div>
                       </div>
 
                       {/* Actions */}
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {canEditTask && (
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                         <button
-                          className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded transition-colors"
+                          type="button"
+                          className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
                           onClick={() => setEditingId(epic.id)}
                           title="Edit"
                         >
                           <FaEdit className="w-3.5 h-3.5" />
                         </button>
                         <button
-                          className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                          type="button"
+                          className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
                           onClick={() => setConfirmDelete(epic.id)}
                           title="Delete"
                         >
                           <FaTrash className="w-3.5 h-3.5" />
                         </button>
                       </div>
+                      )}
                     </div>
                   </div>
                 )}
 
                 {/* Delete confirmation */}
                 {confirmDelete === epic.id && (
-                  <div className="bg-red-50 border border-red-200 rounded-xl p-3 mt-1 flex items-center justify-between">
-                    <span className="text-sm text-red-700">Delete epic "{epic.title}"? Tasks will keep their data but lose the epic reference.</span>
+                  <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-3 mt-1 flex items-center justify-between">
+                    <span className="text-sm text-red-700 dark:text-red-400">Delete epic "{epic.title}"? Tasks will keep their data but lose the epic reference.</span>
                     <div className="flex gap-2 ml-3 flex-shrink-0">
                       <button
+                        type="button"
                         className="px-3 py-1 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700"
                         onClick={() => { deleteEpic(epic.id); setConfirmDelete(null); }}
                       >
                         Delete
                       </button>
                       <button
-                        className="px-3 py-1 text-xs text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-100"
+                        type="button"
+                        className="px-3 py-1 text-xs text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-100 dark:hover:bg-[#232838]"
                         onClick={() => setConfirmDelete(null)}
                       >
                         Cancel
@@ -210,8 +237,9 @@ export default function EpicsTab() {
           })}
 
           {/* Add Epic button at the bottom of the list */}
-          {!creating && (
+          {!creating && canEditTask && (
             <button
+              type="button"
               className="w-full flex items-center gap-2 px-4 py-3 rounded-xl border border-dashed border-slate-300 dark:border-[#2a3044] text-slate-400 dark:text-slate-500 hover:border-blue-400 hover:text-blue-500 dark:hover:border-blue-600 dark:hover:text-blue-400 transition-colors text-sm"
               onClick={() => setCreating(true)}
             >

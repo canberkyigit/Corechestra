@@ -1,9 +1,16 @@
 import React, { useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { FaInfoCircle, FaPen, FaTimes } from "react-icons/fa";
+import { FaCheckCircle, FaInfoCircle, FaPen, FaTimes } from "react-icons/fa";
 import { useHR } from "../../../shared/context/HRContext";
 import { useAuth } from "../../../shared/context/AuthContext";
+import { useToast } from "../../../shared/context/ToastContext";
 import { Badge, Card, InfoRow } from "../components/HRSharedUI";
+import { formatMoney } from "../utils/payslips";
+import { toLocalIsoDate } from "../utils/dates";
+import { DEFAULT_VACATION_DAYS } from "../utils/timeOff";
+import { DEFAULT_DAILY_HOURS, getContractStatus } from "../utils/contract";
+
+const DATE_FIELDS = new Set(["startDate", "contractStartDate"]);
 
 function EditContractModal({ open, onClose, employeeProfile, onSave }) {
   const [fields, setFields] = useState({});
@@ -25,6 +32,8 @@ function EditContractModal({ open, onClose, employeeProfile, onSave }) {
         salaryType: employeeProfile?.salaryType || "Annual",
         nationalId: employeeProfile?.nationalId || "",
         employeeNumber: employeeProfile?.employeeNumber || "",
+        vacationDays: employeeProfile?.vacationDays ?? DEFAULT_VACATION_DAYS,
+        standardDailyHours: employeeProfile?.standardDailyHours ?? DEFAULT_DAILY_HOURS,
       });
     }
   }, [open, employeeProfile]);
@@ -35,8 +44,12 @@ function EditContractModal({ open, onClose, employeeProfile, onSave }) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await onSave(fields);
+      const vacationDays = Math.max(0, Math.min(365, Number(fields.vacationDays) || 0));
+      const standardDailyHours = Math.max(0.5, Math.min(24, Number(fields.standardDailyHours) || DEFAULT_DAILY_HOURS));
+      await onSave({ ...fields, vacationDays, standardDailyHours });
       onClose();
+    } catch {
+      // the caller shows the error toast; keep the modal open
     } finally {
       setSaving(false);
     }
@@ -70,13 +83,28 @@ function EditContractModal({ open, onClose, employeeProfile, onSave }) {
                 ].map(([label, key]) => (
                   <div key={key}>
                     <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{label}</label>
-                    <input value={fields[key] || ""} onChange={(event) => setField(key, event.target.value)} className={inputClassName} />
+                    <input
+                      type={DATE_FIELDS.has(key) ? "date" : "text"}
+                      value={fields[key] || ""}
+                      onChange={(event) => setField(key, event.target.value)}
+                      className={inputClassName + (DATE_FIELDS.has(key) ? " [color-scheme:light] dark:[color-scheme:dark]" : "")}
+                    />
                   </div>
                 ))}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label htmlFor="contract-vacation-days" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Annual leave (days / year)</label>
+                    <input id="contract-vacation-days" type="number" min={0} max={365} value={fields.vacationDays ?? ""} onChange={(event) => setField("vacationDays", event.target.value)} className={inputClassName} />
+                  </div>
+                  <div>
+                    <label htmlFor="contract-daily-hours" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Standard working day (hours)</label>
+                    <input id="contract-daily-hours" type="number" min={0.5} max={24} step={0.5} value={fields.standardDailyHours ?? ""} onChange={(event) => setField("standardDailyHours", event.target.value)} className={inputClassName} />
+                  </div>
+                </div>
                 <div className="grid grid-cols-3 gap-3">
                   <div>
                     <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Currency</label>
-                    <input value={fields.salaryCurrency || ""} onChange={(event) => setField("salaryCurrency", event.target.value)} placeholder="USD" className={inputClassName} />
+                    <input value={fields.salaryCurrency || ""} onChange={(event) => setField("salaryCurrency", event.target.value.toUpperCase().slice(0, 3))} placeholder="USD" className={inputClassName} />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Salary</label>
@@ -106,10 +134,21 @@ function EditContractModal({ open, onClose, employeeProfile, onSave }) {
   );
 }
 
-export function ContractTab({ userName }) {
-  const { employeeProfile, updateEmployeeProfile } = useHR();
+export function ContractTab({ userName, setActiveTab }) {
+  const { employeeProfile, updateEmployeeProfile, documents } = useHR();
   const { isAdmin } = useAuth();
+  const { addToast } = useToast();
   const [editModal, setEditModal] = useState(false);
+
+  const handleSaveContract = async (fields) => {
+    try {
+      await updateEmployeeProfile(fields);
+      addToast("Contract details saved", "success");
+    } catch (error) {
+      addToast(error.message || "Could not save contract details", "error");
+      throw error;
+    }
+  };
 
   const profile = employeeProfile || {};
   const jobTitle = profile.jobTitle || "—";
@@ -122,12 +161,16 @@ export function ContractTab({ userName }) {
   const workSchedule = profile.workSchedule || "Not specified";
   const nationalId = profile.nationalId || "—";
   const employeeNumber = profile.employeeNumber || "—";
-  const salary = profile.salary ? `${profile.salaryCurrency || ""}${profile.salary}` : "—";
+  const salary = profile.salary ? formatMoney(profile.salary, profile.salaryCurrency) : "—";
   const salaryType = profile.salaryType || "Annual";
+  const vacationDays = profile.vacationDays ?? DEFAULT_VACATION_DAYS;
+  const dailyHours = profile.standardDailyHours ?? DEFAULT_DAILY_HOURS;
+  const status = getContractStatus(profile, toLocalIsoDate());
+  const signatureDocs = (documents || []).filter((document) => (document.actions || []).includes("sign"));
 
   return (
     <div>
-      <EditContractModal open={editModal} onClose={() => setEditModal(false)} employeeProfile={employeeProfile} onSave={updateEmployeeProfile} />
+      <EditContractModal open={editModal} onClose={() => setEditModal(false)} employeeProfile={employeeProfile} onSave={handleSaveContract} />
 
       <div className="mb-5">
         <div className="flex items-center justify-between">
@@ -138,7 +181,7 @@ export function ContractTab({ userName }) {
               <span className="text-slate-300 dark:text-slate-600">·</span>
               <span className="text-xs text-slate-500 dark:text-slate-400">{jobTitle}</span>
               <span className="text-slate-300 dark:text-slate-600">·</span>
-              <Badge color="green"><span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" /> Active</Badge>
+              <Badge color={status.tone}><span className={`w-1.5 h-1.5 rounded-full inline-block ${status.tone === "green" ? "bg-green-500" : status.tone === "amber" ? "bg-amber-500" : "bg-slate-400"}`} /> {status.label}</Badge>
             </div>
           </div>
           {isAdmin && (
@@ -161,15 +204,36 @@ export function ContractTab({ userName }) {
           <InfoRow label="Country" value={country} />
           <InfoRow label="Start date" value={startDate} />
           <InfoRow label="Employee number" value={employeeNumber} />
+          <InfoRow label="Annual leave" value={`${vacationDays} days / year`} />
+          <InfoRow label="Standard working day" value={`${dailyHours}h`} />
         </Card>
 
         <div className="space-y-5">
           <Card className="p-5">
             <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-3">Agreement and signatures</h3>
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-slate-50 dark:bg-[#232838]">
-              <FaInfoCircle className="w-3.5 h-3.5 text-slate-400" />
-              <span className="text-xs text-slate-500 dark:text-slate-400">No uploaded employment agreement</span>
-            </div>
+            {signatureDocs.length === 0 ? (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-slate-50 dark:bg-[#232838]">
+                <FaInfoCircle className="w-3.5 h-3.5 text-slate-400" />
+                <span className="text-xs text-slate-500 dark:text-slate-400">No documents require your signature</span>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {signatureDocs.map((document) => (
+                  <div key={document.id} className="flex items-center gap-2 p-3 rounded-lg bg-slate-50 dark:bg-[#232838]">
+                    {document.status === "signed"
+                      ? <FaCheckCircle className="w-3.5 h-3.5 text-green-500" />
+                      : <FaPen className="w-3 h-3 text-amber-500" />}
+                    <span className="text-xs text-slate-700 dark:text-slate-200 flex-1 truncate">{document.name}</span>
+                    <span className={`text-[11px] ${document.status === "signed" ? "text-green-600 dark:text-green-400" : "text-amber-600 dark:text-amber-400"}`}>
+                      {document.status === "signed" ? `Signed${document.signedAt ? ` ${document.signedAt.slice(0, 10)}` : ""}` : "Awaiting signature"}
+                    </span>
+                  </div>
+                ))}
+                {setActiveTab && (
+                  <button type="button" onClick={() => setActiveTab("documents")} className="text-xs text-blue-600 dark:text-blue-400 hover:underline">Open documents</button>
+                )}
+              </div>
+            )}
           </Card>
 
           <Card className="p-5">

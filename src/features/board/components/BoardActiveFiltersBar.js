@@ -1,7 +1,8 @@
 import React from "react";
 import { Listbox } from "@headlessui/react";
 import { FaBars, FaCheck, FaChevronDown, FaFlag, FaHashtag, FaLayerGroup, FaTags } from "react-icons/fa";
-import { BOARD_FILTER_TYPE_OPTIONS } from "../constants/taskOptions";
+import { BOARD_FILTER_TYPE_OPTIONS } from "../../../shared/constants/taskMeta";
+import { SWIMLANE_MODES } from "../utils/boardDnd";
 
 export function BoardActiveFiltersBar({
   filter,
@@ -19,6 +20,7 @@ export function BoardActiveFiltersBar({
   setSwimlaneMode,
   bulkMode,
   setBulkMode,
+  canBulkEdit = true,
   setSelectedIds,
   search,
   setSearch,
@@ -95,16 +97,31 @@ export function BoardActiveFiltersBar({
         ))}
 
         {viewMode === "kanban" && (
-          <button className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-all ${
-            swimlaneMode
-              ? "bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400"
-              : "border-slate-200 dark:border-[#2a3044] text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-500"
-          }`} onClick={() => setSwimlaneMode((value) => !value)} title="Swimlane view">
-            <FaLayerGroup className="w-3.5 h-3.5" /> Swimlane
-          </button>
+          <label
+            className={`flex items-center gap-1.5 pl-2.5 pr-1 py-1 rounded-lg border text-xs font-medium transition-all ${
+              swimlaneMode && swimlaneMode !== "none"
+                ? "bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400"
+                : "border-slate-200 dark:border-[#2a3044] text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-500"
+            }`}
+            title="Swimlanes"
+          >
+            <FaLayerGroup className="w-3.5 h-3.5 flex-shrink-0" />
+            <select
+              aria-label="Swimlanes"
+              value={swimlaneMode || "none"}
+              onChange={(event) => setSwimlaneMode(event.target.value)}
+              className="bg-transparent border-none outline-none text-xs font-medium cursor-pointer pr-1 text-inherit dark:bg-transparent"
+            >
+              {SWIMLANE_MODES.map((option) => (
+                <option key={option.value} value={option.value} className="text-slate-700 bg-white dark:bg-[#1c2030] dark:text-slate-200">
+                  {option.value === "none" ? "Swimlanes" : option.label}
+                </option>
+              ))}
+            </select>
+          </label>
         )}
 
-        {viewMode !== "kanban" && (
+        {viewMode !== "kanban" && canBulkEdit && (
           <button
             onClick={() => { setBulkMode((value) => !value); setSelectedIds(new Set()); }}
             className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-all ${

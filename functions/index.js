@@ -4,8 +4,28 @@ const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { initializeApp } = require("firebase-admin/app");
 const { getAuth } = require("firebase-admin/auth");
 const { getFirestore } = require("firebase-admin/firestore");
+const crypto = require("crypto");
 
 initializeApp();
+
+const VALID_ROLES = ["admin", "member", "viewer"];
+
+function isBlocked(data) {
+  return Boolean(data && (data.deleted === true || data.disabled === true || data.status === "deleted" || data.status === "inactive"));
+}
+
+// Number of active (not deleted / disabled) admins, used to prevent locking the workspace out.
+async function countActiveAdmins() {
+  const snap = await getFirestore().collection("users").where("role", "==", "admin").get();
+  return snap.docs.filter((docSnap) => !isBlocked(docSnap.data())).length;
+}
+
+async function assertNotLastAdmin(uid) {
+  const target = await getFirestore().collection("users").doc(uid).get();
+  if (target.data()?.role === "admin" && !isBlocked(target.data()) && (await countActiveAdmins()) <= 1) {
+    throw new HttpsError("failed-precondition", "Cannot remove the last active admin.");
+  }
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function requireAuth(context) {
@@ -18,7 +38,7 @@ async function requireAdmin(context) {
     .collection("users")
     .doc(context.auth.uid)
     .get();
-  if (snap.data()?.role !== "admin") {
+  if (snap.data()?.role !== "admin" || isBlocked(snap.data())) {
     throw new HttpsError("permission-denied", "Admins only.");
   }
 }
@@ -40,18 +60,29 @@ async function writeAuditEvent(type, payload = {}) {
 exports.inviteUser = onCall(async (request) => {
   await requireAdmin(request);
 
-  const { email, name, role = "member" } = request.data;
+  const { email, name, role = "member" } = request.data || {};
   if (!email || !name) {
     throw new HttpsError("invalid-argument", "email and name are required.");
   }
+  if (!VALID_ROLES.includes(role)) {
+    throw new HttpsError("invalid-argument", "role must be admin, member or viewer.");
+  }
 
-  // Create the Auth account with a temporary password (user must reset)
-  const userRecord = await getAuth().createUser({
-    email,
-    displayName: name,
-    // Random 16-char temp password — user will use "Forgot Password" to set their own
-    password: Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8),
-  });
+  // Create the Auth account with an unguessable temporary password; the user
+  // sets their own via "Forgot password" on the login page.
+  let userRecord;
+  try {
+    userRecord = await getAuth().createUser({
+      email,
+      displayName: name,
+      password: crypto.randomBytes(24).toString("base64url"),
+    });
+  } catch (err) {
+    if (err?.code === "auth/email-already-exists") {
+      throw new HttpsError("already-exists", "An account with this email already exists.");
+    }
+    throw err;
+  }
 
   // Store the user profile in Firestore so it shows up in People tab immediately
   const username = email.split("@")[0];
@@ -88,17 +119,26 @@ exports.inviteUser = onCall(async (request) => {
 exports.deleteUser = onCall(async (request) => {
   await requireAdmin(request);
 
-  const { uid } = request.data;
+  const { uid } = request.data || {};
   if (!uid) throw new HttpsError("invalid-argument", "uid is required.");
   if (uid === request.auth.uid) {
     throw new HttpsError("failed-precondition", "Cannot delete your own account.");
   }
+  await assertNotLastAdmin(uid);
 
-  await getAuth().deleteUser(uid);
-  await getFirestore().collection("users").doc(uid).update({
+  // Mark the profile first (merge: works even if the doc is missing) so the
+  // client refuses access even if the Auth deletion below fails.
+  await getFirestore().collection("users").doc(uid).set({
     deleted: true,
+    disabled: true,
+    status: "deleted",
     deletedAt: new Date().toISOString(),
-  });
+  }, { merge: true });
+  try {
+    await getAuth().deleteUser(uid);
+  } catch (err) {
+    if (err?.code !== "auth/user-not-found") throw err;
+  }
 
   await writeAuditEvent("user.deleted", {
     actorUid: request.auth.uid,
@@ -117,11 +157,14 @@ exports.deleteUser = onCall(async (request) => {
 exports.updateUserRole = onCall(async (request) => {
   await requireAdmin(request);
 
-  const { uid, role } = request.data;
-  const validRoles = ["admin", "member", "viewer"];
-  if (!uid || !validRoles.includes(role)) {
+  const { uid, role } = request.data || {};
+  if (!uid || !VALID_ROLES.includes(role)) {
     throw new HttpsError("invalid-argument", "uid and a valid role are required.");
   }
+  if (uid === request.auth.uid) {
+    throw new HttpsError("failed-precondition", "Cannot change your own role.");
+  }
+  if (role !== "admin") await assertNotLastAdmin(uid);
 
   // Set custom claim so AuthContext.js can read it without a Firestore round-trip
   await getAuth().setCustomUserClaims(uid, { role });
@@ -133,6 +176,40 @@ exports.updateUserRole = onCall(async (request) => {
     actorUid: request.auth.uid,
     targetUid: uid,
     role,
+  });
+
+  return { success: true };
+});
+
+// ─── setUserStatus ────────────────────────────────────────────────────────────
+// Activates / deactivates an account (Auth `disabled` flag + profile flags).
+// Only callable by admins. Cannot deactivate yourself or the last admin.
+//
+// Request:  { uid: string, disabled: boolean }
+// Response: { success: true }
+exports.setUserStatus = onCall(async (request) => {
+  await requireAdmin(request);
+
+  const { uid, disabled } = request.data || {};
+  if (!uid || typeof disabled !== "boolean") {
+    throw new HttpsError("invalid-argument", "uid and a boolean disabled flag are required.");
+  }
+  if (uid === request.auth.uid) {
+    throw new HttpsError("failed-precondition", "Cannot change your own account status.");
+  }
+  if (disabled) await assertNotLastAdmin(uid);
+
+  await getAuth().updateUser(uid, { disabled });
+  if (disabled) await getAuth().revokeRefreshTokens(uid);
+  await getFirestore().collection("users").doc(uid).set({
+    disabled,
+    status: disabled ? "inactive" : "active",
+    statusChangedAt: new Date().toISOString(),
+  }, { merge: true });
+
+  await writeAuditEvent(disabled ? "user.deactivated" : "user.reactivated", {
+    actorUid: request.auth.uid,
+    targetUid: uid,
   });
 
   return { success: true };
@@ -263,8 +340,9 @@ exports.dueSoonReminderSweep = onSchedule("every day 08:00", async () => {
     return dueDate >= now && dueDate <= inThreeDays;
   });
 
+  // Deterministic ids: one reminder per task + due date, no daily duplicates.
   await Promise.all(dueSoon.map((task) =>
-    getFirestore().collection("scheduledReminders").add({
+    getFirestore().collection("scheduledReminders").doc(`task.due_soon_${task.id}_${task.dueDate}`).set({
       type: "task.due_soon",
       entityType: "task",
       entityId: task.id,
@@ -288,8 +366,9 @@ exports.pendingApprovalSweep = onSchedule("every 60 minutes", async () => {
     return !Number.isNaN(createdAt) && now - createdAt >= 24 * 60 * 60 * 1000;
   });
 
+  // One overdue reminder per approval request (no hourly duplicates).
   await Promise.all(stale.map((docSnap) =>
-    getFirestore().collection("scheduledReminders").add({
+    getFirestore().collection("scheduledReminders").doc(`approval.overdue_${docSnap.id}`).set({
       type: "approval.overdue",
       entityType: "approval",
       entityId: docSnap.id,

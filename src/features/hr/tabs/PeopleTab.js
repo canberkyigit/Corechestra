@@ -1,11 +1,13 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { FaBriefcase, FaSearch, FaTimes } from "react-icons/fa";
-import { useAuth } from "../../../shared/context/AuthContext";
+import { FaBriefcase, FaFilter, FaSearch, FaTimes } from "react-icons/fa";
 import { useApp } from "../../../shared/context/AppContext";
 import { useHR } from "../../../shared/context/HRContext";
 import { useToast } from "../../../shared/context/ToastContext";
+import { usePermissions } from "../../../shared/context/hooks/usePermissions";
 import { Avatar, Card } from "../components/HRSharedUI";
+import { PersonProfileModal } from "../components/PersonProfileModal";
+import { getAllocationsForPerson, personTitle } from "../utils/people";
 
 function SetManagerModal({ open, onClose, employee, allUsers, onSave }) {
   const [selected, setSelected] = useState(employee?.managerId || "");
@@ -17,13 +19,31 @@ function SetManagerModal({ open, onClose, employee, allUsers, onSave }) {
     }
   }, [open, employee]);
 
-  const options = [...new Map((allUsers || []).map((user) => [user.id, user])).values()].filter((user) => user.id !== employee?.id);
+  // Exclude the employee and everyone below them so a manager change cannot create a cycle.
+  const blocked = useMemo(() => {
+    const result = new Set([employee?.id]);
+    const queue = [employee?.id];
+    while (queue.length) {
+      const managerId = queue.shift();
+      (allUsers || []).forEach((user) => {
+        if (user.managerId === managerId && !result.has(user.id)) {
+          result.add(user.id);
+          queue.push(user.id);
+        }
+      });
+    }
+    return result;
+  }, [allUsers, employee?.id]);
+  const options = [...new Map((allUsers || []).map((user) => [user.id, user])).values()].filter((user) => !blocked.has(user.id));
 
   const handleSave = async () => {
     setSaving(true);
-    await onSave(employee, selected || null);
-    setSaving(false);
-    onClose();
+    try {
+      await onSave(employee, selected || null);
+      onClose();
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -82,31 +102,58 @@ function SetManagerModal({ open, onClose, employee, allUsers, onSave }) {
   );
 }
 
-function SetAllocationModal({ open, onClose, employee, projects, allocations, onSave }) {
+function SetAllocationModal({ open, onClose, employee, projects, allocations, onSave, onRemove }) {
   const [projectId, setProjectId] = useState(projects[0]?.id || "");
   const [allocation, setAllocation] = useState(100);
   const [role, setRole] = useState("");
   const [saving, setSaving] = useState(false);
+  const initialisedRef = useRef(false);
+
+  const applyProject = (nextProjectId) => {
+    const existing = (allocations || []).find((item) => item.projectId === nextProjectId);
+    setProjectId(nextProjectId);
+    setAllocation(existing?.allocation ?? 100);
+    setRole(existing?.role || "");
+  };
 
   useEffect(() => {
-    if (!open) return;
-    const existing = (allocations || [])[0];
-    setProjectId(existing?.projectId || projects[0]?.id || "");
-    setAllocation(existing?.allocation || 100);
-    setRole(existing?.role || "");
-  }, [allocations, open, projects]);
+    if (!open) {
+      initialisedRef.current = false;
+      return;
+    }
+    if (initialisedRef.current) return;
+    initialisedRef.current = true;
+    applyProject((allocations || [])[0]?.projectId || projects[0]?.id || "");
+  }, [allocations, open, projects]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const explicitForProject = (allocations || []).find((item) => item.projectId === projectId && !item.derived);
+  const clampedAllocation = Math.max(0, Math.min(100, Number(allocation) || 0));
 
   const handleSave = async () => {
     if (!projectId) return;
     setSaving(true);
-    await onSave({
-      userId: employee.id,
-      projectId,
-      allocation: Number(allocation) || 0,
-      role,
-    });
-    setSaving(false);
-    onClose();
+    try {
+      await onSave({
+        userId: employee.id,
+        projectId,
+        allocation: clampedAllocation,
+        role,
+      });
+      onClose();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRemove = async () => {
+    if (!explicitForProject) return;
+    setSaving(true);
+    try {
+      await onRemove({ userId: employee.id, projectId });
+      onClose();
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -125,7 +172,7 @@ function SetAllocationModal({ open, onClose, employee, projects, allocations, on
               <div className="px-5 py-4 space-y-3">
                 <div>
                   <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Project</label>
-                  <select value={projectId} onChange={(event) => setProjectId(event.target.value)} className="w-full px-3 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#232838] text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <select value={projectId} onChange={(event) => applyProject(event.target.value)} className="w-full px-3 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#232838] text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
                     {projects.map((project) => (
                       <option key={project.id} value={project.id}>{project.name}</option>
                     ))}
@@ -141,8 +188,13 @@ function SetAllocationModal({ open, onClose, employee, projects, allocations, on
                 </div>
               </div>
               <div className="px-5 py-4 border-t border-slate-200 dark:border-[#2a3044] flex justify-end gap-2">
+                {explicitForProject && (
+                  <button onClick={handleRemove} disabled={saving} className="mr-auto px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-lg transition-colors disabled:opacity-50">
+                    Remove
+                  </button>
+                )}
                 <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">Cancel</button>
-                <button onClick={handleSave} disabled={saving} className="px-5 py-2 text-sm bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg transition-colors font-medium">
+                <button onClick={handleSave} disabled={saving || !projectId} className="px-5 py-2 text-sm bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg transition-colors font-medium">
                   {saving ? "Saving..." : "Save"}
                 </button>
               </div>
@@ -154,26 +206,112 @@ function SetAllocationModal({ open, onClose, employee, projects, allocations, on
   );
 }
 
+const EMPTY_FILTERS = { manager: "any", country: "", status: "", projectId: "" };
+
+function PeopleFilterMenu({ open, onClose, filters, setFilters, countries, projects }) {
+  const menuRef = useRef(null);
+  useEffect(() => {
+    if (!open) return undefined;
+    const handler = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) onClose();
+    };
+    const keyHandler = (event) => { if (event.key === "Escape") onClose(); };
+    document.addEventListener("mousedown", handler);
+    window.addEventListener("keydown", keyHandler);
+    return () => {
+      document.removeEventListener("mousedown", handler);
+      window.removeEventListener("keydown", keyHandler);
+    };
+  }, [onClose, open]);
+
+  if (!open) return null;
+  const selectClassName = "w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#232838] text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500";
+  const update = (key, value) => setFilters((previous) => ({ ...previous, [key]: value }));
+
+  return (
+    <div ref={menuRef} role="dialog" aria-label="Filter people" className="absolute right-0 top-full mt-2 z-30 w-64 p-4 rounded-xl border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#1a1f2e] shadow-xl space-y-3">
+      <div>
+        <label htmlFor="people-filter-manager" className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">Manager</label>
+        <select id="people-filter-manager" value={filters.manager} onChange={(event) => update("manager", event.target.value)} className={selectClassName}>
+          <option value="any">Anyone</option>
+          <option value="has">Has a manager</option>
+          <option value="none">No manager</option>
+          <option value="managers">People managers</option>
+        </select>
+      </div>
+      <div>
+        <label htmlFor="people-filter-country" className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">Country</label>
+        <select id="people-filter-country" value={filters.country} onChange={(event) => update("country", event.target.value)} className={selectClassName}>
+          <option value="">All countries</option>
+          {countries.map((country) => <option key={country} value={country}>{country}</option>)}
+        </select>
+      </div>
+      <div>
+        <label htmlFor="people-filter-status" className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">Status</label>
+        <select id="people-filter-status" value={filters.status} onChange={(event) => update("status", event.target.value)} className={selectClassName}>
+          <option value="">All statuses</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+      </div>
+      <div>
+        <label htmlFor="people-filter-project" className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">Project</label>
+        <select id="people-filter-project" value={filters.projectId} onChange={(event) => update("projectId", event.target.value)} className={selectClassName}>
+          <option value="">All projects</option>
+          <option value="__none__">Unassigned</option>
+          {(projects || []).map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
+        </select>
+      </div>
+      <div className="flex justify-between pt-1">
+        <button type="button" onClick={() => setFilters(EMPTY_FILTERS)} className="text-xs text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">Clear filters</button>
+        <button type="button" onClick={onClose} className="text-xs font-medium text-blue-600 dark:text-blue-400">Done</button>
+      </div>
+    </div>
+  );
+}
+
 export function PeopleTab({ employees, currentUserId }) {
-  const { isAdmin } = useAuth();
+  const { canPerform } = usePermissions();
+  // Manager, allocation and offboarding changes edit People records → require "Manage users".
+  const canManagePeople = canPerform("user:manage");
   const { updateUser, projects, templateRegistry } = useApp();
-  const { projectAllocations, upsertProjectAllocation, createOnboardingWorkflow } = useHR();
+  const { projectAllocations, upsertProjectAllocation, removeProjectAllocation, createOnboardingWorkflow, onboardingWorkflows, allAbsences } = useHR();
   const { addToast } = useToast();
   const [search, setSearch] = useState("");
   const [managerModal, setManagerModal] = useState(null);
   const [allocationModal, setAllocationModal] = useState(null);
+  const [profilePerson, setProfilePerson] = useState(null);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [filters, setFilters] = useState(EMPTY_FILTERS);
 
   const deduped = useMemo(
     () => [...new Map((employees || []).map((user) => [user.id, user])).values()],
     [employees],
   );
 
-  const filtered = useMemo(
-    () => deduped.filter((employee) =>
-      (employee.name || "").toLowerCase().includes(search.toLowerCase()) ||
-      (employee.role || "").toLowerCase().includes(search.toLowerCase())),
-    [search, deduped],
+  const countries = useMemo(
+    () => [...new Set(deduped.map((employee) => employee.country).filter(Boolean))].sort(),
+    [deduped],
   );
+  const activeFilterCount = Object.entries(filters).filter(([key, value]) => (key === "manager" ? value !== "any" : !!value)).length;
+
+  const filtered = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return deduped.filter((employee) => {
+      if (query && ![employee.name, employee.role, employee.title, employee.email, employee.department]
+        .some((value) => String(value || "").toLowerCase().includes(query))) return false;
+      if (filters.manager === "has" && !employee.managerId) return false;
+      if (filters.manager === "none" && employee.managerId) return false;
+      if (filters.manager === "managers" && !deduped.some((user) => user.managerId === employee.id)) return false;
+      if (filters.country && employee.country !== filters.country) return false;
+      if (filters.status && (employee.status || "active") !== filters.status) return false;
+      if (filters.projectId) {
+        const allocations = getAllocationsForPerson(employee, projectAllocations, projects);
+        if (filters.projectId === "__none__" ? allocations.length > 0 : !allocations.some((item) => item.projectId === filters.projectId)) return false;
+      }
+      return true;
+    });
+  }, [deduped, filters, projectAllocations, projects, search]);
 
   const getManagerName = (managerId) => {
     if (!managerId) return null;
@@ -182,41 +320,73 @@ export function PeopleTab({ employees, currentUserId }) {
   };
 
   const getDirectReports = (userId) => deduped.filter((user) => user.managerId === userId).length;
-  const getAllocations = (employee) => {
-    const explicitAllocations = (projectAllocations || []).filter((item) => item.userId === employee.id);
-    if (explicitAllocations.length > 0) return explicitAllocations;
-    return (projects || [])
-      .filter((project) => (
-        (project.members || []).some((member) => member.userId === employee.id)
-        || (project.memberUsernames || []).includes(employee.username)
-      ))
-      .map((project) => ({
-        id: `derived-${project.id}-${employee.id}`,
-        userId: employee.id,
-        projectId: project.id,
-        allocation: 100,
-        role: "Team member",
-      }));
-  };
+  const getAllocations = (employee) => getAllocationsForPerson(employee, projectAllocations, projects);
 
   const handleSaveManager = async (employee, managerId) => {
-    await updateUser({ ...employee, managerId: managerId || null });
+    if (!canManagePeople) {
+      addToast("You do not have permission to manage people", "error");
+      return;
+    }
+    try {
+      await updateUser({ ...employee, managerId: managerId || null });
+      addToast(managerId ? `Manager updated for ${employee.name}` : `Manager removed for ${employee.name}`, "success");
+    } catch (error) {
+      addToast(error.message || "Could not update manager", "error");
+      throw error;
+    }
   };
 
+  const handleSaveAllocation = async (payload) => {
+    if (!canManagePeople) return;
+    try {
+      await upsertProjectAllocation(payload);
+      addToast("Allocation saved", "success");
+    } catch (error) {
+      addToast(error.message || "Could not save allocation", "error");
+      throw error;
+    }
+  };
+
+  const handleRemoveAllocation = async (payload) => {
+    if (!canManagePeople) return;
+    try {
+      await removeProjectAllocation(payload);
+      addToast("Allocation removed", "success");
+    } catch (error) {
+      addToast(error.message || "Could not remove allocation", "error");
+      throw error;
+    }
+  };
+
+  const hasActiveOffboarding = (employee) => (onboardingWorkflows || []).some((workflow) => (
+    workflow.type === "offboarding" && workflow.userId === employee.id && workflow.status !== "completed" && workflow.status !== "cancelled"
+  ));
+
   const handleStartOffboarding = async (employee) => {
-    await createOnboardingWorkflow({
-      userId: employee.id,
-      type: "offboarding",
-      title: `${employee.name} offboarding`,
-      templateId: (templateRegistry?.approval || [])[0]?.id || null,
-      steps: [
-        "Confirm final working day",
-        "Revoke workspace access",
-        "Collect company assets",
-        "Schedule exit handover",
-      ],
-    });
-    addToast(`Offboarding workflow created for ${employee.name}`, "success");
+    if (!canManagePeople) return;
+    if (hasActiveOffboarding(employee)) {
+      addToast(`${employee.name} already has an active offboarding workflow`, "info");
+      return;
+    }
+    if (!window.confirm(`Start offboarding for ${employee.name}? A checklist will appear on the HR overview. Access is not revoked automatically — complete the "Revoke workspace access" step in Admin.`)) return;
+    const template = (templateRegistry?.offboarding || [])[0];
+    try {
+      await createOnboardingWorkflow({
+        userId: employee.id,
+        type: "offboarding",
+        title: `${employee.name} offboarding`,
+        templateId: template?.id || null,
+        steps: template?.steps || [
+          "Confirm final working day",
+          "Revoke workspace access",
+          "Collect company assets",
+          "Schedule exit handover",
+        ],
+      });
+      addToast(`Offboarding workflow created for ${employee.name}`, "success");
+    } catch (error) {
+      addToast(error.message || "Could not start offboarding", "error");
+    }
   };
 
   return (
@@ -235,11 +405,21 @@ export function PeopleTab({ employees, currentUserId }) {
           open={!!allocationModal}
           onClose={() => setAllocationModal(null)}
           employee={allocationModal}
-          projects={projects}
+          projects={projects || []}
           allocations={getAllocations(allocationModal)}
-          onSave={upsertProjectAllocation}
+          onSave={handleSaveAllocation}
+          onRemove={handleRemoveAllocation}
         />
       )}
+      <PersonProfileModal
+        person={profilePerson}
+        users={deduped}
+        projects={projects}
+        projectAllocations={projectAllocations}
+        absences={allAbsences}
+        onClose={() => setProfilePerson(null)}
+        onSelectPerson={setProfilePerson}
+      />
 
       <div className="flex items-center gap-3 mb-5">
         <div className="relative flex-1 max-w-xs">
@@ -247,20 +427,37 @@ export function PeopleTab({ employees, currentUserId }) {
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search people..."
+            placeholder="Search name, title, email..."
             className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#1c2030] text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
           />
         </div>
-        <button className="ml-auto p-2 text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
-          </svg>
-        </button>
+        <div className="relative ml-auto">
+          <button
+            type="button"
+            aria-label="Filter people"
+            aria-expanded={filterOpen}
+            onClick={() => setFilterOpen((value) => !value)}
+            className={`relative flex items-center gap-1.5 px-3 py-2 text-xs border rounded-lg transition-colors ${activeFilterCount > 0 ? "border-blue-400 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20" : "border-slate-200 dark:border-[#2a3044] text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#232838]"}`}
+          >
+            <FaFilter className="w-3 h-3" /> Filters
+            {activeFilterCount > 0 && <span className="ml-0.5 px-1.5 rounded-full bg-blue-600 text-white text-[10px] font-semibold">{activeFilterCount}</span>}
+          </button>
+          <PeopleFilterMenu
+            open={filterOpen}
+            onClose={() => setFilterOpen(false)}
+            filters={filters}
+            setFilters={setFilters}
+            countries={countries}
+            projects={projects}
+          />
+        </div>
       </div>
 
       <Card className="overflow-hidden">
         <div className="px-4 py-3 border-b border-slate-200 dark:border-[#2a3044]">
-          <span className="text-xs text-slate-500 dark:text-slate-400">Total {filtered.length} people</span>
+          <span className="text-xs text-slate-500 dark:text-slate-400">
+            {filtered.length === deduped.length ? `Total ${filtered.length} people` : `Showing ${filtered.length} of ${deduped.length} people`}
+          </span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -271,10 +468,15 @@ export function PeopleTab({ employees, currentUserId }) {
                 <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 dark:text-slate-400">Manager</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 dark:text-slate-400">Reports</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 dark:text-slate-400">Projects / Capacity</th>
-                {isAdmin && <th className="px-4 py-3" />}
+                {canManagePeople && <th className="px-4 py-3" />}
               </tr>
             </thead>
             <tbody>
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={canManagePeople ? 6 : 5} className="px-4 py-10 text-center text-xs text-slate-400 dark:text-slate-500">No people match the current search or filters.</td>
+                </tr>
+              )}
               {filtered.map((employee) => {
                 const managerName = getManagerName(employee.managerId);
                 const reportsCount = getDirectReports(employee.id);
@@ -289,10 +491,13 @@ export function PeopleTab({ employees, currentUserId }) {
                       <div className="flex items-center gap-3">
                         <Avatar name={employee.name || "?"} color={employee.color} size="sm" />
                         <div>
-                          <p className="text-xs font-medium text-blue-500 hover:text-blue-400 cursor-pointer">
-                            {employee.name} {employee.id === currentUserId && <span className="text-[10px] text-slate-400 dark:text-slate-500">(You)</span>}
+                          <button type="button" onClick={() => setProfilePerson(employee)} className="text-xs font-medium text-blue-500 hover:text-blue-400 hover:underline text-left">
+                            {employee.name || employee.email} {employee.id === currentUserId && <span className="text-[10px] text-slate-400 dark:text-slate-500">(You)</span>}
+                          </button>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                            {personTitle(employee)}
+                            {employee.status === "inactive" && <span className="ml-1 text-slate-400">· inactive</span>}
                           </p>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400">{employee.role || employee.status || "Team Member"}</p>
                         </div>
                       </div>
                     </td>
@@ -324,7 +529,7 @@ export function PeopleTab({ employees, currentUserId }) {
                       {allocations.length > 0 ? (
                         <div className="flex flex-wrap gap-1.5">
                           {allocations.slice(0, 2).map((allocation) => {
-                            const project = projects.find((item) => item.id === allocation.projectId);
+                            const project = (projects || []).find((item) => item.id === allocation.projectId);
                             return (
                               <span key={allocation.id} className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] bg-indigo-50 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30">
                                 <FaBriefcase className="w-2.5 h-2.5" />
@@ -340,8 +545,8 @@ export function PeopleTab({ employees, currentUserId }) {
                         <span className="text-xs text-slate-400">Unassigned</span>
                       )}
                     </td>
-                    {isAdmin && (
-                      <td className="px-4 py-3 text-right">
+                    {canManagePeople && (
+                      <td className="px-4 py-3 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-2">
                           <button
                             onClick={() => setAllocationModal(employee)}
@@ -357,7 +562,9 @@ export function PeopleTab({ employees, currentUserId }) {
                           </button>
                           <button
                             onClick={() => handleStartOffboarding(employee)}
-                            className="text-xs text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/30 px-2.5 py-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
+                            disabled={hasActiveOffboarding(employee)}
+                            title={hasActiveOffboarding(employee) ? "Offboarding already in progress" : undefined}
+                            className="disabled:opacity-50 disabled:cursor-not-allowed text-xs text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/30 px-2.5 py-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
                           >
                             Offboarding
                           </button>

@@ -1,22 +1,19 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { FaPlus, FaCheck, FaUsers, FaTasks, FaLayerGroup, FaTimes, FaTh, FaList, FaCog } from "react-icons/fa";
 import { useApp } from "../../../shared/context/AppContext";
 import { ProjectsSkeleton } from "../../../shared/components/Skeleton";
-import { useAuth } from "../../../shared/context/AuthContext";
 import ProjectSettingsModal from "../../board/components/ProjectSettingsModal";
+import { useBoardPermissions } from "../../board/hooks/useBoardPermissions";
+import { useEscapeKey } from "../../board/hooks/useEscapeKey";
+import { getTaskProjectId } from "../../../shared/utils/helpers";
 
 const PROJECT_COLORS = [
   "#2563eb", "#7c3aed", "#059669", "#d97706", "#dc2626",
   "#0891b2", "#db2777", "#65a30d", "#ea580c", "#4f46e5",
 ];
 
-const PROJECT_DESCRIPTIONS = {
-  "proj-1": "Core platform — sprint tracking, kanban board, backlog management and team collaboration.",
-  "proj-2": "Native mobile app for iOS and Android with offline-first architecture.",
-};
-
-function CreateProjectModal({ onClose, onCreate }) {
+function CreateProjectModal({ onClose, onCreate, existingKeys = [] }) {
   const [name, setName]   = useState("");
   const [key, setKey]     = useState("");
   const [color, setColor] = useState(PROJECT_COLORS[0]);
@@ -27,9 +24,13 @@ function CreateProjectModal({ onClose, onCreate }) {
     setKey(val.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 6));
   };
 
+  useEscapeKey(onClose);
+
   const handleSubmit = () => {
     if (!name.trim()) { setError("Project name is required."); return; }
     if (!key.trim()) { setError("Project key is required."); return; }
+    if (key.trim().length < 2) { setError("Project key must be 2–6 letters."); return; }
+    if (existingKeys.includes(key.trim())) { setError(`Project key "${key.trim()}" is already used by another project.`); return; }
     onCreate({ name: name.trim(), key: key.trim(), color, description: desc.trim() });
     onClose();
   };
@@ -76,7 +77,7 @@ function CreateProjectModal({ onClose, onCreate }) {
               maxLength={6}
               className="w-full px-3 py-2 border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#141720] text-slate-800 dark:text-slate-200 rounded-lg text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-blue-400"
             />
-            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">2–6 uppercase letters, used as task ID prefix</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">2–6 uppercase letters, unique per workspace</p>
           </div>
 
           <div>
@@ -84,7 +85,9 @@ function CreateProjectModal({ onClose, onCreate }) {
             <div className="flex gap-2 flex-wrap">
               {PROJECT_COLORS.map((c) => (
                 <button
+                  type="button"
                   key={c}
+                  aria-label={`Color ${c}`}
                   onClick={() => setColor(c)}
                   className="w-7 h-7 rounded-full transition-all hover:scale-110"
                   style={{ backgroundColor: c, outline: color === c ? `3px solid ${c}` : "none", outlineOffset: 2 }}
@@ -142,7 +145,7 @@ function CreateProjectModal({ onClose, onCreate }) {
 
 export default function ProjectsPage({ onNavigate }) {
   const { projects, currentProjectId, setCurrentProjectId, activeTasks, createProject, projectsViewMode, setProjectsViewMode, dbReady } = useApp();
-  const { isAdmin } = useAuth();
+  const { canManageProject } = useBoardPermissions();
   const [showCreate, setShowCreate] = useState(false);
   const [settingsProject, setSettingsProject] = useState(null);
   const viewMode = projectsViewMode;
@@ -154,8 +157,31 @@ export default function ProjectsPage({ onNavigate }) {
   };
 
   const handleCreate = (data) => {
+    if (!canManageProject) return;
     createProject(data);
   };
+
+  // Per-project stats computed once instead of filtering all tasks per card.
+  const projectStats = useMemo(() => {
+    const stats = {};
+    (activeTasks || []).forEach((task) => {
+      const projectId = getTaskProjectId(task, currentProjectId);
+      if (!stats[projectId]) stats[projectId] = { taskCount: 0, doneCount: 0, assignees: new Set() };
+      stats[projectId].taskCount += 1;
+      if (task.status === "done") stats[projectId].doneCount += 1;
+      if (task.assignedTo && task.assignedTo !== "unassigned") stats[projectId].assignees.add(task.assignedTo);
+    });
+    return stats;
+  }, [activeTasks, currentProjectId]);
+
+  const getStats = (project) => {
+    const entry = projectStats[project.id] || { taskCount: 0, doneCount: 0, assignees: new Set() };
+    const pct = entry.taskCount > 0 ? Math.round((entry.doneCount / entry.taskCount) * 100) : 0;
+    const memberCount = new Set([...entry.assignees, ...(project.memberUsernames || [])]).size;
+    return { taskCount: entry.taskCount, doneCount: entry.doneCount, pct, memberCount };
+  };
+
+  const existingKeys = (projects || []).map((project) => project.key).filter(Boolean);
 
   if (!dbReady) return <ProjectsSkeleton />;
   return (
@@ -184,7 +210,7 @@ export default function ProjectsPage({ onNavigate }) {
               <FaList className="w-3.5 h-3.5" />
             </button>
           </div>
-          {isAdmin && (
+          {canManageProject && (
             <button
               onClick={() => setShowCreate(true)}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
@@ -200,22 +226,23 @@ export default function ProjectsPage({ onNavigate }) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {projects.map((p, i) => {
             const isActive      = p.id === currentProjectId;
-            const projTasks     = activeTasks.filter((t) => (t.projectId || "proj-1") === p.id);
-            const taskCount     = projTasks.length;
-            const doneCount     = projTasks.filter((t) => t.status === "done").length;
-            const pct           = taskCount > 0 ? Math.round((doneCount / taskCount) * 100) : 0;
-            const description   = p.description || PROJECT_DESCRIPTIONS[p.id] || "No description available.";
-            const taskAssignees = new Set(projTasks.map((t) => t.assignedTo).filter((a) => a && a !== "unassigned"));
-            const memberCount   = new Set([...taskAssignees, ...(p.memberUsernames || [])]).size;
+            const { taskCount, doneCount, pct, memberCount } = getStats(p);
+            const description   = p.description?.trim() || "No description yet.";
 
             return (
-              <motion.button
+              <motion.div
                 key={p.id}
+                role="button"
+                tabIndex={0}
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, delay: i * 0.08, ease: "easeOut" }}
                 onClick={() => handleSelect(p.id)}
-                className={`text-left p-5 rounded-xl border transition-all group ${
+                onKeyDown={(event) => {
+                  if (event.target !== event.currentTarget) return;
+                  if (event.key === "Enter" || event.key === " ") { event.preventDefault(); handleSelect(p.id); }
+                }}
+                className={`text-left p-5 rounded-xl border transition-all group cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
                   isActive
                     ? "border-blue-400 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/10 shadow-sm"
                     : "border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#1c2030] hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-md"
@@ -237,20 +264,24 @@ export default function ProjectsPage({ onNavigate }) {
                             <FaCheck className="w-2 h-2" />Current
                           </span>
                         )}
+                        {p.status === "archived" && (
+                          <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-full font-medium">
+                            Archived
+                          </span>
+                        )}
                       </div>
                       <span className="text-[11px] text-slate-400 dark:text-slate-500 font-mono">{p.key}-*</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    {isAdmin && (
-                      <button
+                    <button
+                        type="button"
                         onClick={(e) => { e.stopPropagation(); setSettingsProject(p); }}
-                        className="w-7 h-7 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#232838]"
+                        className="w-7 h-7 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#232838]"
                         title="Project settings"
                       >
                         <FaCog className="w-3.5 h-3.5" />
                       </button>
-                    )}
                     <div
                       className="w-8 h-8 rounded-lg flex items-center justify-center opacity-60 group-hover:opacity-100 transition-opacity"
                       style={{ backgroundColor: p.color + "22" }}
@@ -287,7 +318,7 @@ export default function ProjectsPage({ onNavigate }) {
                     {isActive ? "Viewing →" : "Switch →"}
                   </div>
                 </div>
-              </motion.button>
+              </motion.div>
             );
           })}
         </div>
@@ -308,19 +339,20 @@ export default function ProjectsPage({ onNavigate }) {
 
           {projects.map((p, i) => {
             const isActive    = p.id === currentProjectId;
-            const projTasks   = activeTasks.filter((t) => (t.projectId || "proj-1") === p.id);
-            const taskCount   = projTasks.length;
-            const doneCount   = projTasks.filter((t) => t.status === "done").length;
-            const pct         = taskCount > 0 ? Math.round((doneCount / taskCount) * 100) : 0;
-            const description = PROJECT_DESCRIPTIONS[p.id] || p.description || "";
-            const taskAssignees2 = new Set(projTasks.map((t) => t.assignedTo).filter((a) => a && a !== "unassigned"));
-            const memberCount    = new Set([...taskAssignees2, ...(p.memberUsernames || [])]).size;
+            const { taskCount, doneCount, pct, memberCount } = getStats(p);
+            const description = p.description?.trim() || "";
 
             return (
-              <button
+              <div
                 key={p.id}
+                role="button"
+                tabIndex={0}
                 onClick={() => handleSelect(p.id)}
-                className={`w-full text-left grid grid-cols-[auto_1fr_160px_80px_80px_80px] gap-4 px-4 py-3.5 items-center transition-colors group ${
+                onKeyDown={(event) => {
+                  if (event.target !== event.currentTarget) return;
+                  if (event.key === "Enter" || event.key === " ") { event.preventDefault(); handleSelect(p.id); }
+                }}
+                className={`w-full text-left cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400 grid grid-cols-[auto_1fr_160px_80px_80px_80px] gap-4 px-4 py-3.5 items-center transition-colors group ${
                   i !== 0 ? "border-t border-slate-100 dark:border-[#2a3044]" : ""
                 } ${
                   isActive
@@ -374,22 +406,21 @@ export default function ProjectsPage({ onNavigate }) {
 
                 {/* Action */}
                 <div className="flex items-center justify-end gap-2">
-                  {isAdmin && (
-                    <button
+                  <button
+                      type="button"
                       onClick={(e) => { e.stopPropagation(); setSettingsProject(p); }}
-                      className="p-1.5 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#232838] rounded-lg transition-all"
+                      className="p-1.5 opacity-0 group-hover:opacity-100 focus:opacity-100 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#232838] rounded-lg transition-all"
                       title="Project settings"
                     >
                       <FaCog className="w-3.5 h-3.5" />
                     </button>
-                  )}
                   <span className="text-xs font-medium" style={{ color: isActive ? p.color : undefined }}>
                     <span className={isActive ? "" : "text-slate-400 dark:text-slate-500 group-hover:text-blue-500 transition-colors"}>
                       {isActive ? "Viewing →" : "Switch →"}
                     </span>
                   </span>
                 </div>
-              </button>
+              </div>
             );
           })}
         </div>
@@ -399,6 +430,7 @@ export default function ProjectsPage({ onNavigate }) {
         <CreateProjectModal
           onClose={() => setShowCreate(false)}
           onCreate={handleCreate}
+          existingKeys={existingKeys}
         />
       )}
 

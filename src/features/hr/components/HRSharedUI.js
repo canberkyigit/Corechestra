@@ -2,7 +2,7 @@ import React from "react";
 
 export function Avatar({ name, color, size = "md" }) {
   const sizeClass = { sm: "w-7 h-7 text-[10px]", md: "w-9 h-9 text-sm", lg: "w-12 h-12 text-base" }[size];
-  const initials = name.split(" ").map((word) => word[0]).slice(0, 2).join("").toUpperCase();
+  const initials = String(name || "?").trim().split(/\s+/).map((word) => word[0]).slice(0, 2).join("").toUpperCase() || "?";
 
   return (
     <div
@@ -36,7 +36,7 @@ export function Badge({ children, color = "blue" }) {
   };
 
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${styles[color]}`}>
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${styles[color] || styles.slate}`}>
       {children}
     </span>
   );

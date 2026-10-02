@@ -87,4 +87,36 @@ describe("useAppStoreSync", () => {
       remaining: 5,
     });
   });
+
+  it("queues changed sprint capacities for the persisted sprints domain", async () => {
+    storage.loadAllDomains.mockResolvedValue({
+      currentProjectId: "proj-1",
+      perProjectSprint: {
+        "proj-1": { id: "sprint-1", teamCapacities: { "u-1": 80 } },
+      },
+    });
+
+    renderHook(() => useAppStoreSync(), { wrapper: createWrapper() });
+
+    await waitFor(() => expect(useAppStore.getState().dbReady).toBe(true));
+    storage.saveDomain.mockClear();
+
+    act(() => {
+      useAppStore.getState().setPerProjectSprint((previous) => ({
+        ...previous,
+        "proj-1": {
+          ...previous["proj-1"],
+          teamCapacities: { "u-1": 50 },
+        },
+      }));
+    });
+
+    await waitFor(() => {
+      expect(storage.saveDomain).toHaveBeenCalledWith("sprints", {
+        perProjectSprint: {
+          "proj-1": { id: "sprint-1", teamCapacities: { "u-1": 50 } },
+        },
+      });
+    });
+  });
 });

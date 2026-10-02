@@ -3,14 +3,11 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { FaCheck } from "react-icons/fa";
 import { parseISO, format } from "date-fns";
 import { AppBadge, AppButton, AppEmptyState, getTaskStatusTone } from "../../../shared/components/AppPrimitives";
+import { getStatusTitle, groupTasksByColumn } from "../utils/boardColumns";
 
-const STATUS_LABELS = {
-  todo: "To Do",
-  inprogress: "In Progress",
-  review: "Review",
-  awaiting: "Awaiting",
-  blocked: "Blocked",
-  done: "Done",
+const safeFormat = (value, pattern) => {
+  if (!value) return null;
+  try { return format(parseISO(value), pattern); } catch { return value; }
 };
 
 const COL_WIDTHS = {
@@ -23,7 +20,7 @@ const COL_WIDTHS = {
   points: 60,
 };
 
-function EmptyState({ onCreateTask }) {
+function EmptyState({ onCreateTask, hasActiveFilters, onClearFilters }) {
   return (
     <AppEmptyState
       icon={(
@@ -36,35 +33,46 @@ function EmptyState({ onCreateTask }) {
           <path d="M12 14h40" stroke="currentColor" strokeWidth="2" opacity="0.5" />
         </svg>
       )}
-      title="No tasks found"
-      description="Try adjusting your filters or create a new task."
-      action={onCreateTask ? <AppButton onClick={onCreateTask}>Create Task</AppButton> : null}
+      title={hasActiveFilters ? "No tasks match your filters" : "No tasks found"}
+      description={hasActiveFilters ? "Clear the current filters or change the search query." : "Create a new task to get started."}
+      action={(
+        <div className="flex items-center gap-2">
+          {hasActiveFilters && onClearFilters && (
+            <AppButton variant="secondary" onClick={onClearFilters}>Clear filters</AppButton>
+          )}
+          {onCreateTask && <AppButton onClick={onCreateTask}>Create Task</AppButton>}
+        </div>
+      )}
       className="border-dashed shadow-none"
     />
   );
 }
 
-export function ListView({ tasks, onTaskClick, selectedIds, onToggleSelect, bulkMode, onCreateTask }) {
-  const grouped = useMemo(() => {
-    const map = {};
-    ["todo", "inprogress", "review", "awaiting", "blocked", "done"].forEach((status) => {
-      const groupedTasks = tasks.filter((task) => task.status === status);
-      if (groupedTasks.length > 0) {
-        map[status] = groupedTasks;
-      }
-    });
-    return map;
-  }, [tasks]);
-
+export function ListView({
+  tasks,
+  onTaskClick,
+  selectedIds,
+  onToggleSelect,
+  bulkMode,
+  columns,
+  onCreateTask,
+  hasActiveFilters,
+  onClearFilters,
+}) {
+  // Group by the project's workflow columns (custom columns included); tasks
+  // with unknown statuses land in an "Other / Unmapped" group.
   const flatItems = useMemo(() => {
+    const { columns: groupColumns, groups } = groupTasksByColumn(tasks, columns);
     const items = [];
-    Object.entries(grouped).forEach(([status, groupedTasks]) => {
-      items.push({ kind: "header", status, count: groupedTasks.length });
+    groupColumns.forEach((column) => {
+      const groupedTasks = groups[column.id] || [];
+      if (groupedTasks.length === 0) return;
+      items.push({ kind: "header", status: column.id, title: column.title, count: groupedTasks.length });
       groupedTasks.forEach((task) => items.push({ kind: "task", task }));
       items.push({ kind: "spacer" });
     });
     return items;
-  }, [grouped]);
+  }, [tasks, columns]);
 
   const parentRef = useRef(null);
   const virtualizer = useVirtualizer({
@@ -82,7 +90,7 @@ export function ListView({ tasks, onTaskClick, selectedIds, onToggleSelect, bulk
   if (tasks.length === 0) {
     return (
       <div className="flex-1 overflow-y-auto p-4">
-        <EmptyState onCreateTask={onCreateTask} />
+        <EmptyState onCreateTask={onCreateTask} hasActiveFilters={hasActiveFilters} onClearFilters={onClearFilters} />
       </div>
     );
   }
@@ -100,7 +108,7 @@ export function ListView({ tasks, onTaskClick, selectedIds, onToggleSelect, bulk
               {item.kind === "header" && (
                 <div className="flex items-center gap-2 h-full">
                   <AppBadge tone={getTaskStatusTone(item.status)}>
-                    {STATUS_LABELS[item.status]}
+                    {item.title}
                   </AppBadge>
                   <span className="text-xs text-slate-400 dark:text-slate-500">{item.count}</span>
                 </div>
@@ -129,7 +137,7 @@ export function ListView({ tasks, onTaskClick, selectedIds, onToggleSelect, bulk
                   <span className="text-sm text-slate-700 dark:text-slate-200 flex-1 truncate font-medium">{item.task.title}</span>
                   <span className="text-xs text-slate-400 dark:text-slate-500 capitalize hidden md:block">{item.task.assignedTo || "—"}</span>
                   {item.task.dueDate && (
-                    <span className="text-xs text-slate-400 dark:text-slate-500 hidden lg:block">{format(parseISO(item.task.dueDate), "MMM d")}</span>
+                    <span className="text-xs text-slate-400 dark:text-slate-500 hidden lg:block">{safeFormat(item.task.dueDate, "MMM d")}</span>
                   )}
                   <span className="text-xs text-slate-400 dark:text-slate-500 hidden sm:block">{item.task.storyPoint || 0}pt</span>
                 </div>
@@ -142,7 +150,7 @@ export function ListView({ tasks, onTaskClick, selectedIds, onToggleSelect, bulk
   );
 }
 
-function TableRow({ task, bulkMode, selectedIds, onToggleSelect, onTaskClick }) {
+function TableRow({ task, bulkMode, selectedIds, onToggleSelect, onTaskClick, columns }) {
   const selected = selectedIds.has(task.id);
   return (
     <div
@@ -166,7 +174,7 @@ function TableRow({ task, bulkMode, selectedIds, onToggleSelect, onTaskClick }) 
       </div>
       <div className="flex-shrink-0 pr-4" style={{ width: COL_WIDTHS.status }}>
         <AppBadge tone={getTaskStatusTone(task.status)}>
-          {STATUS_LABELS[task.status] || task.status}
+          {getStatusTitle(task.status, columns)}
         </AppBadge>
       </div>
       <div className="flex-shrink-0 pr-4" style={{ width: COL_WIDTHS.priority }}>
@@ -181,7 +189,7 @@ function TableRow({ task, bulkMode, selectedIds, onToggleSelect, onTaskClick }) 
       </div>
       <div className="flex-shrink-0 pr-4" style={{ width: COL_WIDTHS.due }}>
         <span className="text-xs text-slate-500 dark:text-slate-400">
-          {task.dueDate ? format(parseISO(task.dueDate), "MMM d, yyyy") : "—"}
+          {safeFormat(task.dueDate, "MMM d, yyyy") || "—"}
         </span>
       </div>
       <div className="flex-shrink-0 pr-3" style={{ width: COL_WIDTHS.points }}>
@@ -191,7 +199,18 @@ function TableRow({ task, bulkMode, selectedIds, onToggleSelect, onTaskClick }) 
   );
 }
 
-export function TableView({ tasks, onTaskClick, selectedIds, onToggleSelect, bulkMode, onSelectAll, onCreateTask }) {
+export function TableView({
+  tasks,
+  onTaskClick,
+  selectedIds,
+  onToggleSelect,
+  bulkMode,
+  onSelectAll,
+  columns,
+  onCreateTask,
+  hasActiveFilters,
+  onClearFilters,
+}) {
   const parentRef = useRef(null);
   const virtualizer = useVirtualizer({
     count: tasks.length,
@@ -203,7 +222,7 @@ export function TableView({ tasks, onTaskClick, selectedIds, onToggleSelect, bul
   if (tasks.length === 0) {
     return (
       <div className="flex-1 overflow-auto p-4">
-        <EmptyState onCreateTask={onCreateTask} />
+        <EmptyState onCreateTask={onCreateTask} hasActiveFilters={hasActiveFilters} onClearFilters={onClearFilters} />
       </div>
     );
   }
@@ -238,6 +257,7 @@ export function TableView({ tasks, onTaskClick, selectedIds, onToggleSelect, bul
                 selectedIds={selectedIds}
                 onToggleSelect={onToggleSelect}
                 onTaskClick={onTaskClick}
+                columns={columns}
               />
             </div>
           ))}

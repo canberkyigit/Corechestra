@@ -1,8 +1,13 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
-import ForYouPage from "./ForYouPage";
+import { fireEvent, render, screen } from "@testing-library/react";
+import ForYouPage, { selectDueSoonTasks } from "./ForYouPage";
+import { NAVIGATE_EVENT, OPEN_TASK_EVENT } from "../../../shared/components/appNavigation";
 
 const mockUseApp = jest.fn();
+
+jest.mock("../../../shared/context/hooks/usePermissions", () => ({
+  usePermissions: () => ({ canAccessPage: () => true, canPerform: () => true }),
+}));
 
 jest.mock("framer-motion", () => ({
   motion: {
@@ -91,5 +96,67 @@ describe("ForYouPage", () => {
     expect(screen.getAllByText("Fix login").length).toBeGreaterThan(0);
     expect(screen.getAllByText(/please review the latest fix/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/Test run completed/i)).toBeInTheDocument();
+  });
+
+  it("renders task keys without the cy-CY- double prefix", () => {
+    mockUseApp.mockReturnValue({
+      ...mockUseApp(),
+      activeTasks: [{ id: "CY-42", title: "Blocked thing", assignedTo: "alice", status: "blocked" }],
+    });
+
+    render(<ForYouPage />);
+
+    expect(screen.getByText("CY-42")).toBeInTheDocument();
+    expect(screen.queryByText(/cy-CY-/i)).not.toBeInTheDocument();
+  });
+
+  it("only shows notifications targeted at the current user (or broadcasts) and opens the task on click", () => {
+    const markNotifRead = jest.fn();
+    const task = { id: "CY-7", title: "Review API", assignedTo: "bob", status: "todo" };
+    mockUseApp.mockReturnValue({
+      ...mockUseApp(),
+      markNotifRead,
+      activeTasks: [task],
+      notifications: [
+        { id: "n-1", type: "mention", text: "bob mentioned you", recipient: "alice", taskId: "CY-7", read: false, timestamp: new Date().toISOString() },
+        { id: "n-2", type: "mention", text: "for carol only", recipient: "carol", read: false, timestamp: new Date().toISOString() },
+        { id: "n-3", type: "sprint_started", text: "Sprint started", read: false, timestamp: new Date().toISOString() },
+      ],
+    });
+    const opened = jest.fn();
+    const navigated = jest.fn();
+    const onOpen = (event) => opened(event.detail.task);
+    const onNavigate = (event) => navigated(event.detail.route);
+    window.addEventListener(OPEN_TASK_EVENT, onOpen);
+    window.addEventListener(NAVIGATE_EVENT, onNavigate);
+
+    render(<ForYouPage />);
+
+    expect(screen.getByText("bob mentioned you")).toBeInTheDocument();
+    expect(screen.queryByText("for carol only")).not.toBeInTheDocument();
+    expect(screen.getByText(/2 unread notifications/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("bob mentioned you"));
+    expect(markNotifRead).toHaveBeenCalledWith("n-1");
+    expect(opened).toHaveBeenCalledWith(task);
+
+    fireEvent.click(screen.getByText("Sprint started"));
+    expect(navigated).toHaveBeenCalledWith("board");
+
+    window.removeEventListener(OPEN_TASK_EVENT, onOpen);
+    window.removeEventListener(NAVIGATE_EVENT, onNavigate);
+  });
+
+  it("treats YYYY-MM-DD due dates as local days (tasks due today are included)", () => {
+    const now = new Date(2026, 3, 5, 23, 30); // Apr 5, 23:30 local
+    const tasks = [
+      { id: "a", dueDate: "2026-04-05" },
+      { id: "b", dueDate: "2026-04-12" },
+      { id: "c", dueDate: "2026-04-13" },
+      { id: "d", dueDate: "2026-04-04" },
+      { id: "e", dueDate: "not-a-date" },
+    ];
+
+    expect(selectDueSoonTasks(tasks, now).map((task) => task.id)).toEqual(["a", "b"]);
   });
 });

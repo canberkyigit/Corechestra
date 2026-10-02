@@ -2,7 +2,11 @@ import React, { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { FaDollarSign, FaPlus, FaReceipt, FaTimes, FaUniversity } from "react-icons/fa";
 import { useHR } from "../../../shared/context/HRContext";
+import { useToast } from "../../../shared/context/ToastContext";
 import { Badge, Card } from "../components/HRSharedUI";
+import { PayslipList } from "../components/PayslipList";
+import { toLocalIsoDate } from "../utils/dates";
+import { formatMoney } from "../utils/payslips";
 
 function AddExpenseModal({ open, onClose, onAdd }) {
   const [description, setDescription] = useState("");
@@ -18,16 +22,20 @@ function AddExpenseModal({ open, onClose, onAdd }) {
       setAmount("");
       setCurrency("USD");
       setCategory("Travel");
-      setDate(new Date().toISOString().slice(0, 10));
+      setDate(toLocalIsoDate());
     }
   }, [open]);
 
+  const amountValid = Number(amount) > 0;
+
   const handleSave = async () => {
-    if (!description.trim() || !amount || saving) return;
+    if (!description.trim() || !amountValid || !date || saving) return;
     setSaving(true);
     try {
-      await onAdd({ description: description.trim(), amount: Number(amount), currency, category, date });
+      await onAdd({ description: description.trim(), amount: Math.round(Number(amount) * 100) / 100, currency, category, date });
       onClose();
+    } catch {
+      // error toast shown by the caller
     } finally {
       setSaving(false);
     }
@@ -51,12 +59,12 @@ function AddExpenseModal({ open, onClose, onAdd }) {
               <div className="px-5 py-4 space-y-3">
                 <div>
                   <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Description</label>
-                  <input value={description} onChange={(event) => setDescription(event.target.value)} placeholder="e.g. Flight to London" className={inputClassName} />
+                  <input aria-label="Description" value={description} onChange={(event) => setDescription(event.target.value)} placeholder="e.g. Flight to London" className={inputClassName} />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Amount</label>
-                    <input type="number" min={0} value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="0.00" className={inputClassName} />
+                    <input type="number" min={0} step="0.01" aria-label="Amount" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="0.00" className={inputClassName} />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Currency</label>
@@ -78,7 +86,7 @@ function AddExpenseModal({ open, onClose, onAdd }) {
               </div>
               <div className="px-5 py-4 border-t border-slate-200 dark:border-[#2a3044] flex justify-end gap-2">
                 <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">Cancel</button>
-                <button onClick={handleSave} disabled={!description.trim() || !amount || saving} className="px-5 py-2 text-sm bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg transition-colors font-medium">
+                <button onClick={handleSave} disabled={!description.trim() || !amountValid || !date || saving} className="px-5 py-2 text-sm bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg transition-colors font-medium">
                   {saving ? "Adding..." : "Add"}
                 </button>
               </div>
@@ -117,6 +125,8 @@ function AddBankAccountModal({ open, onClose, onAdd }) {
         routingNumber: routing.trim(),
       });
       onClose();
+    } catch {
+      // error toast shown by the caller
     } finally {
       setSaving(false);
     }
@@ -169,9 +179,31 @@ function AddBankAccountModal({ open, onClose, onAdd }) {
   );
 }
 
-export function FinanceTab() {
-  const { expenses, bankAccounts, addExpense, deleteExpense, addBankAccount, deleteBankAccount } = useHR();
+export function FinanceTab({ userName, setActiveTab }) {
+  const { expenses, bankAccounts, addExpense, deleteExpense, addBankAccount, deleteBankAccount, setPrimaryBankAccount } = useHR();
+  const { addToast } = useToast();
   const [subTab, setSubTab] = useState("payslips");
+
+  const run = async (action, successMessage, rethrow = false) => {
+    try {
+      await action();
+      if (successMessage) addToast(successMessage, "success");
+    } catch (error) {
+      addToast(error.message || "Something went wrong", "error");
+      if (rethrow) throw error;
+    }
+  };
+
+  const handleAddExpense = (expense) => run(() => addExpense(expense), "Expense submitted for approval", true);
+  const handleAddBank = (account) => run(() => addBankAccount(account), "Bank account added", true);
+  const handleDeleteExpense = (expense) => {
+    if (!window.confirm(`Delete expense “${expense.description}”?`)) return;
+    run(() => deleteExpense(expense.id), "Expense deleted");
+  };
+  const handleDeleteBank = (account) => {
+    if (!window.confirm(`Remove ${account.bankName} account ending ${account.accountNumber?.slice(-4) || ""}?`)) return;
+    run(() => deleteBankAccount(account.id), "Bank account removed");
+  };
   const [expenseModal, setExpenseModal] = useState(false);
   const [bankModal, setBankModal] = useState(false);
 
@@ -185,8 +217,8 @@ export function FinanceTab() {
 
   return (
     <div>
-      <AddExpenseModal open={expenseModal} onClose={() => setExpenseModal(false)} onAdd={addExpense} />
-      <AddBankAccountModal open={bankModal} onClose={() => setBankModal(false)} onAdd={addBankAccount} />
+      <AddExpenseModal open={expenseModal} onClose={() => setExpenseModal(false)} onAdd={handleAddExpense} />
+      <AddBankAccountModal open={bankModal} onClose={() => setBankModal(false)} onAdd={handleAddBank} />
 
       <div className="flex items-center border-b border-slate-200 dark:border-[#2a3044] mb-5 gap-1">
         {subTabs.map(({ id, label, icon: Icon }) => (
@@ -197,18 +229,7 @@ export function FinanceTab() {
       </div>
 
       {subTab === "payslips" && (
-        <Card className="flex flex-col items-center justify-center py-20 text-center">
-          <div className="w-20 h-20 mb-4 opacity-40">
-            <svg viewBox="0 0 100 100" fill="none" className="w-full h-full">
-              <circle cx="50" cy="45" r="30" stroke="#6366f1" strokeWidth="3" fill="none" />
-              <path d="M35 55 Q50 30 65 55" stroke="#a78bfa" strokeWidth="2.5" fill="none" />
-              <circle cx="50" cy="42" r="4" fill="#6366f1" />
-              <path d="M40 75 Q50 68 60 75" stroke="#6366f1" strokeWidth="2" fill="none" />
-            </svg>
-          </div>
-          <h3 className="text-base font-semibold text-slate-700 dark:text-slate-200 mb-1">No payslips or payments yet</h3>
-          <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs">Once you complete a cycle you'll find your payslip and payment information here</p>
-        </Card>
+        <PayslipList employeeName={userName} onOpenContract={setActiveTab ? () => setActiveTab("contract") : undefined} />
       )}
 
       {subTab === "expenses" && (
@@ -241,12 +262,21 @@ export function FinanceTab() {
                       <td className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400">{expense.date}</td>
                       <td className="px-4 py-3 text-xs font-medium text-slate-700 dark:text-slate-200">{expense.description}</td>
                       <td className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400">{expense.category}</td>
-                      <td className="px-4 py-3 text-xs font-semibold text-slate-700 dark:text-slate-200">{expense.currency} {expense.amount}</td>
-                      <td className="px-4 py-3"><Badge color={statusColor[expense.status] || "slate"}>{expense.status}</Badge></td>
+                      <td className="px-4 py-3 text-xs font-semibold text-slate-700 dark:text-slate-200">{formatMoney(expense.amount, expense.currency)}</td>
+                      <td className="px-4 py-3">
+                        <span title={[expense.resolvedByName && `by ${expense.resolvedByName}`, expense.decisionNote].filter(Boolean).join(" · ") || undefined}>
+                          <Badge color={statusColor[expense.status] || "slate"}>{expense.status || "pending"}</Badge>
+                        </span>
+                        {expense.status === "rejected" && expense.decisionNote && (
+                          <p className="text-[10px] text-red-500 dark:text-red-400 mt-1 max-w-[180px] truncate">{expense.decisionNote}</p>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-right">
-                        <button onClick={() => deleteExpense(expense.id)} className="p-1.5 text-slate-300 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 transition-colors rounded">
-                          <FaTimes className="w-3 h-3" />
-                        </button>
+                        {expense.status !== "approved" && (
+                          <button onClick={() => handleDeleteExpense(expense)} aria-label={`Delete ${expense.description}`} className="p-1.5 text-slate-300 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 transition-colors rounded">
+                            <FaTimes className="w-3 h-3" />
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -282,10 +312,16 @@ export function FinanceTab() {
                       </div>
                       <div>
                         <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{account.bankName}</p>
-                        {account.isPrimary && <Badge color="blue">Primary</Badge>}
+                        {account.isPrimary ? (
+                          <Badge color="blue">Primary</Badge>
+                        ) : (
+                          <button type="button" onClick={() => run(() => setPrimaryBankAccount(account.id), `${account.bankName} is now your primary account`)} className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline">
+                            Set as primary
+                          </button>
+                        )}
                       </div>
                     </div>
-                    <button onClick={() => deleteBankAccount(account.id)} className="p-1.5 text-slate-300 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 transition-colors rounded">
+                    <button onClick={() => handleDeleteBank(account)} aria-label={`Remove ${account.bankName}`} className="p-1.5 text-slate-300 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 transition-colors rounded">
                       <FaTimes className="w-3 h-3" />
                     </button>
                   </div>

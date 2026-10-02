@@ -35,7 +35,9 @@ export function useTestingApi({
     testRuns,
     setTestRuns,
     createTestRun: testingActions.createTestRun,
+    createTestRuns: testingActions.createTestRuns,
     updateTestRun: testingActions.updateTestRun,
+    deleteTestRun: testingActions.deleteTestRun,
     updateTestRunResult: testingActions.updateTestRunResult,
   };
 }

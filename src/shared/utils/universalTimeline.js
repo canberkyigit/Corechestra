@@ -1,5 +1,16 @@
 import { taskKey } from "./helpers";
 
+// Comments use `{ id, author, text, createdAt }`; legacy task comments were
+// stored as `{ user, timestamp }` (with the meaningless author "You").
+function commentAuthor(comment) {
+  const raw = comment?.author ?? comment?.user ?? null;
+  return raw && raw !== "You" ? raw : null;
+}
+
+function commentTimestamp(comment) {
+  return comment?.createdAt || comment?.timestamp || null;
+}
+
 function mentionMatch(text, currentUser) {
   if (!text || !currentUser) return false;
   const normalizedUser = String(currentUser).trim().toLowerCase();
@@ -23,14 +34,18 @@ export function buildUniversalTimeline({
   const taskMap = new Map(allTasks.map((task) => [String(task.id), task]));
   const entries = [];
 
-  globalActivityLog.forEach((entry) => {
+  (globalActivityLog || []).forEach((entry) => {
     const task = entry.taskId ? taskMap.get(String(entry.taskId)) : null;
     entries.push({
       id: `activity-${entry.id}`,
       timestamp: entry.timestamp,
       category: "activity",
       title: entry.action,
-      subtitle: task ? `${taskKey(task.id)} · ${task.title}` : "Workspace activity",
+      subtitle: task
+        ? `${taskKey(task.id)} · ${task.title}`
+        : (entry.scope === "sprint" || entry.taskId === "sprint")
+          ? `Sprint${entry.details?.name ? ` · ${entry.details.name}` : ""}`
+          : "Workspace activity",
       entityType: task ? "task" : "workspace",
       entityId: task?.id || entry.projectId || null,
       actor: entry.user,
@@ -38,7 +53,7 @@ export function buildUniversalTimeline({
     });
   });
 
-  docPages.forEach((page) => {
+  (docPages || []).forEach((page) => {
     if (page.createdAt) {
       entries.push({
         id: `doc-created-${page.id}`,
@@ -56,19 +71,19 @@ export function buildUniversalTimeline({
     (page.comments || []).forEach((comment) => {
       entries.push({
         id: `doc-comment-${page.id}-${comment.id}`,
-        timestamp: comment.createdAt,
+        timestamp: commentTimestamp(comment),
         category: "comment",
         title: `Comment on ${page.title}`,
         subtitle: comment.text,
         entityType: "doc",
         entityId: page.id,
-        actor: comment.author,
+        actor: commentAuthor(comment),
         mentionsCurrentUser: mentionMatch(comment.text, currentUser),
       });
     });
   });
 
-  releases.forEach((release) => {
+  (releases || []).forEach((release) => {
     if (release.createdAt) {
       entries.push({
         id: `release-created-${release.id}`,
@@ -98,7 +113,7 @@ export function buildUniversalTimeline({
     });
   });
 
-  testRuns.forEach((run) => {
+  (testRuns || []).forEach((run) => {
     if (run.createdAt) {
       entries.push({
         id: `run-created-${run.id}`,
@@ -131,13 +146,13 @@ export function buildUniversalTimeline({
     (task.comments || []).forEach((comment) => {
       entries.push({
         id: `task-comment-${task.id}-${comment.id}`,
-        timestamp: comment.createdAt,
+        timestamp: commentTimestamp(comment),
         category: "comment",
         title: `Comment on ${taskKey(task.id)}`,
         subtitle: comment.text,
         entityType: "task",
         entityId: task.id,
-        actor: comment.author,
+        actor: commentAuthor(comment),
         mentionsCurrentUser: mentionMatch(comment.text, currentUser),
       });
     });

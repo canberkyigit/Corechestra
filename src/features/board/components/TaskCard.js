@@ -1,39 +1,14 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { memo, useState, useEffect, useRef } from "react";
 import { isBefore, addDays, parseISO, isValid, format } from "date-fns";
-import {
-  FaBug, FaExclamationCircle, FaUser, FaSearch, FaCheckSquare,
-  FaPlusSquare, FaRocket, FaFlag, FaPlay, FaRegDotCircle,
-  FaChevronDown, FaChevronUp, FaList,
-} from "react-icons/fa";
-import { useApp } from "../../../shared/context/AppContext";
+import { FaChevronDown, FaChevronUp, FaList, FaBan, FaRocket } from "react-icons/fa";
+import { taskKey } from "../../../shared/utils/helpers";
+import { TASK_TYPE_CHIP_STYLES, TASK_TYPE_OPTIONS } from "../../../shared/constants/taskMeta";
+import { findUser, getInitial, getUserColor } from "../utils/userColors";
 
-const TYPE_ICON = {
-  bug: <FaBug className="w-3 h-3" />,
-  defect: <FaExclamationCircle className="w-3 h-3" />,
-  userstory: <FaUser className="w-3 h-3" />,
-  investigation: <FaSearch className="w-3 h-3" />,
-  task: <FaCheckSquare className="w-3 h-3" />,
-  feature: <FaPlusSquare className="w-3 h-3" />,
-  epic: <FaRocket className="w-3 h-3" />,
-  test: <FaSearch className="w-3 h-3" />,
-  testset: <FaFlag className="w-3 h-3" />,
-  testexecution: <FaPlay className="w-3 h-3" />,
-  precondition: <FaRegDotCircle className="w-3 h-3" />,
-};
-
-const TYPE_COLOR = {
-  bug:           "text-red-500    bg-red-50    dark:bg-red-900/30",
-  defect:        "text-orange-500 bg-orange-50 dark:bg-orange-900/30",
-  userstory:     "text-blue-500   bg-blue-50   dark:bg-blue-900/30",
-  investigation: "text-purple-500 bg-purple-50 dark:bg-purple-900/30",
-  task:          "text-green-500  bg-green-50  dark:bg-green-900/30",
-  feature:       "text-cyan-500   bg-cyan-50   dark:bg-cyan-900/30",
-  epic:          "text-violet-500 bg-violet-50 dark:bg-violet-900/30",
-  test:          "text-teal-500   bg-teal-50   dark:bg-teal-900/30",
-  testset:       "text-indigo-500 bg-indigo-50 dark:bg-indigo-900/30",
-  testexecution: "text-lime-600   bg-lime-50   dark:bg-lime-900/30",
-  precondition:  "text-sky-500    bg-sky-50    dark:bg-sky-900/30",
-};
+// Pre-rendered once at module load (cards are hot; avoid re-creating icons per render).
+const TYPE_ICON = Object.fromEntries(
+  TASK_TYPE_OPTIONS.map(({ value, icon: Icon }) => [value, <Icon className="w-3 h-3" />])
+);
 
 const PRIORITY_BORDER_COLOR = {
   critical: "#ef4444",
@@ -41,7 +16,6 @@ const PRIORITY_BORDER_COLOR = {
   medium:   "#facc15",
   low:      "#4ade80",
 };
-
 
 function getDueDateStatus(dueDateStr) {
   if (!dueDateStr) return null;
@@ -56,16 +30,23 @@ function getDueDateStatus(dueDateStr) {
   } catch { return null; }
 }
 
-export default function TaskCard({
+/**
+ * Kanban card. Pure presentational component (no store hooks) so React.memo
+ * can skip re-renders: lookups (`epicsById`, `labelsById`, `users`) and the
+ * click handler must be referentially stable.
+ */
+function TaskCard({
   task,
   allBadgesOpen,
   priorityColorsOpen,
   taskIdsOpen,
   subtaskButtonsOpen,
-  onClick,
+  onTaskClick,
+  epicsById,
+  labelsById,
+  users,
   compact = false,
 }) {
-  const { epics, labels, users } = useApp();
   const [showSubtasks, setShowSubtasks] = useState(false);
   const [doneFlash, setDoneFlash] = useState(false);
   const prevStatus = useRef(task.status);
@@ -73,65 +54,70 @@ export default function TaskCard({
   useEffect(() => {
     if (prevStatus.current !== "done" && task.status === "done") {
       setDoneFlash(true);
-      const t = setTimeout(() => setDoneFlash(false), 700);
+      const timer = setTimeout(() => setDoneFlash(false), 700);
       prevStatus.current = task.status;
-      return () => clearTimeout(t);
+      return () => clearTimeout(timer);
     }
     prevStatus.current = task.status;
+    return undefined;
   }, [task.status]);
 
   const taskType = task.type || "task";
-  const typeColor = TYPE_COLOR[taskType] || TYPE_COLOR.task;
+  const typeColor = TASK_TYPE_CHIP_STYLES[taskType] || TASK_TYPE_CHIP_STYLES.task;
   const typeIcon = TYPE_ICON[taskType] || TYPE_ICON.task;
   const priorityKey = (task.priority || "medium").toLowerCase();
   const priorityBorderColor = priorityColorsOpen
     ? (PRIORITY_BORDER_COLOR[priorityKey] || "#94a3b8")
-    : "#e2e8f0";
+    : undefined;
 
-  const epic = epics?.find((e) => e.id === task.epicId);
+  const epic = task.epicId ? epicsById?.get(task.epicId) : null;
 
-  // Resolve assignee display name + avatar color from users list
-  const assignedUser = (task.assignedTo && task.assignedTo !== "unassigned")
-    ? users?.find((u) => u.username === task.assignedTo || u.id === task.assignedTo)
-    : null;
-  const assignedName   = assignedUser?.name || task.assignedTo;
-  const assignedInitial = assignedName && assignedName !== "unassigned"
-    ? assignedName.charAt(0).toUpperCase()
-    : "?";
-  const FALLBACK_COLORS = ["#3b82f6","#8b5cf6","#10b981","#ec4899","#6366f1"];
-  const assignedBg = assignedUser?.color
-    || FALLBACK_COLORS[(task.assignedTo || "").charCodeAt(0) % FALLBACK_COLORS.length];
+  const hasAssignee = Boolean(task.assignedTo && task.assignedTo !== "unassigned");
+  const assignedUser = hasAssignee ? findUser(users, task.assignedTo) : null;
+  const assignedName = assignedUser?.name || task.assignedTo;
+  const assignedBg = getUserColor(task.assignedTo, users);
   const taskLabels = (task.labels || [])
-    .map((id) => labels?.find((l) => l.id === id))
+    .map((id) => labelsById?.get(id))
     .filter(Boolean);
 
   const dueDateStatus = getDueDateStatus(task.dueDate);
+  let dueDateText = null;
+  if (task.dueDate) {
+    try { dueDateText = format(parseISO(task.dueDate), "MMM d"); } catch { dueDateText = task.dueDate; }
+  }
 
-  const dueDateText = task.dueDate
-    ? (() => {
-        try { return format(parseISO(task.dueDate), "MMM d"); } catch { return task.dueDate; }
-      })()
-    : null;
-
-  const completedSubtasks = (task.subtasks || []).filter((s) => s.done).length;
-  const totalSubtasks = (task.subtasks || []).length;
+  const subtasks = task.subtasks || [];
+  const completedSubtasks = subtasks.filter((subtask) => subtask.done).length;
+  const totalSubtasks = subtasks.length;
+  const hasStoryPoints = task.storyPoint != null && task.storyPoint !== "";
 
   return (
-    <div data-testid={`task-card-${task.id}`} className={`group relative bg-white dark:bg-[#1c2030] rounded-lg border border-slate-200 dark:border-[#2a3044] border-l-4 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-150 cursor-pointer hover:border-blue-300 dark:hover:border-blue-500 dark:hover:bg-[#202540] overflow-hidden min-w-0 ${doneFlash ? "animate-task-done" : ""} ${compact ? "p-2.5" : "p-3"}`}
-      style={{ borderLeftColor: priorityBorderColor }}
-      onClick={(e) => {
-        if (e.target.closest("button")) return;
-        if (onClick) onClick();
+    <div
+      data-testid={`task-card-${task.id}`}
+      className={`group relative bg-white dark:bg-[#1c2030] rounded-lg border border-slate-200 dark:border-[#2a3044] border-l-4 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-150 cursor-pointer hover:border-blue-300 dark:hover:border-blue-500 dark:hover:bg-[#202540] overflow-hidden min-w-0 ${priorityColorsOpen ? "" : "border-l-slate-200 dark:border-l-[#2a3044]"} ${doneFlash ? "animate-task-done" : ""} ${compact ? "p-2.5" : "p-3"}`}
+      style={priorityBorderColor ? { borderLeftColor: priorityBorderColor } : undefined}
+      onClick={(event) => {
+        if (event.target.closest("button")) return;
+        onTaskClick?.(task);
       }}
     >
-      {/* Top row: type badge + task id */}
+      {/* Top row: type badge + task key */}
       <div className="flex items-center gap-1.5 mb-2 min-w-0">
         <span className={`inline-flex items-center justify-center w-5 h-5 rounded flex-shrink-0 ${typeColor}`}>
           {typeIcon}
         </span>
         {taskIdsOpen && (
           <span className="text-xs text-slate-400 font-mono truncate flex-shrink min-w-0">
-            {task.id?.startsWith("b") ? "BL" : "CY"}-{task.id}
+            {taskKey(task.id)}
+          </span>
+        )}
+        {task.status === "blocked" && task.blockReason && (
+          <span
+            className="ml-auto inline-flex items-center gap-1 text-[10px] text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-1.5 py-0.5 rounded flex-shrink-0 max-w-[50%] truncate"
+            title={`Blocked: ${task.blockReason}`}
+          >
+            <FaBan className="w-2.5 h-2.5 flex-shrink-0" />
+            <span className="truncate">{task.blockReason}</span>
           </span>
         )}
       </div>
@@ -141,7 +127,7 @@ export default function TaskCard({
         <div className="mb-1.5 min-w-0 overflow-hidden">
           <span
             className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded font-medium max-w-full"
-            style={{ backgroundColor: epic.color + "22", color: epic.color }}
+            style={{ backgroundColor: `${epic.color}22`, color: epic.color }}
           >
             <FaRocket className="w-2.5 h-2.5 flex-shrink-0" />
             <span className="truncate">{epic.title}</span>
@@ -161,7 +147,7 @@ export default function TaskCard({
             <span
               key={label.id}
               className="text-xs px-1.5 py-0.5 rounded-full font-medium truncate max-w-[80px]"
-              style={{ backgroundColor: label.color + "22", color: label.color, border: `1px solid ${label.color}44` }}
+              style={{ backgroundColor: `${label.color}22`, color: label.color, border: `1px solid ${label.color}44` }}
             >
               {label.name}
             </span>
@@ -175,19 +161,19 @@ export default function TaskCard({
       )}
 
       {/* Due date + story points row */}
-      {(dueDateText || (task.storyPoint != null && task.storyPoint !== "")) && (
+      {(dueDateText || hasStoryPoints) && (
         <div className="flex items-center gap-1.5 mt-1 min-w-0">
           {dueDateText && (
             <span className={`text-xs flex items-center gap-0.5 flex-shrink-0 ${
-              dueDateStatus === "overdue" ? "text-red-600 font-semibold" :
-              dueDateStatus === "soon" ? "text-orange-500" :
-              "text-slate-400"
+              dueDateStatus === "overdue" ? "text-red-600 dark:text-red-400 font-semibold"
+                : dueDateStatus === "soon" ? "text-orange-500"
+                  : "text-slate-400"
             }`}>
               {dueDateStatus === "overdue" && "⚠"}
               {dueDateText}
             </span>
           )}
-          {task.storyPoint != null && task.storyPoint !== "" && (
+          {hasStoryPoints && (
             <span className="text-xs bg-slate-100 dark:bg-[#232838] text-slate-600 dark:text-slate-400 px-1.5 py-0.5 rounded font-medium flex-shrink-0">
               {task.storyPoint}
             </span>
@@ -196,12 +182,13 @@ export default function TaskCard({
       )}
 
       {/* Bottom row: subtask toggle (left) + assignee avatar (right) */}
-      {(subtaskButtonsOpen && totalSubtasks > 0) || (task.assignedTo && task.assignedTo !== "unassigned") ? (
+      {(subtaskButtonsOpen && totalSubtasks > 0) || hasAssignee ? (
         <div className="flex items-center mt-1.5 min-w-0">
           {subtaskButtonsOpen && totalSubtasks > 0 && (
             <button
+              type="button"
               className="flex items-center gap-0.5 text-xs text-slate-400 hover:text-blue-500 transition-colors"
-              onClick={() => setShowSubtasks((v) => !v)}
+              onClick={() => setShowSubtasks((value) => !value)}
               title="Toggle subtasks"
             >
               <FaList className="w-3 h-3" />
@@ -210,13 +197,13 @@ export default function TaskCard({
             </button>
           )}
           <div className="flex-1 min-w-0" />
-          {task.assignedTo && task.assignedTo !== "unassigned" && (
+          {hasAssignee && (
             <div
               className="w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center text-white text-xs font-bold"
               style={{ backgroundColor: assignedBg }}
               title={assignedName}
             >
-              {assignedInitial}
+              {getInitial(assignedName)}
             </div>
           )}
         </div>
@@ -232,10 +219,10 @@ export default function TaskCard({
         }}
       >
         <div className="mt-2 border-t border-slate-100 dark:border-[#232838] pt-2 space-y-1">
-          {(task.subtasks || []).map((sub) => (
-            <div key={sub.id} className={`text-xs flex items-center gap-1.5 ${sub.done ? "text-slate-400 line-through" : "text-slate-600 dark:text-slate-400"}`}>
-              <div className={`w-3 h-3 rounded-sm border flex-shrink-0 ${sub.done ? "bg-green-500 border-green-500" : "border-slate-300"}`} />
-              {sub.title}
+          {subtasks.map((subtask) => (
+            <div key={subtask.id} className={`text-xs flex items-center gap-1.5 ${subtask.done ? "text-slate-400 line-through" : "text-slate-600 dark:text-slate-400"}`}>
+              <div className={`w-3 h-3 rounded-sm border flex-shrink-0 ${subtask.done ? "bg-green-500 border-green-500" : "border-slate-300 dark:border-slate-600"}`} />
+              {subtask.title}
             </div>
           ))}
         </div>
@@ -248,3 +235,5 @@ export default function TaskCard({
     </div>
   );
 }
+
+export default memo(TaskCard);

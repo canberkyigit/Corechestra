@@ -18,10 +18,12 @@ export function BoardTopBar({ tabs, activeTab, onTabChange, onCreateTask }) {
           </button>
         ))}
       </div>
+      {onCreateTask && (
       <button className="flex-shrink-0 mb-1 px-2.5 md:px-4 py-1.5 rounded-lg bg-blue-600 text-white font-medium shadow-sm hover:bg-blue-700 transition-all text-xs md:text-sm flex items-center gap-1" onClick={onCreateTask}>
         <span className="md:hidden">+</span>
         <span className="hidden md:inline">+ Create Task</span>
       </button>
+      )}
     </div>
   );
 }

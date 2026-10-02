@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useAppStore } from "../../../store/useAppStore";
+import { isInProject } from "../../../utils/helpers";
 
 export function useProjectTaskIndex(projectIdOverride) {
   const currentProjectId = useAppStore((state) => state.currentProjectId);
@@ -9,12 +10,13 @@ export function useProjectTaskIndex(projectIdOverride) {
   const projectId = projectIdOverride ?? currentProjectId;
 
   return useMemo(() => {
-    const normalizedProjectId = projectId || "proj-1";
+    const normalizedProjectId = projectId || "";
     const projectActiveTasks = [];
     const activeTaskIndexById = {};
 
     activeTasks.forEach((task) => {
-      if ((task.projectId || "proj-1") !== normalizedProjectId) return;
+      // Legacy tasks without projectId belong to the current project.
+      if (!isInProject(task, normalizedProjectId, currentProjectId)) return;
       activeTaskIndexById[task.id] = projectActiveTasks.length;
       projectActiveTasks.push(task);
     });
@@ -40,5 +42,5 @@ export function useProjectTaskIndex(projectIdOverride) {
       allProjectTasks,
       idToProjectIndex,
     };
-  }, [activeTasks, perProjectBacklog, projectId]);
+  }, [activeTasks, currentProjectId, perProjectBacklog, projectId]);
 }

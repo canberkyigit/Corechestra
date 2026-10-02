@@ -1,24 +1,33 @@
-import React, { useState, useMemo, useRef, useEffect } from "react";
+import React, { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
-import { FaArrowRight, FaTrash, FaPencilAlt, FaSearch } from "react-icons/fa";
+import { FaArrowRight, FaTrash, FaPencilAlt, FaSearch, FaPlay } from "react-icons/fa";
 import TaskRow from "../components/TaskRow";
 import { useApp } from "../../../shared/context/AppContext";
+import { useBoardPermissions } from "../hooks/useBoardPermissions";
 import { useToast } from "../../../shared/context/ToastContext";
+import { useWorkflowGuard } from "../hooks/useWorkflowGuard";
+import { useEscapeKey } from "../hooks/useEscapeKey";
+import { buildStatusOptions } from "../utils/boardColumns";
+import { toFullListIndex } from "../utils/boardDnd";
+import { isInProject } from "../../../shared/utils/helpers";
 
-function SubtaskList({ task, onToggle }) {
+const TASKS_PER_PAGE = 20;
+
+function SubtaskList({ task, onToggle, readOnly }) {
   return (
-    <div className="ml-8 bg-gray-50 dark:bg-[#232838] border-l-2 border-blue-200 dark:border-blue-900 p-3">
-      <div className="text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">Subtasks:</div>
+    <div className="ml-8 bg-slate-50 dark:bg-[#232838] border-l-2 border-blue-200 dark:border-blue-900 p-3">
+      <div className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Subtasks:</div>
       <ul className="space-y-2">
         {task.subtasks.map((sub) => (
           <li key={sub.id} className="flex items-center space-x-2">
             <input
               type="checkbox"
-              checked={sub.done}
-              onChange={() => onToggle(sub.id)}
-              className="rounded border-gray-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500"
+              checked={Boolean(sub.done)}
+              disabled={readOnly}
+              onChange={() => onToggle(task, sub.id)}
+              className="rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500"
             />
-            <span className={`text-sm ${sub.done ? "line-through text-gray-400 dark:text-slate-500" : "text-gray-700 dark:text-slate-300"}`}>
+            <span className={`text-sm ${sub.done ? "line-through text-slate-400 dark:text-slate-500" : "text-slate-700 dark:text-slate-300"}`}>
               {sub.title}
             </span>
           </li>
@@ -28,26 +37,39 @@ function SubtaskList({ task, onToggle }) {
   );
 }
 
+const matchesSearch = (task, query) => {
+  if (!query) return true;
+  return (task.title || "").toLowerCase().includes(query)
+    || (task.description || "").toLowerCase().includes(query);
+};
+
 export default function BacklogTab({ onTaskClick, onPokerClick, focusSectionId, onFocusHandled }) {
   const {
     activeTasks,
     setActiveTasks,
     backlogSections,
     setBacklogSections,
-    idToGlobalIndex,
+    updateTask,
     handleBacklogDragEnd,
     createBacklogSection,
     deleteBacklogSection,
     renameBacklogSection,
     currentProjectId,
+    teamMembers,
+    columns,
   } = useApp();
+  const { canEditTask } = useBoardPermissions();
+  const readOnly = !canEditTask;
   const { addToast } = useToast();
+  const { guardStatusChange, reportResult, dialog } = useWorkflowGuard();
 
-  const projectActiveTasks = activeTasks.filter(
-    (t) => (t.projectId || "proj-1") === currentProjectId
+  const projectActiveTasks = useMemo(
+    () => (activeTasks || []).filter((task) => isInProject(task, currentProjectId)),
+    [activeTasks, currentProjectId]
   );
+  const sections = useMemo(() => backlogSections || [], [backlogSections]);
+  const statusOptions = useMemo(() => buildStatusOptions(columns), [columns]);
 
-  const TASKS_PER_PAGE = 20;
   const [expandedSubtasks, setExpandedSubtasks] = useState({});
   const [editingIdx, setEditingIdx] = useState(null);
   const [editingTitle, setEditingTitle] = useState("");
@@ -56,46 +78,62 @@ export default function BacklogTab({ onTaskClick, onPokerClick, focusSectionId, 
   const [activeVisibleCount, setActiveVisibleCount] = useState(TASKS_PER_PAGE);
   const [sectionVisibleCounts, setSectionVisibleCounts] = useState({});
 
+  useEscapeKey(() => setDeleteConfirm(null), deleteConfirm !== null);
+
   const sectionRefs = useRef({});
   useEffect(() => {
     if (!focusSectionId) return;
     const el = sectionRefs.current[focusSectionId];
     if (el) {
       setTimeout(() => {
-        el.scrollIntoView({ behavior: "smooth", block: "start" });
+        el.scrollIntoView?.({ behavior: "smooth", block: "start" });
       }, 100);
       onFocusHandled?.();
     }
-  }, [focusSectionId]); // eslint-disable-line
+  }, [focusSectionId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const toggleSubtasks = (taskId) =>
+  const query = search.trim().toLowerCase();
+
+  const filteredActive = useMemo(
+    () => projectActiveTasks.filter((task) => matchesSearch(task, query)),
+    [projectActiveTasks, query]
+  );
+  const visibleActive = filteredActive.slice(0, activeVisibleCount);
+
+  const sectionViews = useMemo(() => sections.map((section) => {
+    const tasks = section.tasks || [];
+    const filtered = tasks.filter((task) => matchesSearch(task, query));
+    const visibleCount = sectionVisibleCounts[section.id] || TASKS_PER_PAGE;
+    return { section, tasks, filtered, visible: filtered.slice(0, visibleCount), visibleCount };
+  }), [sections, query, sectionVisibleCounts]);
+
+  const toggleSubtasks = useCallback((taskId) => {
     setExpandedSubtasks((prev) => ({ ...prev, [taskId]: !prev[taskId] }));
+  }, []);
 
-  const toggleSubtask = (task, subId, isActive, sectionIdx) => {
-    const updatedSubtasks = task.subtasks.map((s) =>
-      s.id === subId ? { ...s, done: !s.done } : s
-    );
-    if (isActive) {
-      setActiveTasks((prev) =>
-        prev.map((t) => (t.id === task.id ? { ...t, subtasks: updatedSubtasks } : t))
-      );
-    } else {
-      setBacklogSections((prev) =>
-        prev.map((s, i) =>
-          i !== sectionIdx
-            ? s
-            : { ...s, tasks: s.tasks.map((t) => (t.id === task.id ? { ...t, subtasks: updatedSubtasks } : t)) }
-        )
-      );
+  const handleRowUpdate = useCallback(async (task, patch) => {
+    if (readOnly) return;
+    let nextPatch = patch;
+    if (patch.status && patch.status !== task.status) {
+      const verdict = await guardStatusChange(task, patch.status);
+      if (!verdict.ok) return;
+      nextPatch = { ...patch, ...verdict.patch };
     }
-  };
+    reportResult(updateTask({ ...task, ...nextPatch }));
+  }, [guardStatusChange, readOnly, reportResult, updateTask]);
+
+  const toggleSubtask = useCallback((task, subId) => {
+    if (readOnly) return;
+    const subtasks = (task.subtasks || []).map((sub) => (sub.id === subId ? { ...sub, done: !sub.done } : sub));
+    reportResult(updateTask({ ...task, subtasks }));
+  }, [readOnly, reportResult, updateTask]);
 
   // Move a backlog task to the active sprint
   const moveToSprint = (task, sectionId) => {
     setBacklogSections((prev) =>
-      prev.map((s) =>
-        s.id !== sectionId ? s : { ...s, tasks: s.tasks.filter((t) => t.id !== task.id) }
-      )
+      prev.map((section) => (
+        section.id !== sectionId ? section : { ...section, tasks: (section.tasks || []).filter((item) => item.id !== task.id) }
+      ))
     );
     setActiveTasks((prev) => [
       ...prev,
@@ -104,16 +142,85 @@ export default function BacklogTab({ onTaskClick, onPokerClick, focusSectionId, 
     addToast(`"${task.title}" moved to sprint`, "success");
   };
 
-  const filterTask = (task) => {
-    if (!search.trim()) return true;
-    const q = search.toLowerCase();
-    return task.title.toLowerCase().includes(q) || (task.description || "").toLowerCase().includes(q);
+  // Rendered indices are relative to the filtered + paginated list; convert
+  // them to indices in the full list before calling the store action.
+  const onDragEnd = (result) => {
+    const { destination, draggableId } = result;
+    if (!destination || readOnly) return;
+    let fullIds;
+    let visibleIds;
+    if (destination.droppableId === "active-sprint") {
+      fullIds = projectActiveTasks.map((task) => task.id);
+      visibleIds = visibleActive.map((task) => task.id);
+    } else {
+      const sectionId = parseInt(destination.droppableId.replace("backlog-", ""), 10);
+      const view = sectionViews.find((item) => item.section.id === sectionId);
+      if (!view) return;
+      fullIds = view.tasks.map((task) => task.id);
+      visibleIds = view.visible.map((task) => task.id);
+    }
+    const draggedId = [...projectActiveTasks, ...sections.flatMap((section) => section.tasks || [])]
+      .find((task) => String(task.id) === String(draggableId))?.id ?? draggableId;
+    const sourceIds = result.source.droppableId === "active-sprint"
+      ? projectActiveTasks.map((task) => task.id)
+      : (sectionViews.find((item) => `backlog-${item.section.id}` === result.source.droppableId)?.tasks || []).map((task) => task.id);
+    handleBacklogDragEnd({
+      ...result,
+      draggableId: draggedId,
+      source: { ...result.source, index: sourceIds.indexOf(draggedId) },
+      destination: {
+        ...destination,
+        index: toFullListIndex(fullIds, visibleIds, draggedId, destination.index),
+      },
+    });
   };
 
-  const filteredActive = useMemo(() => projectActiveTasks.filter(filterTask), [projectActiveTasks, search]); // eslint-disable-line
-
-  const totalBacklogTasks = backlogSections.reduce((sum, s) => sum + s.tasks.length, 0);
+  const totalBacklogTasks = sections.reduce((sum, section) => sum + (section.tasks || []).length, 0);
   const isBacklogEmpty = projectActiveTasks.length === 0 && totalBacklogTasks === 0;
+  const sectionToDelete = sections.find((section) => section.id === deleteConfirm);
+
+  const renderRow = (task, { isActive, sectionId }) => (
+    <>
+      <div className="flex items-center gap-1">
+        <div className="flex-1 min-w-0">
+          <TaskRow
+            task={task}
+            onUpdate={handleRowUpdate}
+            onClick={onTaskClick}
+            statusOptions={statusOptions}
+            teamMembers={teamMembers}
+            readOnly={readOnly}
+            showArrow
+            onToggleSubtasks={toggleSubtasks}
+            isExpanded={Boolean(expandedSubtasks[task.id])}
+          />
+        </div>
+        {onPokerClick && !readOnly && (
+          <button
+            type="button"
+            title="Estimate with Planning Poker"
+            onClick={() => onPokerClick(task)}
+            className="flex-shrink-0 p-1.5 rounded text-slate-400 dark:text-slate-500 hover:text-violet-600 dark:hover:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/20 transition-colors"
+          >
+            <FaPlay className="w-3 h-3" />
+          </button>
+        )}
+        {!isActive && !readOnly && (
+          <button
+            type="button"
+            title="Move to Active Sprint"
+            onClick={() => moveToSprint(task, sectionId)}
+            className="flex-shrink-0 p-1.5 rounded text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+          >
+            <FaArrowRight className="w-3 h-3" />
+          </button>
+        )}
+      </div>
+      {expandedSubtasks[task.id] && task.subtasks?.length > 0 && (
+        <SubtaskList task={task} onToggle={toggleSubtask} readOnly={readOnly} />
+      )}
+    </>
+  );
 
   if (isBacklogEmpty) {
     return (
@@ -128,6 +235,15 @@ export default function BacklogTab({ onTaskClick, onPokerClick, focusSectionId, 
         </svg>
         <h3 className="text-base font-semibold text-slate-600 dark:text-slate-300 mt-4">Backlog is empty</h3>
         <p className="text-sm text-slate-400 dark:text-slate-500 mt-1 max-w-xs">Tasks moved from the sprint or created here will appear</p>
+        {!readOnly && sections.length === 0 && (
+          <button
+            type="button"
+            onClick={createBacklogSection}
+            className="mt-4 px-4 py-1.5 rounded bg-blue-600 text-white text-xs font-semibold shadow hover:bg-blue-700 transition-colors"
+          >
+            + New Backlog Section
+          </button>
+        )}
       </div>
     );
   }
@@ -141,30 +257,33 @@ export default function BacklogTab({ onTaskClick, onPokerClick, focusSectionId, 
           <input
             type="text"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(event) => setSearch(event.target.value)}
             placeholder="Search backlog tasks..."
             className="w-full pl-9 pr-3 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#1c2030] text-slate-700 dark:text-slate-300 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-400"
           />
         </div>
-        <button
-          onClick={createBacklogSection}
-          className="px-4 py-1.5 rounded bg-blue-600 text-white text-xs font-semibold shadow hover:bg-blue-700 transition-colors"
-        >
-          + New Backlog Section
-        </button>
+        {!readOnly && (
+          <button
+            type="button"
+            onClick={createBacklogSection}
+            className="px-4 py-1.5 rounded bg-blue-600 text-white text-xs font-semibold shadow hover:bg-blue-700 transition-colors"
+          >
+            + New Backlog Section
+          </button>
+        )}
       </div>
 
-      <DragDropContext onDragEnd={handleBacklogDragEnd}>
+      <DragDropContext onDragEnd={onDragEnd}>
         <div className="w-full max-w-5xl mx-auto flex flex-col gap-8 mt-4 mb-12">
           {/* Active Sprint section */}
           <div>
-            <div className="text-lg font-bold text-gray-700 dark:text-slate-200 mb-2 flex items-center gap-2">
+            <div className="text-lg font-bold text-slate-700 dark:text-slate-200 mb-2 flex items-center gap-2">
               <span>Active Sprint</span>
-              <span className="text-sm font-normal text-gray-500 dark:text-slate-400">
+              <span className="text-sm font-normal text-slate-500 dark:text-slate-400">
                 ({filteredActive.length}{search ? ` of ${projectActiveTasks.length}` : ""} tasks)
               </span>
             </div>
-            <Droppable droppableId="active-sprint">
+            <Droppable droppableId="active-sprint" isDropDisabled={readOnly}>
               {(provided, snapshot) => (
                 <div
                   ref={provided.innerRef}
@@ -172,57 +291,44 @@ export default function BacklogTab({ onTaskClick, onPokerClick, focusSectionId, 
                   className={`bg-white dark:bg-[#1c2030] rounded-lg border-2 shadow-md p-4 mb-4 transition-colors ${
                     snapshot.isDraggingOver
                       ? "border-blue-400 bg-blue-50 dark:bg-blue-900/10"
-                      : "border-gray-300 dark:border-[#2a3044]"
+                      : "border-slate-300 dark:border-[#2a3044]"
                   }`}
                 >
                   {filteredActive.length === 0 ? (
-                    <div className="text-center py-8 text-gray-400 dark:text-slate-500">
+                    <div className="text-center py-8 text-slate-400 dark:text-slate-500">
                       <FaArrowRight className="mx-auto mb-2 text-2xl" />
                       <p>{search ? "No matching tasks" : "Drag tasks here from Backlog"}</p>
                     </div>
                   ) : (
                     <>
-                    <ul>
-                      {filteredActive.slice(0, activeVisibleCount).map((task, idx) => (
-                        <Draggable key={task.id} draggableId={task.id} index={projectActiveTasks.indexOf(task)}>
-                          {(provided, snapshot) => (
-                            <div
-                              ref={provided.innerRef}
-                              {...provided.draggableProps}
-                              {...provided.dragHandleProps}
-                              className={snapshot.isDragging ? "opacity-75" : ""}
-                            >
-                              <TaskRow
-                                task={task}
-                                setTasks={setActiveTasks}
-                                index={idToGlobalIndex[task.id]}
-                                onClick={onTaskClick}
-                                showArrow
-                                onToggleSubtasks={toggleSubtasks}
-                                isExpanded={expandedSubtasks[task.id]}
-                              />
-                              {expandedSubtasks[task.id] && task.subtasks?.length > 0 && (
-                                <SubtaskList
-                                  task={task}
-                                  onToggle={(subId) => toggleSubtask(task, subId, true, null)}
-                                />
-                              )}
-                              {idx !== Math.min(filteredActive.length, activeVisibleCount) - 1 && (
-                                <div className="border-b border-gray-200 dark:border-[#232838] -mx-4" />
-                              )}
-                            </div>
-                          )}
-                        </Draggable>
-                      ))}
-                    </ul>
-                    {filteredActive.length > activeVisibleCount && (
-                      <button
-                        className="w-full text-center py-2.5 mt-2 text-xs text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-50 dark:hover:bg-[#232838] rounded-lg transition-colors font-medium"
-                        onClick={() => setActiveVisibleCount((prev) => prev + TASKS_PER_PAGE)}
-                      >
-                        Show {Math.min(TASKS_PER_PAGE, filteredActive.length - activeVisibleCount)} more task{Math.min(TASKS_PER_PAGE, filteredActive.length - activeVisibleCount) !== 1 ? "s" : ""} ({filteredActive.length - activeVisibleCount} remaining)
-                      </button>
-                    )}
+                      <ul>
+                        {visibleActive.map((task, idx) => (
+                          <Draggable key={task.id} draggableId={String(task.id)} index={idx} isDragDisabled={readOnly}>
+                            {(dragProvided, dragSnapshot) => (
+                              <div
+                                ref={dragProvided.innerRef}
+                                {...dragProvided.draggableProps}
+                                {...dragProvided.dragHandleProps}
+                                className={dragSnapshot.isDragging ? "opacity-75" : ""}
+                              >
+                                {renderRow(task, { isActive: true })}
+                                {idx !== visibleActive.length - 1 && (
+                                  <div className="border-b border-slate-200 dark:border-[#232838] -mx-4" />
+                                )}
+                              </div>
+                            )}
+                          </Draggable>
+                        ))}
+                      </ul>
+                      {filteredActive.length > activeVisibleCount && (
+                        <button
+                          type="button"
+                          className="w-full text-center py-2.5 mt-2 text-xs text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-50 dark:hover:bg-[#232838] rounded-lg transition-colors font-medium"
+                          onClick={() => setActiveVisibleCount((prev) => prev + TASKS_PER_PAGE)}
+                        >
+                          Show {Math.min(TASKS_PER_PAGE, filteredActive.length - activeVisibleCount)} more task{Math.min(TASKS_PER_PAGE, filteredActive.length - activeVisibleCount) !== 1 ? "s" : ""} ({filteredActive.length - activeVisibleCount} remaining)
+                        </button>
+                      )}
                     </>
                   )}
                   {provided.placeholder}
@@ -232,29 +338,33 @@ export default function BacklogTab({ onTaskClick, onPokerClick, focusSectionId, 
           </div>
 
           {/* Backlog sections */}
-          {backlogSections.map((section, sectionIdx) => {
-            const filteredTasks = section.tasks.filter(filterTask);
+          {sectionViews.map(({ section, tasks, filtered, visible, visibleCount }, sectionIdx) => {
             const isFocused = focusSectionId === section.id;
+            const remaining = filtered.length - visibleCount;
             return (
               <div
                 key={section.id}
                 ref={(el) => { sectionRefs.current[section.id] = el; }}
                 className={`mt-4 mb-12 rounded-xl transition-all duration-500 ${isFocused ? "ring-2 ring-indigo-400 dark:ring-indigo-500 ring-offset-2 ring-offset-white dark:ring-offset-[#141720]" : ""}`}
               >
-                <div className="text-lg font-bold text-gray-700 dark:text-slate-200 mb-2 flex items-center gap-2">
+                <div className="text-lg font-bold text-slate-700 dark:text-slate-200 mb-2 flex items-center gap-2">
                   {editingIdx === sectionIdx ? (
                     <input
-                      className="px-2 py-1 rounded border border-gray-300 dark:border-[#2a3044] text-lg font-bold text-gray-700 dark:text-slate-200 bg-white dark:bg-[#1c2030] focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      className="px-2 py-1 rounded border border-slate-300 dark:border-[#2a3044] text-lg font-bold text-slate-700 dark:text-slate-200 bg-white dark:bg-[#1c2030] focus:outline-none focus:ring-2 focus:ring-blue-400"
                       value={editingTitle}
                       autoFocus
-                      onChange={(e) => setEditingTitle(e.target.value)}
+                      onChange={(event) => setEditingTitle(event.target.value)}
                       onBlur={() => {
                         renameBacklogSection(section.id, editingTitle.trim() || section.title);
                         setEditingIdx(null);
                       }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
                           renameBacklogSection(section.id, editingTitle.trim() || section.title);
+                          setEditingIdx(null);
+                        }
+                        if (event.key === "Escape") {
+                          event.preventDefault();
                           setEditingIdx(null);
                         }
                       }}
@@ -262,8 +372,9 @@ export default function BacklogTab({ onTaskClick, onPokerClick, focusSectionId, 
                     />
                   ) : (
                     <span
-                      className="cursor-pointer hover:underline"
+                      className={readOnly ? "" : "cursor-pointer hover:underline"}
                       onClick={() => {
+                        if (readOnly) return;
                         setEditingIdx(sectionIdx);
                         setEditingTitle(section.title);
                       }}
@@ -271,29 +382,35 @@ export default function BacklogTab({ onTaskClick, onPokerClick, focusSectionId, 
                       {section.title}
                     </span>
                   )}
-                  <span className="text-sm font-normal text-gray-500 dark:text-slate-400">
-                    ({filteredTasks.length}{search ? ` of ${section.tasks.length}` : ""} tasks)
+                  <span className="text-sm font-normal text-slate-500 dark:text-slate-400">
+                    ({filtered.length}{search ? ` of ${tasks.length}` : ""} tasks)
                   </span>
-                  <button
-                    className="ml-2 p-1.5 rounded hover:bg-gray-100 dark:hover:bg-[#232838] text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300 transition-colors"
-                    title="Rename"
-                    onClick={() => {
-                      setEditingIdx(sectionIdx);
-                      setEditingTitle(section.title);
-                    }}
-                  >
-                    <FaPencilAlt className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    className="ml-1 p-1.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-400 transition-colors"
-                    title="Delete section"
-                    onClick={() => setDeleteConfirm(section.id)}
-                  >
-                    <FaTrash className="w-3.5 h-3.5" />
-                  </button>
+                  {!readOnly && (
+                    <>
+                      <button
+                        type="button"
+                        className="ml-2 p-1.5 rounded hover:bg-slate-100 dark:hover:bg-[#232838] text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                        title="Rename"
+                        onClick={() => {
+                          setEditingIdx(sectionIdx);
+                          setEditingTitle(section.title);
+                        }}
+                      >
+                        <FaPencilAlt className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        className="ml-1 p-1.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                        title="Delete section"
+                        onClick={() => setDeleteConfirm(section.id)}
+                      >
+                        <FaTrash className="w-3.5 h-3.5" />
+                      </button>
+                    </>
+                  )}
                 </div>
 
-                <Droppable droppableId={`backlog-${section.id}`}>
+                <Droppable droppableId={`backlog-${section.id}`} isDropDisabled={readOnly}>
                   {(provided, snapshot) => (
                     <div
                       ref={provided.innerRef}
@@ -301,88 +418,45 @@ export default function BacklogTab({ onTaskClick, onPokerClick, focusSectionId, 
                       className={`bg-white dark:bg-[#1c2030] rounded-lg border-2 shadow-md p-4 pb-8 transition-colors ${
                         snapshot.isDraggingOver
                           ? "border-green-400 bg-green-50 dark:bg-green-900/10"
-                          : "border-gray-300 dark:border-[#2a3044]"
+                          : "border-slate-300 dark:border-[#2a3044]"
                       }`}
                     >
-                      {filteredTasks.length === 0 ? (
-                        <div className="text-center py-8 text-gray-400 dark:text-slate-500">
+                      {filtered.length === 0 ? (
+                        <div className="text-center py-8 text-slate-400 dark:text-slate-500">
                           <p>{search ? "No matching tasks" : `No tasks in ${section.title.toLowerCase()}`}</p>
                         </div>
-                      ) : (() => {
-                        const sectionVisibleCount = sectionVisibleCounts[section.id] || TASKS_PER_PAGE;
-                        const visibleTasks = filteredTasks.slice(0, sectionVisibleCount);
-                        const remaining = filteredTasks.length - sectionVisibleCount;
-                        return (
+                      ) : (
                         <>
-                        <ul>
-                          {visibleTasks.map((task, idx) => (
-                            <Draggable key={task.id} draggableId={task.id} index={section.tasks.indexOf(task)}>
-                              {(provided, snapshot) => (
-                                <div
-                                  ref={provided.innerRef}
-                                  {...provided.draggableProps}
-                                  {...provided.dragHandleProps}
-                                  className={snapshot.isDragging ? "opacity-75" : ""}
-                                >
-                                  <div className="flex items-center gap-1">
-                                    <div className="flex-1">
-                                      <TaskRow
-                                        task={task}
-                                        setTasks={(updater) =>
-                                          setBacklogSections((prev) =>
-                                            prev.map((s, i) =>
-                                              i !== sectionIdx
-                                                ? s
-                                                : {
-                                                    ...s,
-                                                    tasks:
-                                                      typeof updater === "function"
-                                                        ? updater(s.tasks)
-                                                        : updater,
-                                                  }
-                                            )
-                                          )
-                                        }
-                                        index={idToGlobalIndex[task.id]}
-                                        onClick={onTaskClick}
-                                        showArrow
-                                        onToggleSubtasks={toggleSubtasks}
-                                        isExpanded={expandedSubtasks[task.id]}
-                                      />
-                                    </div>
-                                    <button
-                                      title="Move to Active Sprint"
-                                      onClick={() => moveToSprint(task, section.id)}
-                                      className="flex-shrink-0 p-1.5 rounded text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
-                                    >
-                                      <FaArrowRight className="w-3 h-3" />
-                                    </button>
+                          <ul>
+                            {visible.map((task, idx) => (
+                              <Draggable key={task.id} draggableId={String(task.id)} index={idx} isDragDisabled={readOnly}>
+                                {(dragProvided, dragSnapshot) => (
+                                  <div
+                                    ref={dragProvided.innerRef}
+                                    {...dragProvided.draggableProps}
+                                    {...dragProvided.dragHandleProps}
+                                    className={dragSnapshot.isDragging ? "opacity-75" : ""}
+                                  >
+                                    {renderRow(task, { isActive: false, sectionId: section.id })}
+                                    {idx !== visible.length - 1 && (
+                                      <div className="border-b border-slate-200 dark:border-[#232838] mx-0" />
+                                    )}
                                   </div>
-                                  {expandedSubtasks[task.id] && task.subtasks?.length > 0 && (
-                                    <SubtaskList
-                                      task={task}
-                                      onToggle={(subId) => toggleSubtask(task, subId, false, sectionIdx)}
-                                    />
-                                  )}
-                                  {idx !== visibleTasks.length - 1 && (
-                                    <div className="border-b border-gray-200 dark:border-[#232838] mx-0" />
-                                  )}
-                                </div>
-                              )}
-                            </Draggable>
-                          ))}
-                        </ul>
-                        {remaining > 0 && (
-                          <button
-                            className="w-full text-center py-2.5 mt-2 text-xs text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-50 dark:hover:bg-[#232838] rounded-lg transition-colors font-medium"
-                            onClick={() => setSectionVisibleCounts((prev) => ({ ...prev, [section.id]: sectionVisibleCount + TASKS_PER_PAGE }))}
-                          >
-                            Show {Math.min(TASKS_PER_PAGE, remaining)} more task{Math.min(TASKS_PER_PAGE, remaining) !== 1 ? "s" : ""} ({remaining} remaining)
-                          </button>
-                        )}
+                                )}
+                              </Draggable>
+                            ))}
+                          </ul>
+                          {remaining > 0 && (
+                            <button
+                              type="button"
+                              className="w-full text-center py-2.5 mt-2 text-xs text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-50 dark:hover:bg-[#232838] rounded-lg transition-colors font-medium"
+                              onClick={() => setSectionVisibleCounts((prev) => ({ ...prev, [section.id]: visibleCount + TASKS_PER_PAGE }))}
+                            >
+                              Show {Math.min(TASKS_PER_PAGE, remaining)} more task{Math.min(TASKS_PER_PAGE, remaining) !== 1 ? "s" : ""} ({remaining} remaining)
+                            </button>
+                          )}
                         </>
-                        );
-                      })()}
+                      )}
                       {provided.placeholder}
                     </div>
                   )}
@@ -395,12 +469,20 @@ export default function BacklogTab({ onTaskClick, onPokerClick, focusSectionId, 
 
       {/* Delete confirm modal */}
       {deleteConfirm !== null && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-[#1c2030] rounded-xl shadow-xl p-8 min-w-[320px] flex flex-col items-center gap-4 border border-slate-200 dark:border-[#2a3044]">
-            <div className="text-lg font-semibold text-gray-800 dark:text-slate-200">Delete this backlog section?</div>
-            <div className="text-sm text-gray-500 dark:text-slate-400">All tasks in this section will be lost.</div>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setDeleteConfirm(null)}>
+          <div
+            className="bg-white dark:bg-[#1c2030] rounded-xl shadow-xl p-8 min-w-[320px] flex flex-col items-center gap-4 border border-slate-200 dark:border-[#2a3044]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="text-lg font-semibold text-slate-800 dark:text-slate-200">Delete this backlog section?</div>
+            <div className="text-sm text-slate-500 dark:text-slate-400 text-center">
+              {(sectionToDelete?.tasks || []).length > 0
+                ? `Its ${(sectionToDelete?.tasks || []).length} task(s) will be moved to the archive.`
+                : "The section is empty."}
+            </div>
             <div className="flex gap-4 mt-2">
               <button
+                type="button"
                 className="px-5 py-2 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-700 transition-colors"
                 onClick={() => {
                   deleteBacklogSection(deleteConfirm);
@@ -410,7 +492,8 @@ export default function BacklogTab({ onTaskClick, onPokerClick, focusSectionId, 
                 Delete
               </button>
               <button
-                className="px-5 py-2 rounded-lg bg-gray-100 dark:bg-[#232838] text-gray-700 dark:text-slate-300 font-semibold hover:bg-gray-200 dark:hover:bg-[#2a3044] transition-colors"
+                type="button"
+                className="px-5 py-2 rounded-lg bg-slate-100 dark:bg-[#232838] text-slate-700 dark:text-slate-300 font-semibold hover:bg-slate-200 dark:hover:bg-[#2a3044] transition-colors"
                 onClick={() => setDeleteConfirm(null)}
               >
                 Cancel
@@ -419,6 +502,7 @@ export default function BacklogTab({ onTaskClick, onPokerClick, focusSectionId, 
           </div>
         </div>
       )}
+      {dialog}
     </>
   );
 }

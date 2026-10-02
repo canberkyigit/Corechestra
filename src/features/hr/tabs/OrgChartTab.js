@@ -1,147 +1,85 @@
 import React, { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { FaChevronDown, FaDownload, FaExternalLinkAlt, FaSearch, FaSitemap, FaTimes } from "react-icons/fa";
 import { useApp } from "../../../shared/context/AppContext";
+import { useHR } from "../../../shared/context/HRContext";
+import { useToast } from "../../../shared/context/ToastContext";
 import { Avatar } from "../components/HRSharedUI";
+import { PersonProfileModal } from "../components/PersonProfileModal";
+import {
+  ORG_NODE_H,
+  ORG_NODE_W,
+  buildOrgCsvRows,
+  buildOrgLayout,
+  buildTreeFromUsers,
+  filterUsersForView,
+  findNodeByKey,
+  findParentByKey,
+  renderOrgChartPng,
+} from "../utils/orgChart";
+import { downloadBlob, downloadTextFile, toCsv } from "../utils/download";
+import { toLocalIsoDate } from "../utils/dates";
 
-const ORG_NODE_W = 164;
-const ORG_NODE_H = 94;
-const ORG_H_GAP = 52;
-const ORG_V_GAP = 80;
+const VIEW_OPTIONS = [
+  { id: "all", label: "Entire organization" },
+  { id: "mine", label: "My manager and reports" },
+  { id: "focus", label: "Selected person's team" },
+];
 
-function buildTreeFromUsers(users, currentUserId) {
-  if (!users || users.length === 0) return null;
-  const userMap = {};
-  users.forEach((user) => { userMap[user.id] = user; });
-  const hasAnyHierarchy = users.some((user) => user.managerId && userMap[user.managerId]);
-  if (!hasAnyHierarchy) return null;
-
-  function buildNode(user) {
-    const children = users.filter((candidate) => candidate.managerId === user.id);
-    return {
-      name: user.name || user.email?.split("@")[0] || "Unknown",
-      role: user.role || user.title || "Team Member",
-      dept: user.department || "",
-      color: user.color || "#6366f1",
-      reports: children.length,
-      isMe: user.id === currentUserId,
-      _userId: user.id,
-      children: children.map(buildNode),
+function useOutsideClose(ref, open, onClose) {
+  useEffect(() => {
+    if (!open) return undefined;
+    const handler = (event) => {
+      if (ref.current && !ref.current.contains(event.target)) onClose();
     };
-  }
-
-  const roots = users.filter((user) => !user.managerId || !userMap[user.managerId]);
-  if (roots.length === 1) {
-    return buildNode(roots[0]);
-  }
-
-  return {
-    name: "Organization",
-    role: "",
-    dept: "",
-    color: "#6366f1",
-    reports: roots.length,
-    isMe: false,
-    _userId: null,
-    children: roots.map(buildNode),
-  };
-}
-
-function buildOrgLayout(root) {
-  function clone(node) {
-    return { ...node, children: (node.children ?? []).map(clone) };
-  }
-
-  const tree = clone(root);
-
-  function measure(node) {
-    if (!node.children.length) {
-      node._sw = ORG_NODE_W;
-      return;
-    }
-
-    node.children.forEach(measure);
-    const totalWidth = node.children.reduce((sum, child) => sum + child._sw, 0) + ORG_H_GAP * (node.children.length - 1);
-    node._sw = Math.max(ORG_NODE_W, totalWidth);
-  }
-
-  function place(node, centerX, depth) {
-    node._cx = centerX;
-    node._depth = depth;
-    if (!node.children.length) return;
-
-    const totalWidth = node.children.reduce((sum, child) => sum + child._sw, 0) + ORG_H_GAP * (node.children.length - 1);
-    let left = centerX - totalWidth / 2;
-    for (const child of node.children) {
-      place(child, left + child._sw / 2, depth + 1);
-      left += child._sw + ORG_H_GAP;
-    }
-  }
-
-  function flatten(node) {
-    const y = node._depth * (ORG_NODE_H + ORG_V_GAP);
-    const x = node._cx - ORG_NODE_W / 2;
-    const output = { nodes: [{ ...node, x, y, cx: node._cx }], edges: [] };
-
-    for (const child of (node.children ?? [])) {
-      const childY = child._depth * (ORG_NODE_H + ORG_V_GAP);
-      output.edges.push({ x1: node._cx, y1: y + ORG_NODE_H, x2: child._cx, y2: childY });
-      const sub = flatten(child);
-      output.nodes.push(...sub.nodes);
-      output.edges.push(...sub.edges);
-    }
-
-    return output;
-  }
-
-  measure(tree);
-  place(tree, tree._sw / 2, 0);
-  const { nodes, edges } = flatten(tree);
-  const xs = nodes.flatMap((node) => [node.x, node.x + ORG_NODE_W]);
-  const ys = nodes.flatMap((node) => [node.y, node.y + ORG_NODE_H]);
-
-  return {
-    nodes,
-    edges,
-    bounds: {
-      width: Math.max(...xs) - Math.min(...xs),
-      height: Math.max(...ys) - Math.min(...ys),
-      ox: Math.min(...xs),
-      oy: Math.min(...ys),
-    },
-  };
-}
-
-function findInTree(node, name) {
-  if (node.name === name) return node;
-  for (const child of (node.children ?? [])) {
-    const found = findInTree(child, name);
-    if (found) return found;
-  }
-  return null;
-}
-
-function findParent(node, name) {
-  for (const child of (node.children ?? [])) {
-    if (child.name === name) return node;
-    const found = findParent(child, name);
-    if (found) return found;
-  }
-  return null;
+    const keyHandler = (event) => { if (event.key === "Escape") onClose(); };
+    document.addEventListener("mousedown", handler);
+    window.addEventListener("keydown", keyHandler);
+    return () => {
+      document.removeEventListener("mousedown", handler);
+      window.removeEventListener("keydown", keyHandler);
+    };
+  }, [onClose, open, ref]);
 }
 
 export function OrgChartTab({ users, currentUserId }) {
-  const { darkMode } = useApp();
+  const { darkMode, projects } = useApp();
+  const { projectAllocations, allAbsences } = useHR();
+  const { addToast } = useToast();
   const canvasRef = useRef(null);
+  const viewMenuRef = useRef(null);
+  const downloadMenuRef = useRef(null);
   const [zoom, setZoom] = useState(0.55);
   const [pan, setPan] = useState({ x: 40, y: 40 });
   const [drag, setDrag] = useState(null);
-  const [selected, setSelected] = useState(null);
+  const [selectedKey, setSelectedKey] = useState(null);
   const [search, setSearch] = useState("");
   const [fitted, setFitted] = useState(false);
+  const [viewMode, setViewMode] = useState("all");
+  const [focusUserId, setFocusUserId] = useState(null);
+  const [viewMenuOpen, setViewMenuOpen] = useState(false);
+  const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
+  const [profilePerson, setProfilePerson] = useState(null);
 
-  const tree = useMemo(() => buildTreeFromUsers(users, currentUserId), [users, currentUserId]);
+  useOutsideClose(viewMenuRef, viewMenuOpen, () => setViewMenuOpen(false));
+  useOutsideClose(downloadMenuRef, downloadMenuOpen, () => setDownloadMenuOpen(false));
+
+  const visibleUsers = useMemo(
+    () => filterUsersForView(users, viewMode, { currentUserId, focusUserId }),
+    [currentUserId, focusUserId, users, viewMode],
+  );
+  const fullTree = useMemo(() => buildTreeFromUsers(users, currentUserId), [users, currentUserId]);
+  const tree = useMemo(
+    () => buildTreeFromUsers(visibleUsers, currentUserId, { allowFlat: viewMode !== "all" }),
+    [visibleUsers, currentUserId, viewMode],
+  );
   const layout = useMemo(() => (tree ? buildOrgLayout(tree) : null), [tree]);
   const { nodes, edges, bounds } = layout || { nodes: [], edges: [], bounds: { width: 0, height: 0, ox: 0, oy: 0 } };
+  const selected = useMemo(() => (selectedKey ? nodes.find((node) => node.key === selectedKey) || null : null), [nodes, selectedKey]);
+  const hasMe = (users || []).some((user) => user.id === currentUserId);
+
+  // Re-fit whenever the visible tree changes (view mode, people added/removed).
+  const treeSignature = nodes.map((node) => node.key).join("|");
+  useEffect(() => { setFitted(false); }, [treeSignature]);
 
   useEffect(() => {
     const element = canvasRef.current;
@@ -174,7 +112,7 @@ export function OrgChartTab({ users, currentUserId }) {
 
     const timer = setTimeout(() => {
       const rect = element.getBoundingClientRect();
-      if (!rect.width) return;
+      if (!rect.width || !bounds.width) return;
       const pad = 64;
       const nextZoom = Math.min((rect.width - pad * 2) / bounds.width, (rect.height - pad * 2) / bounds.height, 1);
       setZoom(nextZoom);
@@ -223,28 +161,73 @@ export function OrgChartTab({ users, currentUserId }) {
     const query = search.toLowerCase();
     return new Set(
       nodes
-        .filter((node) => node.name.toLowerCase().includes(query) || node.role.toLowerCase().includes(query))
-        .map((node) => node.name),
+        .filter((node) => node.name.toLowerCase().includes(query) || String(node.role || "").toLowerCase().includes(query))
+        .map((node) => node.key),
     );
   }, [search, nodes]);
 
   const highlightedEdgeIndexes = useMemo(() => {
-    if (!selected) return new Set();
+    if (!selectedKey) return new Set();
     const edgeIndexes = new Set();
     edges.forEach((edge, index) => {
-      const fromNode = nodes.find((node) => Math.abs(node.cx - edge.x1) < 1);
-      const toNode = nodes.find((node) => Math.abs(node.cx - edge.x2) < 1 && Math.abs(node.y - edge.y2) < 1);
-      if (fromNode?.name === selected.name || toNode?.name === selected.name) {
-        edgeIndexes.add(index);
-      }
+      if (edge.fromKey === selectedKey || edge.toKey === selectedKey) edgeIndexes.add(index);
     });
     return edgeIndexes;
-  }, [selected, edges, nodes]);
+  }, [selectedKey, edges]);
+
+  const relatedKeys = useMemo(() => {
+    if (!selectedKey) return new Set();
+    const keys = new Set();
+    edges.forEach((edge) => {
+      if (edge.fromKey === selectedKey) keys.add(edge.toKey);
+      if (edge.toKey === selectedKey) keys.add(edge.fromKey);
+    });
+    return keys;
+  }, [selectedKey, edges]);
+
+  const selectNode = (node) => setSelectedKey(node ? node.key : null);
+
+  const changeView = (mode) => {
+    if (mode === "focus") {
+      if (!selected?._userId) {
+        addToast("Select a person on the chart first", "info");
+        return;
+      }
+      setFocusUserId(selected._userId);
+    }
+    if (mode === "mine" && !hasMe) {
+      addToast("You are not linked to a People record yet", "info");
+      return;
+    }
+    setViewMode(mode);
+    setViewMenuOpen(false);
+  };
+
+  const exportCsv = () => {
+    downloadTextFile(`org-chart-${toLocalIsoDate()}.csv`, toCsv(buildOrgCsvRows(visibleUsers)), "text/csv;charset=utf-8");
+    setDownloadMenuOpen(false);
+  };
+
+  const exportPng = async () => {
+    setDownloadMenuOpen(false);
+    const blob = await renderOrgChartPng(layout, { dark: !!darkMode });
+    if (!blob) {
+      addToast("Image export is not supported in this browser — exported CSV instead", "info");
+      exportCsv();
+      return;
+    }
+    downloadBlob(`org-chart-${toLocalIsoDate()}.png`, blob);
+  };
+
+  const openFullProfile = () => {
+    const person = (users || []).find((user) => user.id === selected?._userId);
+    if (person) setProfilePerson(person);
+  };
 
   const dotColor = darkMode ? "%231e293b" : "%23e2e8f0";
   const edgeColor = darkMode ? "#2a3044" : "#cbd5e1";
 
-  if (!tree) {
+  if (!fullTree) {
     return (
       <div className="flex flex-col items-center justify-center py-32 text-center">
         <FaSitemap className="w-12 h-12 text-slate-300 dark:text-slate-600 mb-4" />
@@ -258,6 +241,15 @@ export function OrgChartTab({ users, currentUserId }) {
 
   return (
     <div className="flex flex-col" style={{ height: "calc(100vh - 230px)", minHeight: 520 }}>
+      <PersonProfileModal
+        person={profilePerson}
+        users={users}
+        projects={projects}
+        projectAllocations={projectAllocations}
+        absences={allAbsences}
+        onClose={() => setProfilePerson(null)}
+        onSelectPerson={setProfilePerson}
+      />
       <div className="flex items-center gap-2 mb-3 flex-wrap flex-shrink-0">
         <div className="relative">
           <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" />
@@ -268,10 +260,39 @@ export function OrgChartTab({ users, currentUserId }) {
             className="pl-8 pr-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#1c2030] text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-400 w-44"
           />
         </div>
-        <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg bg-white dark:bg-[#1c2030] hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">
-          Manager and report <FaChevronDown className="w-2.5 h-2.5" />
-        </button>
-        <button onClick={goToMe} className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-blue-600 dark:text-blue-400 border border-blue-300 dark:border-blue-700 rounded-lg bg-white dark:bg-[#1c2030] hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
+        <div className="relative" ref={viewMenuRef}>
+          <button
+            type="button"
+            aria-haspopup="menu"
+            aria-expanded={viewMenuOpen}
+            onClick={() => setViewMenuOpen((value) => !value)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg bg-white dark:bg-[#1c2030] hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors"
+          >
+            {VIEW_OPTIONS.find((option) => option.id === viewMode)?.label} <FaChevronDown className="w-2.5 h-2.5" />
+          </button>
+          {viewMenuOpen && (
+            <div role="menu" className="absolute left-0 top-full mt-1 z-30 w-56 py-1 rounded-lg border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#1a1f2e] shadow-xl">
+              {VIEW_OPTIONS.map((option) => {
+                const disabled = (option.id === "focus" && !selected?._userId) || (option.id === "mine" && !hasMe);
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={viewMode === option.id}
+                    disabled={disabled}
+                    onClick={() => changeView(option.id)}
+                    className={`w-full text-left px-3 py-2 text-xs transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${viewMode === option.id ? "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20" : "text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#232838]"}`}
+                  >
+                    {option.label}
+                    {option.id === "focus" && selected && !disabled && <span className="block text-[10px] text-slate-400">{selected.name}</span>}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        <button onClick={goToMe} disabled={!nodes.some((node) => node.isMe)} className="disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 px-3 py-1.5 text-xs text-blue-600 dark:text-blue-400 border border-blue-300 dark:border-blue-700 rounded-lg bg-white dark:bg-[#1c2030] hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
           👤 Find me
         </button>
 
@@ -284,9 +305,25 @@ export function OrgChartTab({ users, currentUserId }) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
             </svg>
           </button>
-          <button title="Download" className="w-7 h-7 flex items-center justify-center rounded border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#1c2030] text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-[#232838] transition-colors">
-            <FaDownload className="w-3 h-3" />
-          </button>
+          <div className="relative" ref={downloadMenuRef}>
+            <button
+              type="button"
+              title="Download"
+              aria-label="Download org chart"
+              aria-haspopup="menu"
+              aria-expanded={downloadMenuOpen}
+              onClick={() => setDownloadMenuOpen((value) => !value)}
+              className="w-7 h-7 flex items-center justify-center rounded border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#1c2030] text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-[#232838] transition-colors"
+            >
+              <FaDownload className="w-3 h-3" />
+            </button>
+            {downloadMenuOpen && (
+              <div role="menu" className="absolute right-0 top-full mt-1 z-30 w-44 py-1 rounded-lg border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#1a1f2e] shadow-xl">
+                <button type="button" role="menuitem" onClick={exportPng} className="w-full text-left px-3 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#232838]">PNG image</button>
+                <button type="button" role="menuitem" onClick={exportCsv} className="w-full text-left px-3 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#232838]">CSV (people & managers)</button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -333,36 +370,30 @@ export function OrgChartTab({ users, currentUserId }) {
                 const highlighted = highlightedEdgeIndexes.has(index);
                 return (
                   <path
-                    key={index}
+                    key={`${edge.fromKey}-${edge.toKey}`}
                     d={`M ${edge.x1} ${edge.y1} C ${edge.x1} ${midY}, ${edge.x2} ${midY}, ${edge.x2} ${edge.y2}`}
                     strokeWidth={highlighted ? 2.5 : 1.5}
                     stroke={highlighted ? "#3b82f6" : edgeColor}
                     fill="none"
-                    strokeOpacity={matches && !matches.has(nodes.find((node) => Math.abs(node.cx - edge.x1) < 1)?.name) ? 0.2 : (highlighted ? 1 : 0.8)}
+                    strokeOpacity={matches && !matches.has(edge.fromKey) ? 0.2 : (highlighted ? 1 : 0.8)}
                     strokeLinecap="round"
                   />
                 );
               })}
             </svg>
 
-            {nodes.map((node, index) => {
-              const isSelected = selected?.name === node.name;
-              const isHit = matches?.has(node.name);
+            {nodes.map((node) => {
+              const isSelected = selectedKey === node.key;
+              const isHit = matches?.has(node.key);
               const isDim = !!matches && !isHit;
-              const isRelated = !isSelected && selected && (
-                edges.some((edge) =>
-                  (nodes.find((current) => Math.abs(current.cx - edge.x1) < 1)?.name === selected.name &&
-                    nodes.find((current) => Math.abs(current.cx - edge.x2) < 1 && Math.abs(current.y - edge.y2) < 1)?.name === node.name) ||
-                  (nodes.find((current) => Math.abs(current.cx - edge.x2) < 1 && Math.abs(current.y - edge.y2) < 1)?.name === selected.name &&
-                    nodes.find((current) => Math.abs(current.cx - edge.x1) < 1)?.name === node.name)
-                )
-              );
+              const isRelated = !isSelected && relatedKeys.has(node.key);
 
               return (
                 <div
-                  key={index}
+                  key={node.key}
                   data-node="1"
-                  onClick={() => setSelected(isSelected ? null : node)}
+                  data-testid={`org-node-${node.key}`}
+                  onClick={() => selectNode(isSelected ? null : node)}
                   style={{
                     position: "absolute",
                     left: node.x,
@@ -438,19 +469,24 @@ export function OrgChartTab({ users, currentUserId }) {
                     </span>
                   )}
                 </div>
-                <button onClick={() => setSelected(null)} className="flex-shrink-0 p-1 -mt-0.5 -mr-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded">
+                <button onClick={() => selectNode(null)} aria-label="Close details" className="flex-shrink-0 p-1 -mt-0.5 -mr-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded">
                   <FaTimes className="w-3.5 h-3.5" />
                 </button>
               </div>
 
-              <button className="w-full mb-4 py-2 text-xs font-medium text-blue-500 border border-blue-300 dark:border-blue-800 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors flex items-center justify-center gap-1.5">
-                View full profile <FaExternalLinkAlt className="w-2.5 h-2.5" />
-              </button>
+              {selected._userId && (
+                <button type="button" onClick={openFullProfile} className="w-full mb-4 py-2 text-xs font-medium text-blue-500 border border-blue-300 dark:border-blue-800 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors flex items-center justify-center gap-1.5">
+                  View full profile <FaExternalLinkAlt className="w-2.5 h-2.5" />
+                </button>
+              )}
+              {selected.inCycle && (
+                <p className="mb-4 text-[11px] text-amber-600 dark:text-amber-400">Manager relationships for this person form a loop. Fix it in the People tab.</p>
+              )}
 
               <div className="space-y-4">
                 <div>
                   <p className="text-[10px] uppercase tracking-widest font-semibold text-slate-400 dark:text-slate-500 mb-1.5">Department</p>
-                  <span className="text-xs px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-[#232838] text-slate-700 dark:text-slate-300">{selected.dept}</span>
+                  <span className="text-xs px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-[#232838] text-slate-700 dark:text-slate-300">{selected.dept || "Not set"}</span>
                 </div>
 
                 <div>
@@ -462,12 +498,12 @@ export function OrgChartTab({ users, currentUserId }) {
                 </div>
 
                 {(() => {
-                  const manager = findParent(tree, selected.name);
+                  const manager = findParentByKey(tree, selected.key);
                   if (!manager) return null;
                   return (
                     <div>
                       <p className="text-[10px] uppercase tracking-widest font-semibold text-slate-400 dark:text-slate-500 mb-1.5">Reports To</p>
-                      <button onClick={() => setSelected(nodes.find((node) => node.name === manager.name) ?? null)} className="flex items-center gap-2.5 w-full p-2 rounded-lg bg-slate-50 dark:bg-[#232838] hover:bg-slate-100 dark:hover:bg-[#2a3044] transition-colors text-left group">
+                      <button onClick={() => setSelectedKey(manager.key)} className="flex items-center gap-2.5 w-full p-2 rounded-lg bg-slate-50 dark:bg-[#232838] hover:bg-slate-100 dark:hover:bg-[#2a3044] transition-colors text-left group">
                         <Avatar name={manager.name} color={manager.color} size="sm" />
                         <div className="min-w-0">
                           <p className="text-xs font-medium text-blue-500 dark:text-blue-400 group-hover:underline truncate">{manager.name}</p>
@@ -479,15 +515,15 @@ export function OrgChartTab({ users, currentUserId }) {
                 })()}
 
                 {(() => {
-                  const current = findInTree(tree, selected.name);
+                  const current = findNodeByKey(tree, selected.key);
                   const children = current?.children ?? [];
                   if (!children.length) return null;
                   return (
                     <div>
                       <p className="text-[10px] uppercase tracking-widest font-semibold text-slate-400 dark:text-slate-500 mb-1.5">Direct Reports ({children.length})</p>
                       <div className="space-y-1">
-                        {children.map((child, index) => (
-                          <button key={index} onClick={() => setSelected(nodes.find((node) => node.name === child.name) ?? null)} className="flex items-center gap-2 w-full p-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors text-left group">
+                        {children.map((child) => (
+                          <button key={child.key} onClick={() => setSelectedKey(child.key)} className="flex items-center gap-2 w-full p-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors text-left group">
                             <Avatar name={child.name} color={child.color} size="sm" />
                             <div className="min-w-0">
                               <p className="text-[11px] font-medium text-slate-700 dark:text-slate-200 group-hover:text-blue-500 truncate">{child.name}</p>

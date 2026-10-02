@@ -1,21 +1,32 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { FaArrowRight, FaClipboardList, FaLink, FaStar, FaThumbsDown, FaTimes, FaUserCheck, FaUserTie } from "react-icons/fa";
+import { FaArrowRight, FaClipboardList, FaLink, FaStar, FaThumbsDown, FaTimes, FaUndo, FaUserCheck, FaUserTie } from "react-icons/fa";
 import { useAuth } from "../../../../shared/context/AuthContext";
 import { useApp } from "../../../../shared/context/AppContext";
 import { useHR } from "../../../../shared/context/HRContext";
+import { useToast } from "../../../../shared/context/ToastContext";
+import { usePermissions } from "../../../../shared/context/hooks/usePermissions";
+import { taskKey } from "../../../../shared/utils/helpers";
 import {
   CANDIDATE_SOURCES,
   DEFAULT_CRITERIA,
   EMPLOYEE_COLORS,
+  HIRE_ROLES,
   JOB_PRIORITIES,
+  JOB_STATUSES,
   JOB_TYPES,
   PIPELINE_STAGES,
+  RECOMMENDATION_LABELS,
 } from "./interviewConfig";
 import { StarRating } from "./InterviewPipeline";
+import { toLocalIsoDate } from "../../utils/dates";
 
-export function NewJobReqModal({ open, onClose, activeTasks }) {
-  const { createJobReq } = useHR();
+export function NewJobReqModal({ open, onClose, activeTasks, job = null }) {
+  const { createJobReq, updateJobReq } = useHR();
+  const { addToast } = useToast();
+  const isEdit = !!job;
+  const [status, setStatus] = useState("open");
+  const [saving, setSaving] = useState(false);
   const [title, setTitle] = useState("");
   const [department, setDepartment] = useState("");
   const [type, setType] = useState("fulltime");
@@ -29,36 +40,50 @@ export function NewJobReqModal({ open, onClose, activeTasks }) {
 
   useEffect(() => {
     if (open) {
-      setTitle("");
-      setDepartment("");
-      setType("fulltime");
-      setPriority("normal");
-      setHeadcount(1);
-      setLocation("");
-      setDescription("");
+      setTitle(job?.title || "");
+      setDepartment(job?.department || "");
+      setType(job?.type || "fulltime");
+      setPriority(job?.priority || "normal");
+      setHeadcount(job?.headcount || 1);
+      setLocation(job?.location || "");
+      setDescription(job?.description || "");
+      setStatus(job?.status || "open");
       setTaskSearch("");
-      setLinkedTaskId(null);
+      setLinkedTaskId(job?.linkedTaskId || null);
     }
-  }, [open]);
+  }, [open, job]);
 
-  const filteredTasks = useMemo(() => (activeTasks || []).filter((task) => task.title?.toLowerCase().includes(taskSearch.toLowerCase()) || task.id?.toLowerCase().includes(taskSearch.toLowerCase())).slice(0, 8), [activeTasks, taskSearch]);
+  const filteredTasks = useMemo(() => (activeTasks || []).filter((task) => task.title?.toLowerCase().includes(taskSearch.toLowerCase()) || String(task.id || "").toLowerCase().includes(taskSearch.toLowerCase())).slice(0, 8), [activeTasks, taskSearch]);
   const linkedTask = linkedTaskId ? (activeTasks || []).find((task) => task.id === linkedTaskId) : null;
   const inputClassName = "w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#232838] text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500";
 
   const handleSubmit = async () => {
-    if (!title.trim()) return;
-    await createJobReq({
+    if (!title.trim() || saving) return;
+    const fields = {
       title: title.trim(),
       department: department.trim(),
       type,
       priority,
-      headcount: Number(headcount) || 1,
+      headcount: Math.max(1, Number(headcount) || 1),
       location: location.trim(),
       description: description.trim(),
       linkedTaskId: linkedTaskId || null,
-      hiringManager: "",
-    });
-    onClose();
+    };
+    setSaving(true);
+    try {
+      if (isEdit) {
+        await updateJobReq({ id: job.id, ...fields, status });
+        addToast("Requisition updated", "success");
+      } else {
+        await createJobReq({ ...fields, hiringManager: "" });
+        addToast("Requisition created", "success");
+      }
+      onClose();
+    } catch (error) {
+      addToast(error.message || "Could not save the requisition", "error");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -71,15 +96,23 @@ export function NewJobReqModal({ open, onClose, activeTasks }) {
                 <div className="w-7 h-7 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center">
                   <FaUserTie className="w-3.5 h-3.5 text-indigo-500" />
                 </div>
-                <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100">New Job Requisition</h2>
+                <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100">{isEdit ? "Edit Job Requisition" : "New Job Requisition"}</h2>
               </div>
               <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-[#232838] text-slate-400"><FaTimes className="w-4 h-4" /></button>
             </div>
             <div className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
               <div>
                 <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Job title *</label>
-                <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="e.g. Senior Frontend Engineer" className={inputClassName} />
+                <input aria-label="Job title" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="e.g. Senior Frontend Engineer" className={inputClassName} />
               </div>
+              {isEdit && (
+                <div>
+                  <label htmlFor="job-status" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Status</label>
+                  <select id="job-status" value={status} onChange={(event) => setStatus(event.target.value)} className={inputClassName}>
+                    {JOB_STATUSES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                  </select>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Department</label>
@@ -116,9 +149,15 @@ export function NewJobReqModal({ open, onClose, activeTasks }) {
                 <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5 flex items-center gap-1">
                   <FaLink className="w-3 h-3" /> Link to project task <span className="text-slate-400 font-normal">(optional)</span>
                 </label>
-                {linkedTask ? (
+                {linkedTaskId && !linkedTask ? (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-50 dark:bg-[#232838] border border-slate-200 dark:border-[#2a3044]">
+                    <span className="text-xs font-mono text-slate-500">{taskKey(linkedTaskId)}</span>
+                    <span className="text-xs text-slate-400 flex-1 truncate">Task not found in the current project</span>
+                    <button onClick={() => setLinkedTaskId(null)} className="text-slate-400 hover:text-red-500"><FaTimes className="w-3 h-3" /></button>
+                  </div>
+                ) : linkedTask ? (
                   <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800">
-                    <span className="text-xs font-mono text-indigo-600 dark:text-indigo-400">{linkedTask.id}</span>
+                    <span className="text-xs font-mono text-indigo-600 dark:text-indigo-400">{taskKey(linkedTask.id)}</span>
                     <span className="text-xs text-slate-600 dark:text-slate-300 flex-1 truncate">{linkedTask.title}</span>
                     <button onClick={() => { setLinkedTaskId(null); setTaskSearch(""); }} className="text-slate-400 hover:text-red-500"><FaTimes className="w-3 h-3" /></button>
                   </div>
@@ -129,7 +168,7 @@ export function NewJobReqModal({ open, onClose, activeTasks }) {
                       <div className="absolute z-10 w-full mt-1 bg-white dark:bg-[#1c2030] border border-slate-200 dark:border-[#2a3044] rounded-lg shadow-lg max-h-48 overflow-y-auto">
                         {filteredTasks.map((task) => (
                           <button key={task.id} type="button" onClick={() => { setLinkedTaskId(task.id); setShowTaskDropdown(false); setTaskSearch(""); }} className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">
-                            <span className="text-xs font-mono text-indigo-500 flex-shrink-0">{task.id}</span>
+                            <span className="text-xs font-mono text-indigo-500 flex-shrink-0">{taskKey(task.id)}</span>
                             <span className="text-xs text-slate-700 dark:text-slate-300 truncate">{task.title}</span>
                           </button>
                         ))}
@@ -141,7 +180,7 @@ export function NewJobReqModal({ open, onClose, activeTasks }) {
             </div>
             <div className="px-6 py-4 border-t border-slate-100 dark:border-[#2a3044] flex items-center justify-end gap-3">
               <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#232838] rounded-lg transition-colors">Cancel</button>
-              <button onClick={handleSubmit} disabled={!title.trim()} className="px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">Create Requisition</button>
+              <button onClick={handleSubmit} disabled={!title.trim() || saving} className="px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">{isEdit ? "Save Changes" : "Create Requisition"}</button>
             </div>
           </motion.div>
         </motion.div>
@@ -150,8 +189,12 @@ export function NewJobReqModal({ open, onClose, activeTasks }) {
   );
 }
 
-export function CandidateDetailModal({ open, candidate, jobReq, onClose, onAddScorecard, onHire }) {
-  const { createCandidate, updateCandidate, moveCandidate } = useHR();
+export function CandidateDetailModal({ open, candidate, jobReq, onClose, onAddScorecard, onHire, scorecards = [], users = [] }) {
+  const { createCandidate, updateCandidate, rejectCandidate, restoreCandidate } = useHR();
+  const { addToast } = useToast();
+  const [rejectMode, setRejectMode] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
+  const [saving, setSaving] = useState(false);
   const isNew = candidate?._new === true;
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -163,6 +206,8 @@ export function CandidateDetailModal({ open, candidate, jobReq, onClose, onAddSc
 
   useEffect(() => {
     if (!open || !candidate) return;
+    setRejectMode(false);
+    setRejectReason("");
     if (isNew) {
       setName("");
       setEmail("");
@@ -183,14 +228,50 @@ export function CandidateDetailModal({ open, candidate, jobReq, onClose, onAddSc
   }, [open, candidate, isNew]);
 
   const handleSave = async () => {
-    if (!name.trim()) return;
-    if (isNew) {
-      await createCandidate({ jobReqId: candidate.jobReqId || jobReq?.id || "", name: name.trim(), email: email.trim(), phone: phone.trim(), source, resumeNote: resumeNote.trim(), notes: notes.trim(), rating });
-    } else {
-      await updateCandidate({ ...candidate, name, email, phone, source, resumeNote, notes, rating });
+    if (!name.trim() || saving) return;
+    setSaving(true);
+    try {
+      if (isNew) {
+        await createCandidate({ jobReqId: candidate.jobReqId || jobReq?.id || "", name: name.trim(), email: email.trim(), phone: phone.trim(), source, resumeNote: resumeNote.trim(), notes: notes.trim(), rating });
+      } else {
+        await updateCandidate({ ...candidate, name: name.trim(), email: email.trim(), phone: phone.trim(), source, resumeNote: resumeNote.trim(), notes: notes.trim(), rating });
+      }
+      onClose();
+    } catch (error) {
+      addToast(error.message || "Could not save the candidate", "error");
+    } finally {
+      setSaving(false);
     }
-    onClose();
   };
+
+  const handleReject = async () => {
+    setSaving(true);
+    try {
+      await rejectCandidate(candidate.id, rejectReason.trim());
+      addToast(`${candidate.name} rejected — restore anytime from the Rejected list`, "info");
+      onClose();
+    } catch (error) {
+      addToast(error.message || "Could not reject the candidate", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRestore = async () => {
+    setSaving(true);
+    try {
+      await restoreCandidate(candidate.id);
+      addToast(`${candidate.name} restored to the pipeline`, "success");
+      onClose();
+    } catch (error) {
+      addToast(error.message || "Could not restore the candidate", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const candidateScorecards = !isNew && candidate ? (scorecards || []).filter((card) => card.candidateId === candidate.id) : [];
+  const interviewerName = (uid) => (users || []).find((item) => item.id === uid)?.name || "Interviewer";
 
   const stageIndex = candidate ? PIPELINE_STAGES.findIndex((stage) => stage.id === candidate.stage) : -1;
   const inputClassName = "w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#232838] text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500";
@@ -205,6 +286,11 @@ export function CandidateDetailModal({ open, candidate, jobReq, onClose, onAddSc
               <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-[#232838] text-slate-400"><FaTimes className="w-4 h-4" /></button>
             </div>
             <div className="px-6 py-5 space-y-4 max-h-[65vh] overflow-y-auto">
+              {!isNew && candidate.stage === "rejected" && (
+                <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 text-xs text-red-700 dark:text-red-300">
+                  Rejected{candidate.rejectedAt ? ` on ${String(candidate.rejectedAt).slice(0, 10)}` : ""}{candidate.rejectionReason ? `: ${candidate.rejectionReason}` : ""}.
+                </div>
+              )}
               {!isNew && stageIndex >= 0 && (
                 <div className="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-none">
                   {PIPELINE_STAGES.map((stage, index) => (
@@ -218,7 +304,7 @@ export function CandidateDetailModal({ open, candidate, jobReq, onClose, onAddSc
               <div className="grid grid-cols-2 gap-3">
                 <div className="col-span-2">
                   <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Full name *</label>
-                  <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Jane Smith" className={inputClassName} />
+                  <input aria-label="Candidate name" value={name} onChange={(event) => setName(event.target.value)} placeholder="Jane Smith" className={inputClassName} />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Email</label>
@@ -247,6 +333,31 @@ export function CandidateDetailModal({ open, candidate, jobReq, onClose, onAddSc
                 <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Notes</label>
                 <textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} placeholder="Interview notes, impressions..." className={`${inputClassName} resize-none`} />
               </div>
+              {candidateScorecards.length > 0 && (
+                <div data-testid="candidate-scorecards">
+                  <p className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Scorecards ({candidateScorecards.length})</p>
+                  <div className="space-y-2">
+                    {candidateScorecards.map((card) => (
+                      <div key={card.id} className="rounded-lg border border-slate-200 dark:border-[#2a3044] bg-slate-50 dark:bg-[#232838] p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-medium text-slate-700 dark:text-slate-200">{interviewerName(card.interviewedBy)}</span>
+                          <span className="flex items-center gap-1 text-xs font-semibold text-amber-600 dark:text-amber-400"><FaStar className="w-3 h-3" /> {card.overallScore || "—"}/5</span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                          {RECOMMENDATION_LABELS[card.recommendation] || card.recommendation} · {String(card.date || "").slice(0, 10)}
+                        </p>
+                        {card.notes && <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 whitespace-pre-wrap">{card.notes}</p>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {rejectMode && (
+                <div>
+                  <label htmlFor="reject-reason" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Rejection reason (optional)</label>
+                  <input id="reject-reason" value={rejectReason} onChange={(event) => setRejectReason(event.target.value.slice(0, 200))} placeholder="e.g. Not enough backend experience" className={inputClassName} />
+                </div>
+              )}
             </div>
             <div className={`px-6 py-4 border-t border-slate-100 dark:border-[#2a3044] flex items-center ${isNew ? "justify-end gap-3" : "justify-between"}`}>
               {!isNew && (
@@ -256,19 +367,24 @@ export function CandidateDetailModal({ open, candidate, jobReq, onClose, onAddSc
                   </button>
                   {candidate.stage !== "hired" && candidate.stage !== "rejected" && (
                     <>
-                      <button onClick={() => { onHire(candidate); onClose(); }} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors">
+                      <button onClick={() => { onHire(candidate); }} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors">
                         <FaUserCheck className="w-3 h-3" /> Hire
                       </button>
-                      <button onClick={async () => { await moveCandidate(candidate.id, "rejected"); onClose(); }} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-500 bg-red-50 dark:bg-red-900/20 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors">
-                        <FaThumbsDown className="w-3 h-3" /> Reject
+                      <button disabled={saving} onClick={() => (rejectMode ? handleReject() : setRejectMode(true))} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-500 bg-red-50 dark:bg-red-900/20 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors disabled:opacity-50">
+                        <FaThumbsDown className="w-3 h-3" /> {rejectMode ? "Confirm reject" : "Reject"}
                       </button>
                     </>
+                  )}
+                  {candidate.stage === "rejected" && (
+                    <button disabled={saving} onClick={handleRestore} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors disabled:opacity-50">
+                      <FaUndo className="w-3 h-3" /> Restore
+                    </button>
                   )}
                 </div>
               )}
               <div className="flex items-center gap-2">
                 <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#232838] rounded-lg transition-colors">Cancel</button>
-                <button onClick={handleSave} disabled={!name.trim()} className="px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                <button onClick={handleSave} disabled={!name.trim() || saving} className="px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
                   {isNew ? "Add Candidate" : "Save Changes"}
                 </button>
               </div>
@@ -281,19 +397,28 @@ export function CandidateDetailModal({ open, candidate, jobReq, onClose, onAddSc
 }
 
 export function ScorecardModal({ open, candidate, onClose }) {
-  const { saveScorecard } = useHR();
+  const { saveScorecard, pipeline } = useHR();
   const { user } = useAuth();
+  const { addToast } = useToast();
   const [criteria, setCriteria] = useState([]);
   const [recommendation, setRecommendation] = useState("yes");
   const [generalNotes, setGeneralNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+  const existing = useMemo(
+    () => (open && candidate ? (pipeline?.scorecards || []).find((card) => card.candidateId === candidate.id && card.interviewedBy === (user?.uid || "unknown")) : null),
+    [candidate, open, pipeline?.scorecards, user?.uid],
+  );
 
   useEffect(() => {
     if (open) {
-      setCriteria(DEFAULT_CRITERIA.map((label) => ({ label, score: 0, notes: "" })));
-      setRecommendation("yes");
-      setGeneralNotes("");
+      setCriteria(DEFAULT_CRITERIA.map((label) => {
+        const saved = (existing?.criteria || []).find((criterion) => criterion.label === label);
+        return { label, score: saved?.score || 0, notes: saved?.notes || "" };
+      }));
+      setRecommendation(existing?.recommendation || "yes");
+      setGeneralNotes(existing?.notes || "");
     }
-  }, [open]);
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const overallScore = useMemo(() => {
     const scored = criteria.filter((criterion) => criterion.score > 0);
@@ -304,16 +429,26 @@ export function ScorecardModal({ open, candidate, onClose }) {
   const updateCriterion = (index, field, value) => setCriteria((previous) => previous.map((criterion, currentIndex) => currentIndex === index ? { ...criterion, [field]: value } : criterion));
 
   const handleSubmit = async () => {
-    await saveScorecard({
-      candidateId: candidate.id,
-      jobReqId: candidate.jobReqId,
-      interviewedBy: user?.uid || "unknown",
-      criteria,
-      overallScore,
-      recommendation,
-      notes: generalNotes,
-    });
-    onClose();
+    if (saving) return;
+    setSaving(true);
+    try {
+      await saveScorecard({
+        id: existing?.id,
+        candidateId: candidate.id,
+        jobReqId: candidate.jobReqId,
+        interviewedBy: user?.uid || "unknown",
+        criteria,
+        overallScore,
+        recommendation,
+        notes: generalNotes,
+      });
+      addToast(existing ? "Scorecard updated" : "Scorecard saved", "success");
+      onClose();
+    } catch (error) {
+      addToast(error.message || "Could not save the scorecard", "error");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const recommendationOptions = [
@@ -331,7 +466,7 @@ export function ScorecardModal({ open, candidate, onClose }) {
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-[#2a3044]">
               <div>
                 <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100">Scorecard</h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400">{candidate.name}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{candidate.name}{existing ? " · editing your previous scorecard" : ""}</p>
               </div>
               <div className="flex items-center gap-3">
                 {overallScore > 0 && (
@@ -373,7 +508,7 @@ export function ScorecardModal({ open, candidate, onClose }) {
             </div>
             <div className="px-6 py-4 border-t border-slate-100 dark:border-[#2a3044] flex items-center justify-end gap-3">
               <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#232838] rounded-lg transition-colors">Cancel</button>
-              <button onClick={handleSubmit} className="px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">Save Scorecard</button>
+              <button onClick={handleSubmit} disabled={saving} className="px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors">Save Scorecard</button>
             </div>
           </motion.div>
         </motion.div>
@@ -384,13 +519,16 @@ export function ScorecardModal({ open, candidate, onClose }) {
 
 export function HireConfirmationModal({ open, candidate, jobReq, onClose }) {
   const { hireCandidate, createOnboardingWorkflow } = useHR();
-  const { createUser, templateRegistry } = useApp();
+  const { createUser, templateRegistry, users } = useApp();
+  const { canPerform } = usePermissions();
+  const { addToast } = useToast();
+  const canInvite = canPerform("user:invite");
   const [employeeName, setEmployeeName] = useState("");
   const [employeeEmail, setEmployeeEmail] = useState("");
   const [employeeTitle, setEmployeeTitle] = useState("");
   const [employeeColor, setEmployeeColor] = useState(EMPLOYEE_COLORS[0]);
   const [startDate, setStartDate] = useState("");
-  const [employeeRole, setEmployeeRole] = useState("editor");
+  const [employeeRole, setEmployeeRole] = useState("member");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -399,43 +537,63 @@ export function HireConfirmationModal({ open, candidate, jobReq, onClose }) {
       setEmployeeEmail(candidate.email || "");
       setEmployeeTitle(jobReq?.title || "");
       setEmployeeColor(EMPLOYEE_COLORS[Math.floor(Math.random() * EMPLOYEE_COLORS.length)]);
-      setStartDate(new Date().toISOString().split("T")[0]);
-      setEmployeeRole("editor");
+      setStartDate(toLocalIsoDate());
+      setEmployeeRole("member");
     }
   }, [open, candidate, jobReq]);
 
+  const emailValue = employeeEmail.trim();
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue);
+  const existingPerson = emailValid
+    ? (users || []).find((item) => String(item.email || "").toLowerCase() === emailValue.toLowerCase())
+    : null;
+
   const handleHire = async () => {
-    if (!employeeName.trim() || !employeeEmail.trim()) return;
+    if (!employeeName.trim() || !emailValid || saving) return;
+    if (!canInvite) {
+      addToast("You do not have permission to add people to the workspace", "error");
+      return;
+    }
+    if (!HIRE_ROLES.some((role) => role.value === employeeRole)) return;
     setSaving(true);
-    const newUserId = `user-${Date.now()}`;
-    await hireCandidate(candidate.id);
-    await createUser({
-      id: newUserId,
-      name: employeeName.trim(),
-      email: employeeEmail.trim(),
-      username: employeeEmail.trim().split("@")[0],
-      color: employeeColor,
-      role: employeeRole,
-      status: "active",
-      title: employeeTitle.trim(),
-      joinedAt: startDate || new Date().toISOString(),
-    });
-    const onboardingTemplate = (templateRegistry?.onboarding || [])[0];
-    await createOnboardingWorkflow({
-      userId: newUserId,
-      candidateId: candidate.id,
-      type: "onboarding",
-      title: `${employeeName.trim()} onboarding`,
-      templateId: onboardingTemplate?.id || null,
-      steps: onboardingTemplate?.steps || [
-        "Create accounts and grant access",
-        "Share handbook and mandatory docs",
-        "Schedule intro meetings",
-      ],
-      dueDate: startDate || new Date().toISOString().slice(0, 10),
-    });
-    setSaving(false);
-    onClose();
+    try {
+      // createUser is a no-op for an existing email, so reuse that People record instead.
+      const personId = existingPerson?.id || `user-${Date.now()}`;
+      if (!existingPerson) {
+        createUser({
+          id: personId,
+          name: employeeName.trim(),
+          email: emailValue,
+          username: emailValue.split("@")[0],
+          color: employeeColor,
+          role: employeeRole,
+          status: "active",
+          title: employeeTitle.trim(),
+          joinedAt: startDate || toLocalIsoDate(),
+        });
+      }
+      await hireCandidate(candidate.id, { hiredUserId: personId });
+      const onboardingTemplate = (templateRegistry?.onboarding || [])[0];
+      await createOnboardingWorkflow({
+        userId: personId,
+        candidateId: candidate.id,
+        type: "onboarding",
+        title: `${employeeName.trim()} onboarding`,
+        templateId: onboardingTemplate?.id || null,
+        steps: onboardingTemplate?.steps || [
+          "Create accounts and grant access",
+          "Share handbook and mandatory docs",
+          "Schedule intro meetings",
+        ],
+        dueDate: startDate || toLocalIsoDate(),
+      });
+      addToast(existingPerson ? `${employeeName.trim()} hired (linked to existing People record)` : `${employeeName.trim()} hired and added to People`, "success");
+      onClose();
+    } catch (error) {
+      addToast(error.message || "Hiring failed — please retry", "error");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const inputClassName = "w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#232838] text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500";
@@ -450,7 +608,7 @@ export function HireConfirmationModal({ open, candidate, jobReq, onClose }) {
                 <FaUserCheck className="w-6 h-6 text-green-500" />
               </div>
               <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100">Hire {candidate.name}?</h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">This will add them as a team member.</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Creates a People record and an onboarding checklist. A sign-in account is not created automatically — invite them through your Firebase Auth admin; they are linked by email on first sign-in.</p>
             </div>
             <div className="px-6 py-5 space-y-4">
               <div className="grid grid-cols-2 gap-3">
@@ -460,7 +618,9 @@ export function HireConfirmationModal({ open, candidate, jobReq, onClose }) {
                 </div>
                 <div className="col-span-2">
                   <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Email *</label>
-                  <input value={employeeEmail} onChange={(event) => setEmployeeEmail(event.target.value)} type="email" className={inputClassName} />
+                  <input aria-label="Employee email" value={employeeEmail} onChange={(event) => setEmployeeEmail(event.target.value)} type="email" className={inputClassName} />
+                  {emailValue && !emailValid && <p className="text-[11px] text-red-500 mt-1">Enter a valid email address.</p>}
+                  {existingPerson && <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1">{existingPerson.name || existingPerson.email} already exists in People — the hire will be linked to that record.</p>}
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Job title</label>
@@ -468,16 +628,15 @@ export function HireConfirmationModal({ open, candidate, jobReq, onClose }) {
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Start date</label>
-                  <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} className={inputClassName} />
+                  <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} className={inputClassName + " [color-scheme:light] dark:[color-scheme:dark]"} />
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Permission role</label>
-                <select value={employeeRole} onChange={(event) => setEmployeeRole(event.target.value)} className={inputClassName}>
-                  <option value="editor">Editor</option>
-                  <option value="owner">Owner</option>
-                  <option value="viewer">Viewer</option>
+                <label htmlFor="hire-role" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Workspace role</label>
+                <select id="hire-role" value={employeeRole} disabled={!!existingPerson} onChange={(event) => setEmployeeRole(event.target.value)} className={inputClassName + " disabled:opacity-60"}>
+                  {HIRE_ROLES.map((role) => <option key={role.value} value={role.value}>{role.label}</option>)}
                 </select>
+                <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">Recorded on the People profile. Effective permissions are managed in Admin → Access once the account signs in.</p>
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">Avatar color</label>
@@ -490,7 +649,7 @@ export function HireConfirmationModal({ open, candidate, jobReq, onClose }) {
             </div>
             <div className="px-6 py-4 border-t border-slate-100 dark:border-[#2a3044] flex items-center justify-end gap-3">
               <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#232838] rounded-lg transition-colors">Cancel</button>
-              <button onClick={handleHire} disabled={!employeeName.trim() || !employeeEmail.trim() || saving} className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+              <button onClick={handleHire} disabled={!employeeName.trim() || !emailValid || saving || !canInvite} title={!canInvite ? "Requires the Invite users permission" : undefined} className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
                 <FaUserCheck className="w-3.5 h-3.5" />
                 {saving ? "Hiring..." : "Hire & Add to Team"}
               </button>

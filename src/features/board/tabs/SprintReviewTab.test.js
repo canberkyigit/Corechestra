@@ -8,6 +8,10 @@ jest.mock("../../../shared/context/AppContext", () => ({
   useApp: () => mockUseApp(),
 }));
 
+jest.mock("../../../shared/context/AuthContext", () => ({
+  useAuth: () => ({ role: "member", isAdmin: false }),
+}));
+
 describe("SprintReviewTab", () => {
   it("loads and persists sprint review notes", () => {
     const updateSprint = jest.fn();

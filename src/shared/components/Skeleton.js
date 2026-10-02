@@ -328,3 +328,61 @@ export function ReportsSkeleton() {
     </div>
   );
 }
+
+// ─── Activity page skeleton ───────────────────────────────────────────────────
+export function ActivitySkeleton() {
+  return (
+    <div className="p-6 space-y-5 max-w-5xl mx-auto" data-testid="activity-skeleton">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="space-y-2">
+          <SkeletonBlock className="h-3 w-28" />
+          <SkeletonBlock className="h-6 w-44" />
+        </div>
+        <div className="flex gap-2">
+          {[0, 1, 2, 3].map((i) => (
+            <SkeletonBlock key={i} className="h-8 w-20 rounded-xl" />
+          ))}
+        </div>
+      </div>
+      {[0, 1, 2, 3, 4].map((i) => (
+        <div
+          key={i}
+          className="rounded-xl border border-slate-200 dark:border-slate-700/50 bg-white dark:bg-[#1c2030] p-4 flex items-start justify-between gap-4"
+        >
+          <div className="flex-1 space-y-2">
+            <SkeletonBlock className="h-4 w-20 rounded-full" />
+            <SkeletonBlock className="h-3.5 w-2/3" />
+            <SkeletonBlock className="h-3 w-1/2" />
+          </div>
+          <div className="space-y-1.5">
+            <SkeletonBlock className="h-3 w-16" />
+            <SkeletonBlock className="h-3 w-12" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── Roadmap page skeleton ────────────────────────────────────────────────────
+export function RoadmapSkeleton() {
+  return (
+    <div className="flex flex-col h-full" data-testid="roadmap-skeleton">
+      <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#1c2030]">
+        <div className="space-y-1.5">
+          <SkeletonBlock className="h-4 w-40" />
+          <SkeletonBlock className="h-3 w-56" />
+        </div>
+        <SkeletonBlock className="h-8 w-64 rounded-lg" />
+      </div>
+      <div className="flex-1 p-4 space-y-3">
+        {[0, 1, 2, 3, 4].map((i) => (
+          <div key={i} className="flex items-center gap-4">
+            <SkeletonBlock className="h-9 w-48 flex-shrink-0" />
+            <SkeletonBlock className={`h-6 rounded-full ${["w-1/3", "w-1/2", "w-1/4", "w-2/5", "w-1/3"][i]}`} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

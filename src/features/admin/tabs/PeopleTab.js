@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { collection, deleteDoc, doc, getDoc, getDocs, updateDoc } from "firebase/firestore";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { doc, getDoc } from "firebase/firestore";
 import {
   FaBriefcase,
   FaChevronDown,
@@ -10,14 +10,34 @@ import {
   FaPlus,
   FaSearch,
   FaSpinner,
+  FaSyncAlt,
   FaTimes,
   FaTrash,
   FaUserCircle,
 } from "react-icons/fa";
 import { taskKey } from "../../../shared/utils/helpers";
 import { useApp } from "../../../shared/context/AppContext";
+import { TASK_STATUS_SHORT_LABELS } from "../../../shared/constants/taskMeta";
 import { db } from "../../../shared/services/firebase";
-import { isE2EMode, readE2EAuthUsers } from "../../../shared/e2e/testMode";
+import { E2E_AUTH_USERS_KEY, isE2EMode, subscribeE2EKey } from "../../../shared/e2e/testMode";
+import { useToast } from "../../../shared/context/ToastContext";
+import { usePermissions } from "../../../shared/context/hooks/usePermissions";
+import {
+  getSensitiveAuditMeta,
+  isValidRole,
+  requiresConfirmation,
+  runSensitiveActionGate,
+} from "../../../shared/constants/permissions";
+import {
+  inviteAccount,
+  isAccountDeleted,
+  isAccountDisabled,
+  listAccounts,
+  markAccountDeleted,
+  setAccountActive,
+  setAccountRole,
+  updateInvite,
+} from "../services/userAccounts";
 
 const TASK_STATUS_STYLES = {
   todo: "bg-slate-100 text-slate-500 dark:bg-[#2a3044] dark:text-slate-400",
@@ -26,15 +46,6 @@ const TASK_STATUS_STYLES = {
   done: "bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400",
   blocked: "bg-red-50 text-red-500 dark:bg-red-900/20 dark:text-red-400",
   awaiting: "bg-yellow-50 text-yellow-600 dark:bg-yellow-900/20 dark:text-yellow-500",
-};
-
-const TASK_STATUS_LABELS = {
-  todo: "To Do",
-  inprogress: "In Progress",
-  review: "Review",
-  done: "Done",
-  blocked: "Blocked",
-  awaiting: "Awaiting",
 };
 
 const PRI_DOT = { critical: "#ef4444", high: "#f97316", medium: "#3b82f6", low: "#94a3b8" };
@@ -75,7 +86,7 @@ function UserProfileModal({ user, onClose, roles }) {
 
     let cancelled = false;
     setLoading(true);
-    getDoc(doc(db, "users", user.id))
+    getDoc(doc(db, "users", user.accountUid || user.id))
       .then((snapshot) => {
         if (!cancelled) {
           setProfile(snapshot.exists() ? snapshot.data() : {});
@@ -196,6 +207,71 @@ function UserProfileModal({ user, onClose, roles }) {
   );
 }
 
+const UI_ONLY_FIELDS = ["hasAccount", "accountUid", "accountDisabled", "virtual"];
+
+function toPeopleRecord(user) {
+  const record = { ...user };
+  UI_ONLY_FIELDS.forEach((field) => { delete record[field]; });
+  return record;
+}
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/**
+ * Merges product People records (appData/entities.users) with auth profiles
+ * (users/{uid}). Auth profiles are the source of truth for the effective role
+ * and for account status; soft-deleted profiles are hidden.
+ */
+export function mergePeopleWithAccounts(users, accounts, deletedUserIds) {
+  const deletedSet = new Set(deletedUserIds || []);
+  const base = dedupUsers(users || [], deletedUserIds);
+  const result = base.map((user) => ({ ...user }));
+  const hiddenIds = new Set();
+
+  (accounts || []).forEach((account) => {
+    if (!account?.uid) return;
+    if (account.email?.endsWith("@corechestra.io")) return;
+    const index = result.findIndex((user) => user.id === account.uid || (account.email && user.email === account.email));
+    if (isAccountDeleted(account) || deletedSet.has(account.uid)) {
+      if (index !== -1 && result[index].id === account.uid) hiddenIds.add(account.uid);
+      return;
+    }
+    const accountDisabled = isAccountDisabled(account);
+    if (index === -1) {
+      const prefix = account.email?.split("@")[0] || "user";
+      const accountName = account.fullName || account.name;
+      result.push({
+        id: account.uid,
+        name: accountName || (prefix.charAt(0).toUpperCase() + prefix.slice(1)),
+        username: account.username || prefix,
+        email: account.email || "",
+        color: account.color || PEOPLE_COLORS[account.uid.charCodeAt(0) % PEOPLE_COLORS.length],
+        status: accountDisabled ? "inactive" : "active",
+        role: isValidRole(account.role) ? account.role : "member",
+        joinedAt: "",
+        hasAccount: true,
+        accountUid: account.uid,
+        accountDisabled,
+        virtual: true,
+      });
+      return;
+    }
+    const current = result[index];
+    const accountName = account.fullName || account.name;
+    result[index] = {
+      ...current,
+      name: accountName || current.name,
+      role: isValidRole(account.role) ? account.role : current.role,
+      status: accountDisabled ? "inactive" : current.status,
+      hasAccount: true,
+      accountUid: account.uid,
+      accountDisabled,
+    };
+  });
+
+  return result.filter((user) => !hiddenIds.has(user.id));
+}
+
 export function PeopleTab({
   users,
   teams,
@@ -209,8 +285,11 @@ export function PeopleTab({
   DeleteConfirm,
   UserForm,
   roles,
+  currentUid,
 }) {
-  const { allTasks, setActiveTasks, setBacklogSections, deletedUserIds } = useApp();
+  const { allTasks, updateTask, deletedUserIds, logAuditEvent } = useApp();
+  const { addToast } = useToast();
+  const { canPerform, sensitiveActionPolicy } = usePermissions();
   const e2eMode = isE2EMode();
   const [search, setSearch] = useState("");
   const [filterRole, setFilterRole] = useState("all");
@@ -223,85 +302,84 @@ export function PeopleTab({
   const [editingUser, setEditingUser] = useState(null);
   const [selectedProfileUser, setSelectedProfileUser] = useState(null);
   const [deletingUserId, setDeletingUserId] = useState(null);
+  const [busyUserId, setBusyUserId] = useState(null);
   const [refreshTick, setRefreshTick] = useState(0);
-  const [mergedUsers, setMergedUsers] = useState(() => dedupUsers(users, deletedUserIds));
+  const [accounts, setAccounts] = useState([]);
+  const [accountsLoading, setAccountsLoading] = useState(true);
+
+  const canInvite = canPerform("user:invite");
+  const canManageUsers = canPerform("user:manage");
+  const canManageRoles = canPerform("role:manage");
+  const canManageTeams = canPerform("team:manage");
+  const canManageProjects = canPerform("project:manage");
+  const canEditTasks = canPerform("task:edit");
+  const confirmDestructive = requiresConfirmation(sensitiveActionPolicy, "destructive");
+
+  // Keep the latest toast function without re-running the loader on every render.
+  const addToastRef = useRef(addToast);
+  addToastRef.current = addToast;
 
   useEffect(() => {
-    if (e2eMode) {
-      const deletedSet = new Set(deletedUserIds || []);
-      const authUsers = readE2EAuthUsers()
-        .filter((user) => !deletedSet.has(user.uid))
-        .map((user) => ({
-          id: user.uid,
-          name: user.name,
-          username: user.username,
-          email: user.email,
-          role: user.role || "member",
-          status: "active",
-          color: mergedUsers.find((entry) => entry.id === user.uid)?.color || PEOPLE_COLORS[user.uid.charCodeAt(0) % PEOPLE_COLORS.length],
-        }));
-
-      setMergedUsers(dedupUsers([...users, ...authUsers], deletedUserIds));
-      return undefined;
-    }
-
     let cancelled = false;
-
-    getDocs(collection(db, "users")).then((snapshot) => {
-      if (cancelled) return;
-      const deletedSet = new Set(deletedUserIds || []);
-      const fbUsers = snapshot.docs
-        .map((docSnapshot) => ({ uid: docSnapshot.id, ...docSnapshot.data() }))
-        .filter((fb) => !fb.deleted && !deletedSet.has(fb.uid) && !fb.email?.endsWith("@corechestra.io"));
-
-      const base = dedupUsers(users, deletedUserIds);
-      const result = [...base];
-
-      fbUsers.forEach((fb) => {
-        const exists = result.some((user) => user.id === fb.uid || user.email === fb.email);
-        if (!exists) {
-          const prefix = fb.email?.split("@")[0] || "user";
-          const fbName = fb.fullName || fb.name;
-          const name = fbName || (prefix.charAt(0).toUpperCase() + prefix.slice(1));
-          const color = PEOPLE_COLORS[fb.uid.charCodeAt(0) % PEOPLE_COLORS.length];
-          result.push({ id: fb.uid, name, username: prefix, email: fb.email || "", color, status: "active", role: fb.role || "member", joinedAt: "" });
-        } else {
-          const fbName = fb.fullName || fb.name;
-          if (fbName) {
-            const index = result.findIndex((user) => user.id === fb.uid || user.email === fb.email);
-            if (index !== -1 && result[index].name !== fbName) {
-              result[index] = { ...result[index], name: fbName };
-            }
-          }
-        }
-      });
-
-      setMergedUsers(result);
-    }).catch(() => {});
-
+    const load = () => {
+      setAccountsLoading(true);
+      listAccounts()
+        .then((list) => { if (!cancelled) setAccounts(list || []); })
+        .catch((err) => {
+          if (cancelled) return;
+          console.warn("[PeopleTab] Failed to load auth profiles:", err?.code || err?.message);
+          addToastRef.current?.("Could not load sign-in accounts. Showing workspace people only.", "warning");
+        })
+        .finally(() => { if (!cancelled) setAccountsLoading(false); });
+    };
+    load();
+    const unsubscribe = e2eMode ? subscribeE2EKey(E2E_AUTH_USERS_KEY, load) : null;
     return () => {
       cancelled = true;
+      unsubscribe?.();
     };
-  }, [deletedUserIds, e2eMode, refreshTick, users]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [e2eMode, refreshTick]);
 
-  useEffect(() => {
-    setMergedUsers((prev) => {
-      const base = dedupUsers(users, deletedUserIds);
-      const extras = prev.filter((user) => !base.some((baseUser) => baseUser.id === user.id || baseUser.email === user.email));
-      return [...base, ...extras];
-    });
-  }, [users, deletedUserIds]);
+  const mergedUsers = useMemo(
+    () => mergePeopleWithAccounts(users, accounts, deletedUserIds),
+    [accounts, deletedUserIds, users]
+  );
+
+  const legacyRecords = useMemo(
+    () => (users || []).filter((user) => user.email?.endsWith("@corechestra.io")),
+    [users]
+  );
 
   const filtered = mergedUsers.filter((user) => {
     const query = search.toLowerCase();
     const matchSearch = !query
-      || user.name.toLowerCase().includes(query)
-      || user.email.toLowerCase().includes(query)
-      || user.username.toLowerCase().includes(query);
+      || (user.name || "").toLowerCase().includes(query)
+      || (user.email || "").toLowerCase().includes(query)
+      || (user.username || "").toLowerCase().includes(query);
     const matchRole = filterRole === "all" || user.role === filterRole;
     const matchStatus = filterStatus === "all" || user.status === filterStatus;
     return matchSearch && matchRole && matchStatus;
   });
+
+  const isKnownPeopleRecord = (id) => (users || []).some((user) => user.id === id);
+
+  // Persist a People record; rows that only exist as auth profiles are created on first edit.
+  const persistPeopleRecord = (user) => {
+    const record = toPeopleRecord(user);
+    if (isKnownPeopleRecord(record.id)) updateUser(record);
+    else createUser(record);
+  };
+
+  const activeAdminCount = useMemo(() => {
+    const accountAdmins = accounts.filter((account) => (
+      account.role === "admin" && !isAccountDeleted(account) && !isAccountDisabled(account)
+    ));
+    return accountAdmins.length;
+  }, [accounts]);
+
+  const wouldRemoveLastAdmin = (user) => (
+    user.hasAccount && user.role === "admin" && !user.accountDisabled && activeAdminCount <= 1
+  );
 
   const getUserTeams = (username) => teams.filter((team) => (team.memberNames || []).includes(username));
   const getAvailableTeams = (username) => teams.filter((team) => !(team.memberNames || []).includes(username));
@@ -309,6 +387,7 @@ export function PeopleTab({
   const getAvailableProjects = (username) => (projects || []).filter((project) => !(project.memberUsernames || []).includes(username));
 
   const addToProject = (projectId, username) => {
+    if (!canManageProjects) return;
     const project = projects.find((item) => item.id === projectId);
     if (!project) return;
     updateProject({ ...project, memberUsernames: [...(project.memberUsernames || []), username] });
@@ -316,6 +395,7 @@ export function PeopleTab({
   };
 
   const removeFromProject = (projectId, username) => {
+    if (!canManageProjects) return;
     const project = projects.find((item) => item.id === projectId);
     if (!project) return;
     updateProject({ ...project, memberUsernames: (project.memberUsernames || []).filter((name) => name !== username) });
@@ -334,6 +414,7 @@ export function PeopleTab({
   const getUserTasks = (username) => tasksByUser[username] || [];
 
   const addToTeam = (teamId, username) => {
+    if (!canManageTeams) return;
     const team = teams.find((item) => item.id === teamId);
     if (!team) return;
     updateTeam({ ...team, memberNames: [...(team.memberNames || []), username] });
@@ -341,17 +422,21 @@ export function PeopleTab({
   };
 
   const removeFromTeam = (teamId, username) => {
+    if (!canManageTeams) return;
     const team = teams.find((item) => item.id === teamId);
     if (!team) return;
     updateTeam({ ...team, memberNames: (team.memberNames || []).filter((name) => name !== username) });
   };
 
+  // updateTask touches activeTasks and every project's backlog (not only the current one).
   const assignTask = (taskId, username) => {
-    const updateTasks = (tasks) => tasks.map((task) => (
-      task.id === taskId ? { ...task, assignedTo: username } : task
-    ));
-    setActiveTasks((prev) => updateTasks(prev));
-    setBacklogSections((prev) => prev.map((section) => ({ ...section, tasks: updateTasks(section.tasks) })));
+    if (!canEditTasks) return;
+    const task = allTasks.find((item) => item.id === taskId);
+    if (!task) return;
+    updateTask(
+      { ...task, assignedTo: username },
+      username === "unassigned" ? "Unassigned via Admin" : `Assigned to ${username} via Admin`
+    );
   };
 
   const unassignTask = (taskId) => assignTask(taskId, "unassigned");
@@ -359,6 +444,236 @@ export function PeopleTab({
   const toggleExpand = (userId) => {
     setExpandedUserId((prev) => (prev === userId ? null : userId));
     setTaskSearch("");
+  };
+
+  // ── Invite ────────────────────────────────────────────────────────────────
+  const handleInvite = async (data) => {
+    if (!canInvite) {
+      addToast("You do not have permission to invite users.", "error");
+      return;
+    }
+    const email = (data.email || "").trim();
+    if (!EMAIL_RE.test(email)) {
+      addToast("Enter a valid email address.", "error");
+      return;
+    }
+    const emailKey = email.toLowerCase();
+    if (mergedUsers.some((user) => (user.email || "").toLowerCase() === emailKey)) {
+      addToast(`${email} is already part of this workspace.`, "error");
+      return;
+    }
+    const role = isValidRole(data.role) ? data.role : "member";
+    if (role !== "member" && !canManageRoles) {
+      addToast("You can only invite members. Ask an admin with role permissions to grant other roles.", "error");
+      return;
+    }
+    setBusyUserId("__invite__");
+    try {
+      const { uid, mode } = await inviteAccount({ email, name: data.name, role });
+      createUser({ ...data, email, role, status: "active", ...(uid ? { id: uid } : {}) });
+      if (mode === "functions") {
+        addToast(`Account created for ${email}. They can set a password with "Forgot password" on the login page.`, "success", 6000);
+      } else if (mode === "invite") {
+        addToast(`Invite recorded for ${email}. Create their sign-in account in Firebase Authentication; the ${role} role applies on first login.`, "info", 7000);
+      } else {
+        addToast(`${data.name} added to the workspace.`, "success");
+      }
+      setShowUserForm(false);
+      setRefreshTick((tick) => tick + 1);
+    } catch (err) {
+      console.warn("[PeopleTab] Invite failed:", err?.code || err?.message);
+      addToast(`Could not invite ${email}: ${err?.message || "unknown error"}`, "error");
+    } finally {
+      setBusyUserId(null);
+    }
+  };
+
+  // ── Edit (incl. effective role) ──────────────────────────────────────────
+  const handleEditSave = async (original, data) => {
+    if (!canManageUsers) {
+      addToast("You do not have permission to edit users.", "error");
+      return;
+    }
+    const nextRole = isValidRole(data.role) ? data.role : original.role;
+    const roleChanged = nextRole !== original.role;
+    let reason = "";
+
+    if (roleChanged) {
+      if (!canManageRoles) {
+        addToast("You do not have permission to change roles.", "error");
+        return;
+      }
+      if (original.id === currentUid || original.accountUid === currentUid) {
+        addToast("You cannot change your own role.", "error");
+        return;
+      }
+      if (nextRole !== "admin" && wouldRemoveLastAdmin(original)) {
+        addToast("This is the last active admin. Promote another admin first.", "error");
+        return;
+      }
+      const gate = runSensitiveActionGate(
+        sensitiveActionPolicy,
+        "role",
+        `Change ${original.name}'s role to ${nextRole}? This change is audited and takes effect immediately.`
+      );
+      if (!gate.ok) {
+        if (gate.missingReason) addToast("A reason is required for role changes.", "warning");
+        return;
+      }
+      reason = gate.reason;
+    }
+
+    setBusyUserId(original.id);
+    try {
+      if (roleChanged) {
+        if (original.hasAccount) {
+          await setAccountRole(original.accountUid || original.id, nextRole);
+        } else if (original.email) {
+          await updateInvite(original.email, { role: nextRole });
+        }
+      }
+      persistPeopleRecord({
+        ...original,
+        ...data,
+        role: nextRole,
+        // the edit form never changes status — keep the current one
+        status: original.status || "active",
+      });
+      if (roleChanged) {
+        const meta = getSensitiveAuditMeta(sensitiveActionPolicy, "role");
+        logAuditEvent?.("role_changed", {
+          entityType: "user",
+          entityId: original.accountUid || original.id,
+          name: data.name || original.name,
+          email: original.email,
+          previousRole: original.role,
+          nextRole,
+          ...(reason ? { reason } : {}),
+          ...meta,
+        });
+        setAccounts((prev) => prev.map((account) => (
+          account.uid === (original.accountUid || original.id) ? { ...account, role: nextRole } : account
+        )));
+      }
+      setEditingUser(null);
+      addToast(roleChanged ? `${data.name || original.name} is now ${nextRole}.` : "User updated.", "success");
+    } catch (err) {
+      console.warn("[PeopleTab] Update failed:", err?.code || err?.message);
+      addToast(`Could not update ${original.name}: ${err?.message || "unknown error"}`, "error");
+    } finally {
+      setBusyUserId(null);
+    }
+  };
+
+  // ── Activate / deactivate ────────────────────────────────────────────────
+  const handleToggleActive = async (user) => {
+    if (!canManageUsers) {
+      addToast("You do not have permission to change user status.", "error");
+      return;
+    }
+    const activate = user.status !== "active";
+    if (!activate) {
+      if (user.id === currentUid || user.accountUid === currentUid) {
+        addToast("You cannot deactivate your own account.", "error");
+        return;
+      }
+      if (wouldRemoveLastAdmin(user)) {
+        addToast("This is the last active admin. Promote another admin first.", "error");
+        return;
+      }
+      if (confirmDestructive && !window.confirm(`Deactivate ${user.name}? They will be signed out and cannot log in until reactivated.`)) {
+        return;
+      }
+    }
+    setBusyUserId(user.id);
+    try {
+      if (user.hasAccount) {
+        await setAccountActive(user.accountUid || user.id, activate);
+      } else if (user.email) {
+        await updateInvite(user.email, { status: activate ? "pending" : "inactive" });
+      }
+      persistPeopleRecord({ ...user, status: activate ? "active" : "inactive" });
+      logAuditEvent?.(activate ? "user_reactivated" : "user_deactivated", {
+        entityType: "user",
+        entityId: user.accountUid || user.id,
+        name: user.name,
+        email: user.email,
+        severity: activate ? "info" : "warning",
+        scope: "security",
+      });
+      setAccounts((prev) => prev.map((account) => (
+        account.uid === (user.accountUid || user.id)
+          ? { ...account, disabled: !activate, status: activate ? "active" : "inactive" }
+          : account
+      )));
+      addToast(activate ? `${user.name} reactivated.` : `${user.name} deactivated.`, "success");
+    } catch (err) {
+      console.warn("[PeopleTab] Status change failed:", err?.code || err?.message);
+      addToast(`Could not update ${user.name}: ${err?.message || "unknown error"}`, "error");
+    } finally {
+      setBusyUserId(null);
+    }
+  };
+
+  // ── Delete ───────────────────────────────────────────────────────────────
+  const handleDelete = async (user) => {
+    setDeletingUserId(null);
+    if (!canManageUsers) {
+      addToast("You do not have permission to delete users.", "error");
+      return;
+    }
+    if (user.id === currentUid || user.accountUid === currentUid) {
+      addToast("You cannot delete your own account.", "error");
+      return;
+    }
+    if (wouldRemoveLastAdmin(user)) {
+      addToast("This is the last active admin. Promote another admin first.", "error");
+      return;
+    }
+    setBusyUserId(user.id);
+    try {
+      if (user.hasAccount) {
+        await markAccountDeleted(user.accountUid || user.id);
+      } else if (user.email) {
+        await updateInvite(user.email, { status: "revoked" });
+      }
+      deleteUser(user.id);
+      // Drop the person from team / project membership (keyed by username).
+      if (user.username) {
+        teams
+          .filter((team) => (team.memberNames || []).includes(user.username))
+          .forEach((team) => updateTeam({ ...team, memberNames: team.memberNames.filter((name) => name !== user.username) }));
+        (projects || [])
+          .filter((project) => (project.memberUsernames || []).includes(user.username))
+          .forEach((project) => updateProject({ ...project, memberUsernames: project.memberUsernames.filter((name) => name !== user.username) }));
+      }
+      setAccounts((prev) => prev.map((account) => (
+        account.uid === (user.accountUid || user.id)
+          ? { ...account, deleted: true, disabled: true, status: "deleted" }
+          : account
+      )));
+      addToast(`${user.name} removed from the workspace.`, "success");
+    } catch (err) {
+      console.warn("[PeopleTab] Delete failed:", err?.code || err?.message);
+      addToast(`Could not remove ${user.name}: ${err?.message || "unknown error"}`, "error");
+    } finally {
+      setBusyUserId(null);
+    }
+  };
+
+  const requestDelete = (user) => {
+    if (confirmDestructive) setDeletingUserId(user.id);
+    else handleDelete(user);
+  };
+
+  // Explicit, idempotent clean-up of legacy demo accounts (replaces the old silent mount effect).
+  const removeLegacyRecords = () => {
+    if (!canManageUsers || legacyRecords.length === 0) return;
+    if (confirmDestructive && !window.confirm(`Remove ${legacyRecords.length} legacy demo record(s) (@corechestra.io)? Task assignments are not changed.`)) {
+      return;
+    }
+    legacyRecords.forEach((user) => deleteUser(user.id));
+    addToast(`Removed ${legacyRecords.length} legacy demo record(s).`, "success");
   };
 
   const expandedUser = mergedUsers.find((user) => user.id === expandedUserId);
@@ -370,7 +685,7 @@ export function PeopleTab({
     }
     return allTasks
       .filter((task) => task.assignedTo !== expandedUser.username && (
-        task.title?.toLowerCase().includes(query) || `cy-${task.id}`.includes(query)
+        task.title?.toLowerCase().includes(query) || `cy-${task.id}`.toLowerCase().includes(query) || String(task.id).toLowerCase().includes(query)
       ))
       .slice(0, 8);
   }, [allTasks, expandedUser, taskSearch]);
@@ -403,15 +718,47 @@ export function PeopleTab({
           <option value="inactive">Inactive</option>
         </select>
         <span className="text-xs text-slate-400 ml-auto flex-shrink-0">{filtered.length} / {mergedUsers.length} people</span>
-        <button onClick={() => setRefreshTick((tick) => tick + 1)} title="Refresh people list" className="p-1.5 rounded-lg text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors flex-shrink-0">
-          <FaSpinner className="w-3.5 h-3.5" />
+        <button onClick={() => setRefreshTick((tick) => tick + 1)} title="Refresh people list" aria-label="Refresh people list" className="p-1.5 rounded-lg text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors flex-shrink-0">
+          <FaSyncAlt className={`w-3.5 h-3.5 ${accountsLoading ? "animate-spin" : ""}`} />
         </button>
       </div>
 
-      {showUserForm && !editingUser && <UserForm onSave={(data) => { createUser(data); setShowUserForm(false); }} onCancel={() => setShowUserForm(false)} />}
-      {editingUser && <UserForm initial={editingUser} onSave={(data) => { updateUser({ ...editingUser, ...data }); setEditingUser(null); }} onCancel={() => setEditingUser(null)} />}
+      {canManageUsers && legacyRecords.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-xs text-amber-700 dark:border-amber-900/40 dark:bg-amber-900/10 dark:text-amber-300">
+          <span className="flex-1 min-w-48">
+            {legacyRecords.length} legacy demo record(s) (@corechestra.io) are hidden from this list but still stored in the workspace.
+          </span>
+          <button
+            onClick={removeLegacyRecords}
+            className="rounded-lg border border-amber-300 px-2.5 py-1 font-medium hover:bg-amber-100 dark:border-amber-800 dark:hover:bg-amber-900/30"
+          >
+            Remove legacy records
+          </button>
+        </div>
+      )}
 
-      {!showUserForm && !editingUser && (
+      {showUserForm && !editingUser && canInvite && (
+        <UserForm
+          onSave={handleInvite}
+          onCancel={() => setShowUserForm(false)}
+          canEditRole={canManageRoles}
+          busy={busyUserId === "__invite__"}
+        />
+      )}
+      {editingUser && (
+        <UserForm
+          initial={editingUser}
+          onSave={(data) => handleEditSave(editingUser, data)}
+          onCancel={() => setEditingUser(null)}
+          canEditRole={canManageRoles && editingUser.id !== currentUid && editingUser.accountUid !== currentUid}
+          busy={busyUserId === editingUser.id}
+          roleHint={editingUser.hasAccount
+            ? "Changes the effective sign-in role immediately."
+            : "Pending invite — the role applies on first login."}
+        />
+      )}
+
+      {!showUserForm && !editingUser && canInvite && (
         <button
           onClick={() => setShowUserForm(true)}
           className="flex items-center gap-2 px-4 py-2.5 border-2 border-dashed border-slate-200 dark:border-[#2a3044] text-slate-500 dark:text-slate-400 rounded-xl hover:border-blue-300 hover:text-blue-500 text-sm font-medium w-full justify-center transition-colors"
@@ -431,6 +778,7 @@ export function PeopleTab({
           const isProjDropOpen = addProjectFor === user.id;
           const isExpanded = expandedUserId === user.id;
           const userTasks = getUserTasks(user.username);
+          const isSelf = user.id === currentUid || user.accountUid === currentUid;
           const assignable = isExpanded ? assignableTasks : [];
 
           return (
@@ -459,6 +807,17 @@ export function PeopleTab({
                     }`}>
                       {user.status}
                     </span>
+                    {(user.id === currentUid || user.accountUid === currentUid) && (
+                      <span className="text-[10px] text-slate-400">(you)</span>
+                    )}
+                    {!user.hasAccount && !accountsLoading && (
+                      <span
+                        className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400"
+                        title="No sign-in account linked yet. The person gets access after their first login."
+                      >
+                        pending invite
+                      </span>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-1.5 text-xs text-slate-400 mb-2.5">
@@ -472,13 +831,15 @@ export function PeopleTab({
                       <span key={team.id} className="group flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border font-medium transition-all" style={{ backgroundColor: team.color + "15", borderColor: team.color + "50", color: team.color }}>
                         <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: team.color }} />
                         {team.name}
-                        <button className="opacity-0 group-hover:opacity-100 ml-0.5 hover:text-red-500 transition-all leading-none" onClick={() => removeFromTeam(team.id, user.username)} title={`Remove from ${team.name}`}>
-                          <FaTimes className="w-2.5 h-2.5" />
-                        </button>
+                        {canManageTeams && (
+                          <button className="opacity-0 group-hover:opacity-100 ml-0.5 hover:text-red-500 transition-all leading-none" onClick={() => removeFromTeam(team.id, user.username)} title={`Remove from ${team.name}`}>
+                            <FaTimes className="w-2.5 h-2.5" />
+                          </button>
+                        )}
                       </span>
                     ))}
 
-                    {availableTeams.length > 0 && (
+                    {canManageTeams && availableTeams.length > 0 && (
                       <div className="relative">
                         <button onClick={() => setAddTeamFor(isDropOpen ? null : user.id)} className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border border-dashed border-slate-300 dark:border-[#2a3044] text-slate-400 hover:border-blue-400 hover:text-blue-500 dark:hover:border-blue-500 dark:hover:text-blue-400 transition-colors">
                           <FaPlus className="w-2 h-2" /> Add to team
@@ -508,12 +869,14 @@ export function PeopleTab({
                       <span key={project.id} className="group flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border font-medium transition-all" style={{ backgroundColor: project.color + "15", borderColor: project.color + "50", color: project.color }}>
                         <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: project.color }} />
                         {project.name}
-                        <button className="opacity-0 group-hover:opacity-100 ml-0.5 hover:text-red-500 transition-all leading-none" onClick={() => removeFromProject(project.id, user.username)} title={`Remove from ${project.name}`}>
-                          <FaTimes className="w-2.5 h-2.5" />
-                        </button>
+                        {canManageProjects && (
+                          <button className="opacity-0 group-hover:opacity-100 ml-0.5 hover:text-red-500 transition-all leading-none" onClick={() => removeFromProject(project.id, user.username)} title={`Remove from ${project.name}`}>
+                            <FaTimes className="w-2.5 h-2.5" />
+                          </button>
+                        )}
                       </span>
                     ))}
-                    {availableProjects.length > 0 && (
+                    {canManageProjects && availableProjects.length > 0 && (
                       <div className="relative">
                         <button onClick={() => setAddProjectFor(isProjDropOpen ? null : user.id)} className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border border-dashed border-slate-300 dark:border-[#2a3044] text-slate-400 hover:border-indigo-400 hover:text-indigo-500 dark:hover:border-indigo-500 dark:hover:text-indigo-400 transition-colors">
                           <FaPlus className="w-2 h-2" /> Add to project
@@ -549,24 +912,35 @@ export function PeopleTab({
                     <button onClick={() => setSelectedProfileUser(user)} className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors" title="View profile">
                       <FaExternalLinkAlt className="w-3 h-3" />
                     </button>
-                    <button onClick={() => { setEditingUser(user); setShowUserForm(false); }} className="p-1.5 rounded-lg text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" title="Edit user">
-                      <FaEdit className="w-3.5 h-3.5" />
-                    </button>
-                    {deletingUserId === user.id ? (
+                    {busyUserId === user.id && <FaSpinner className="w-3 h-3 animate-spin text-slate-400" />}
+                    {canManageUsers && (
+                      <button
+                        onClick={() => { setEditingUser(user); setShowUserForm(false); }}
+                        disabled={!!busyUserId}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors disabled:opacity-40"
+                        title="Edit user"
+                        data-testid={`people-edit-${user.id}`}
+                      >
+                        <FaEdit className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    {canManageUsers && !isSelf && (deletingUserId === user.id ? (
                       <DeleteConfirm
                         label="Remove?"
-                        onConfirm={() => {
-                          deleteUser(user.id);
-                          updateDoc(doc(db, "users", user.id), { deleted: true }).catch(() => deleteDoc(doc(db, "users", user.id)).catch(() => {}));
-                          setDeletingUserId(null);
-                        }}
+                        onConfirm={() => handleDelete(user)}
                         onCancel={() => setDeletingUserId(null)}
                       />
                     ) : (
-                      <button onClick={() => setDeletingUserId(user.id)} className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Delete user">
+                      <button
+                        onClick={() => requestDelete(user)}
+                        disabled={!!busyUserId}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-40"
+                        title="Delete user"
+                        data-testid={`people-delete-${user.id}`}
+                      >
                         <FaTrash className="w-3.5 h-3.5" />
                       </button>
-                    )}
+                    ))}
                     <button onClick={() => toggleExpand(user.id)} className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border font-medium transition-all ${
                       isExpanded
                         ? "border-blue-300 bg-blue-50 text-blue-600 dark:border-blue-700 dark:bg-blue-900/20 dark:text-blue-400"
@@ -576,13 +950,20 @@ export function PeopleTab({
                       Tasks
                       <FaChevronDown className={`w-2.5 h-2.5 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
                     </button>
-                    <button onClick={() => updateUser({ ...user, status: user.status === "active" ? "inactive" : "active" })} className={`text-xs px-2.5 py-1 rounded-lg border font-medium transition-all ${
-                      user.status === "active"
-                        ? "border-slate-200 dark:border-[#2a3044] text-slate-400 hover:border-red-300 hover:text-red-500 dark:hover:border-red-700 dark:hover:text-red-400"
-                        : "border-green-300 dark:border-green-700 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20"
-                    }`}>
-                      {user.status === "active" ? "Deactivate" : "Activate"}
-                    </button>
+                    {canManageUsers && !isSelf && (
+                      <button
+                        onClick={() => handleToggleActive(user)}
+                        disabled={!!busyUserId}
+                        data-testid={`people-toggle-status-${user.id}`}
+                        className={`text-xs px-2.5 py-1 rounded-lg border font-medium transition-all disabled:opacity-40 ${
+                          user.status === "active"
+                            ? "border-slate-200 dark:border-[#2a3044] text-slate-400 hover:border-red-300 hover:text-red-500 dark:hover:border-red-700 dark:hover:text-red-400"
+                            : "border-green-300 dark:border-green-700 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20"
+                        }`}
+                      >
+                        {user.status === "active" ? "Deactivate" : "Activate"}
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -600,17 +981,17 @@ export function PeopleTab({
                             {PRI_DOT[task.priority] && <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: PRI_DOT[task.priority] }} />}
                             <span className="text-[10px] font-mono text-slate-400 flex-shrink-0">{taskKey(task.id)}</span>
                             <span className="flex-1 text-xs text-slate-700 dark:text-slate-200 truncate min-w-0">{task.title}</span>
-                            {task.status && <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 ${TASK_STATUS_STYLES[task.status] || ""}`}>{TASK_STATUS_LABELS[task.status] || task.status}</span>}
-                            <button onClick={() => unassignTask(task.id)} className="flex-shrink-0 text-slate-300 hover:text-red-400 dark:text-slate-600 dark:hover:text-red-400 transition-colors ml-1" title="Unassign">
+                            {task.status && <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 ${TASK_STATUS_STYLES[task.status] || ""}`}>{TASK_STATUS_SHORT_LABELS[task.status] || task.status}</span>}
+                            {canEditTasks && <button onClick={() => unassignTask(task.id)} className="flex-shrink-0 text-slate-300 hover:text-red-400 dark:text-slate-600 dark:hover:text-red-400 transition-colors ml-1" title="Unassign">
                               <FaTimes className="w-2.5 h-2.5" />
-                            </button>
+                            </button>}
                           </div>
                         ))}
                       </div>
                     )}
                   </div>
 
-                  <div>
+                  {canEditTasks && <div>
                     <div className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold mb-1.5">Assign task</div>
                     <div className="relative mb-2">
                       <FaSearch className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" />
@@ -631,15 +1012,15 @@ export function PeopleTab({
                             <span className="text-[10px] font-mono text-slate-400 flex-shrink-0">{taskKey(task.id)}</span>
                             <span className="flex-1 text-xs text-slate-700 dark:text-slate-200 truncate min-w-0">{task.title}</span>
                             {task.assignedTo && task.assignedTo !== "unassigned" && <span className="text-[10px] text-slate-400 flex-shrink-0 italic truncate max-w-16">@{task.assignedTo}</span>}
-                            {task.status && <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 ${TASK_STATUS_STYLES[task.status] || ""}`}>{TASK_STATUS_LABELS[task.status] || task.status}</span>}
-                            <button onClick={() => assignTask(task.id, user.username)} className="flex-shrink-0 flex items-center gap-0.5 text-[10px] px-2 py-0.5 rounded-md bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 font-medium transition-colors ml-1" title="Assign to this user">
+                            {task.status && <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 ${TASK_STATUS_STYLES[task.status] || ""}`}>{TASK_STATUS_SHORT_LABELS[task.status] || task.status}</span>}
+                            {canEditTasks && <button onClick={() => assignTask(task.id, user.username)} className="flex-shrink-0 flex items-center gap-0.5 text-[10px] px-2 py-0.5 rounded-md bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 font-medium transition-colors ml-1" title="Assign to this user">
                               <FaPlus className="w-2 h-2" /> Assign
-                            </button>
+                            </button>}
                           </div>
                         ))}
                       </div>
                     )}
-                  </div>
+                  </div>}
                 </div>
               )}
             </SectionCard>

@@ -1,19 +1,23 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { FaCalendarAlt, FaCheckCircle, FaChevronDown, FaChevronLeft, FaChevronRight, FaInfoCircle, FaPlus, FaTimes } from "react-icons/fa";
+import { FaCheckCircle, FaChevronDown, FaChevronLeft, FaChevronRight, FaInfoCircle, FaPlus, FaTimes, FaUser, FaUsers } from "react-icons/fa";
 import { useHR } from "../../../shared/context/HRContext";
 import { useAuth } from "../../../shared/context/AuthContext";
 import { useApp } from "../../../shared/context/AppContext";
-import { Badge, Card } from "../components/HRSharedUI";
-import { PUBLIC_HOLIDAYS } from "../constants/publicHolidays";
-
-const TIME_OFF_TYPES = [
-  "Vacation",
-  "Sick leave",
-  "Unpaid leave",
-  "Parental leave",
-  "Bereavement leave",
-];
+import { useToast } from "../../../shared/context/ToastContext";
+import { Avatar, Badge, Card } from "../components/HRSharedUI";
+import { PUBLIC_HOLIDAY_COUNTRY, PUBLIC_HOLIDAYS, getHolidaysForYear } from "../constants/publicHolidays";
+import {
+  TIME_OFF_KIND_STYLES,
+  TIME_OFF_TYPES,
+  computeVacationBalance,
+  countBusinessDays,
+  getRequestStatus,
+  getTimeOffKind,
+  isActiveTimeOff,
+  requestsOnDate,
+} from "../utils/timeOff";
+import { findPersonForAuth } from "../utils/people";
 
 const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
@@ -37,6 +41,7 @@ function RequestTimeOffModal({ open, onClose, onSubmit }) {
       setDescription("");
       setDragOver(false);
       setFile(null);
+      setFileError("");
     }
   }, [open]);
 
@@ -50,13 +55,22 @@ function RequestTimeOffModal({ open, onClose, onSubmit }) {
   }, [open, onClose]);
 
   const canSubmit = fromDate && toDate && fromDate <= toDate;
+  const [fileError, setFileError] = useState("");
+  const workingDays = canSubmit ? countBusinessDays(fromDate, toDate, PUBLIC_HOLIDAYS.map((holiday) => holiday.date)) : 0;
 
   const handleFile = (nextFile) => {
     if (!nextFile) return;
     const allowed = ["image/jpeg", "image/png", "image/heic", "application/pdf"];
-    if (allowed.includes(nextFile.type) && nextFile.size <= 5 * 1024 * 1024) {
-      setFile(nextFile);
+    if (!allowed.includes(nextFile.type)) {
+      setFileError("Unsupported file type. Use JPEG, PNG, HEIC or PDF.");
+      return;
     }
+    if (nextFile.size > 5 * 1024 * 1024) {
+      setFileError("File is larger than 5MB.");
+      return;
+    }
+    setFileError("");
+    setFile(nextFile);
   };
 
   const handleSubmit = async () => {
@@ -72,6 +86,8 @@ function RequestTimeOffModal({ open, onClose, onSubmit }) {
         fileName: file?.name,
       });
       onClose();
+    } catch {
+      // the caller shows an error toast; keep the modal open so nothing is lost
     } finally {
       setSubmitting(false);
     }
@@ -123,6 +139,11 @@ function RequestTimeOffModal({ open, onClose, onSubmit }) {
                     <input type="date" value={toDate} min={fromDate} onChange={(event) => setToDate(event.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#232838] text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-colors [color-scheme:light] dark:[color-scheme:dark]" />
                   </div>
                 </div>
+                {canSubmit && (
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 -mt-2">
+                    {workingDays} working day{workingDays === 1 ? "" : "s"} (weekends and public holidays excluded)
+                  </p>
+                )}
 
                 <div>
                   <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Description (optional)</label>
@@ -133,7 +154,7 @@ function RequestTimeOffModal({ open, onClose, onSubmit }) {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Attachment (optional)</label>
+                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Attachment reference (optional)</label>
                   <div
                     onClick={() => fileRef.current?.click()}
                     onDragOver={(event) => { event.preventDefault(); setDragOver(true); }}
@@ -160,7 +181,8 @@ function RequestTimeOffModal({ open, onClose, onSubmit }) {
                       <p className="text-sm text-blue-500 dark:text-blue-400 font-medium">Click here or drag file to upload</p>
                     )}
                   </div>
-                  <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1.5">Supported formats: JPEG, PNG, HEIC, PDF. Max file size: 5MB.</p>
+                  {fileError && <p className="text-[11px] text-red-500 mt-1.5">{fileError}</p>}
+                  <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1.5">Supported formats: JPEG, PNG, HEIC, PDF. Max file size: 5MB. File storage is not connected — only the file name is recorded with the request; share the document with your manager directly.</p>
                 </div>
               </div>
 
@@ -177,15 +199,27 @@ function RequestTimeOffModal({ open, onClose, onSubmit }) {
   );
 }
 
+const STATUS_BADGE = {
+  pending: { color: "amber", label: "Pending" },
+  approved: { color: "green", label: "Approved" },
+  rejected: { color: "red", label: "Rejected" },
+  cancelled: { color: "slate", label: "Cancelled" },
+};
+
 export function TimeOffTab() {
-  const { timeOffRequests, addTimeOffRequest, employeeProfile } = useHR();
+  const { timeOffRequests, addTimeOffRequest, deleteTimeOffRequest, employeeProfile, allAbsences } = useHR();
   const { user, profile } = useAuth();
   const { users } = useApp();
+  const { addToast } = useToast();
   const [modalOpen, setModalOpen] = useState(false);
   const [calendarDate, setCalendarDate] = useState(new Date());
+  const [calendarView, setCalendarView] = useState("mine");
+  const [busyId, setBusyId] = useState(null);
 
   const calendarYear = calendarDate.getFullYear();
   const calendarMonth = calendarDate.getMonth();
+  const holidayDates = useMemo(() => PUBLIC_HOLIDAYS.map((holiday) => holiday.date), []);
+  const holidayByDate = useMemo(() => Object.fromEntries(PUBLIC_HOLIDAYS.map((holiday) => [holiday.date, holiday])), []);
 
   const calendarWeeks = useMemo(() => {
     const firstDay = new Date(calendarYear, calendarMonth, 1).getDay();
@@ -200,35 +234,79 @@ export function TimeOffTab() {
 
   const today = new Date();
   const isCurrentMonth = today.getFullYear() === calendarYear && today.getMonth() === calendarMonth;
+  const monthPrefix = `${calendarYear}-${String(calendarMonth + 1).padStart(2, "0")}`;
+  const monthStart = `${monthPrefix}-01`;
+  const monthEnd = `${monthPrefix}-${String(new Date(calendarYear, calendarMonth + 1, 0).getDate()).padStart(2, "0")}`;
 
-  const getDayType = (day) => {
-    if (!day) return null;
-    const dateString = `${calendarYear}-${String(calendarMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    const request = (timeOffRequests || []).find((item) => item.fromDate <= dateString && item.toDate >= dateString);
-    return request?.type || null;
-  };
+  const myActiveRequests = useMemo(() => (timeOffRequests || []).filter(isActiveTimeOff), [timeOffRequests]);
+  const teamAbsences = useMemo(() => (allAbsences || []).filter(isActiveTimeOff), [allAbsences]);
+  const calendarItems = calendarView === "team" ? teamAbsences : myActiveRequests;
+  const teamThisMonth = useMemo(
+    () => teamAbsences
+      .filter((absence) => absence.fromDate <= monthEnd && absence.toDate >= monthStart)
+      .sort((a, b) => String(a.fromDate).localeCompare(String(b.fromDate))),
+    [monthEnd, monthStart, teamAbsences],
+  );
+
+  const dateKey = (day) => `${monthPrefix}-${String(day).padStart(2, "0")}`;
 
   const handleSubmitTimeOff = async (request) => {
-    const currentUser = (users || []).find((item) => item.id === user?.uid);
-    await addTimeOffRequest(request, {
-      name: profile?.fullName || currentUser?.name || "Unknown",
-      color: currentUser?.color || "#6366f1",
-      title: currentUser?.role || currentUser?.title || "Team Member",
-    });
+    const currentUser = findPersonForAuth(users, user);
+    try {
+      await addTimeOffRequest(request, {
+        name: profile?.fullName || currentUser?.name || user?.email?.split("@")[0] || "Unknown",
+        color: currentUser?.color || "#6366f1",
+        title: currentUser?.title || currentUser?.role || "Team Member",
+      });
+      addToast("Time off requested — waiting for approval", "success");
+    } catch (error) {
+      addToast(error.message || "Could not submit the request", "error");
+      throw error;
+    }
   };
 
-  const vacationDays = employeeProfile?.vacationDays ?? 20;
+  const handleCancel = async (request) => {
+    if (!window.confirm(`Withdraw your ${request.typeName || request.type} request for ${request.fromDate} → ${request.toDate}?`)) return;
+    setBusyId(request.id);
+    try {
+      await deleteTimeOffRequest(request.id);
+      addToast("Request withdrawn", "info");
+    } catch (error) {
+      addToast(error.message || "Could not withdraw the request", "error");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const balance = computeVacationBalance(timeOffRequests, employeeProfile?.vacationDays, calendarYear, holidayDates);
+  const sortedRequests = [...(timeOffRequests || [])].sort((a, b) => String(b.fromDate).localeCompare(String(a.fromDate)));
+  const holidaysThisYear = getHolidaysForYear(calendarYear);
 
   return (
     <div>
       <RequestTimeOffModal open={modalOpen} onClose={() => setModalOpen(false)} onSubmit={handleSubmitTimeOff} />
 
-      <div className="flex items-center justify-between mb-5">
+      <div className="flex items-center justify-between mb-5 gap-3 flex-wrap">
         <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">Time off</h2>
         <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 px-3 py-2 text-xs border border-slate-200 dark:border-[#2a3044] rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">
-            <FaCalendarAlt className="w-3 h-3" /> Team calendar
-          </button>
+          <div className="flex items-center rounded-lg border border-slate-200 dark:border-[#2a3044] overflow-hidden" role="group" aria-label="Calendar view">
+            <button
+              type="button"
+              aria-pressed={calendarView === "mine"}
+              onClick={() => setCalendarView("mine")}
+              className={`flex items-center gap-1.5 px-3 py-2 text-xs transition-colors ${calendarView === "mine" ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#232838]"}`}
+            >
+              <FaUser className="w-3 h-3" /> My calendar
+            </button>
+            <button
+              type="button"
+              aria-pressed={calendarView === "team"}
+              onClick={() => setCalendarView("team")}
+              className={`flex items-center gap-1.5 px-3 py-2 text-xs border-l border-slate-200 dark:border-[#2a3044] transition-colors ${calendarView === "team" ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#232838]"}`}
+            >
+              <FaUsers className="w-3 h-3" /> Team calendar
+            </button>
+          </div>
           <button onClick={() => setModalOpen(true)} className="flex items-center gap-2 px-3 py-2 text-xs bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors">
             <FaPlus className="w-3 h-3" /> Request time off
           </button>
@@ -238,35 +316,56 @@ export function TimeOffTab() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <div className="space-y-4">
           <Card className="p-4">
-            <h3 className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-3">Time off balances</h3>
+            <h3 className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-3">Time off balances · {calendarYear}</h3>
             <div className="flex items-start justify-between p-3 rounded-lg bg-slate-50 dark:bg-[#232838] mb-2">
               <div>
-                <p className="text-xs font-medium text-slate-700 dark:text-slate-200 flex items-center gap-1">
+                <p className="text-xs font-medium text-slate-700 dark:text-slate-200 flex items-center gap-1" title="Allowance minus approved vacation working days. Set the allowance in Contract.">
                   Annual leave <FaInfoCircle className="w-3 h-3 text-slate-400" />
                 </p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                  {balance.used} used · {balance.pending} pending · {balance.total} total
+                </p>
               </div>
-              <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">{vacationDays} days available</span>
+              <span className={`text-sm font-semibold ${balance.remaining < 0 ? "text-red-600 dark:text-red-400" : "text-slate-700 dark:text-slate-200"}`} data-testid="vacation-remaining">
+                {balance.remaining} days available
+              </span>
             </div>
           </Card>
 
           <Card className="p-4">
-            <h3 className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-3">Time off requests</h3>
-            {(!timeOffRequests || timeOffRequests.length === 0) ? (
+            <h3 className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-3">My requests</h3>
+            {sortedRequests.length === 0 ? (
               <p className="text-xs text-slate-400 dark:text-slate-500 text-center py-3">No requests yet</p>
             ) : (
               <div className="space-y-2">
-                {timeOffRequests.map((request) => {
-                  const isSick = request.type?.toLowerCase().includes("sick");
+                {sortedRequests.map((request) => {
+                  const kind = getTimeOffKind(request.type || request.typeName);
+                  const status = getRequestStatus(request);
+                  const badge = STATUS_BADGE[status] || STATUS_BADGE.pending;
+                  const days = countBusinessDays(request.fromDate, request.toDate, holidayDates);
                   return (
                     <div key={request.id} className="flex items-start gap-2.5 py-2 border-b border-slate-100 dark:border-[#2a3044] last:border-0">
-                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${isSick ? "bg-blue-100 dark:bg-blue-900/30" : "bg-amber-100 dark:bg-amber-900/30"}`}>
-                        <span className="text-sm">{isSick ? "💊" : "🏖️"}</span>
+                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${kind === "sick" ? "bg-purple-100 dark:bg-purple-900/30" : "bg-amber-100 dark:bg-amber-900/30"}`}>
+                        <span className="text-sm">{kind === "sick" ? "💊" : "🏖️"}</span>
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-medium text-blue-500">{request.fromDate} – {request.toDate}</p>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400">{request.typeName || request.type}</p>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">{request.typeName || request.type} · {days} working day{days === 1 ? "" : "s"}</p>
+                        {status === "rejected" && request.decisionNote && (
+                          <p className="text-[11px] text-red-500 dark:text-red-400 mt-0.5">“{request.decisionNote}”</p>
+                        )}
+                        {request.resolvedByName && status !== "pending" && (
+                          <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">by {request.resolvedByName}</p>
+                        )}
                       </div>
-                      <Badge color="purple">Submitted</Badge>
+                      <div className="flex flex-col items-end gap-1">
+                        <Badge color={badge.color}>{badge.label}</Badge>
+                        {status !== "approved" && (
+                          <button type="button" disabled={busyId === request.id} onClick={() => handleCancel(request)} className="text-[10px] text-slate-400 hover:text-red-500 disabled:opacity-50">
+                            {status === "pending" ? "Withdraw" : "Remove"}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
@@ -276,33 +375,39 @@ export function TimeOffTab() {
 
           <Card className="p-4">
             <h3 className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-3">Public holidays</h3>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 mb-2">
               <div className="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center flex-shrink-0">
-                <span className="text-base">🇹🇷</span>
+                <span className="text-base">{PUBLIC_HOLIDAY_COUNTRY.flag}</span>
               </div>
               <div>
-                <p className="text-xs font-medium text-slate-700 dark:text-slate-200">Turkey public holidays</p>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">{PUBLIC_HOLIDAYS.length} holidays in {calendarYear}</p>
+                <p className="text-xs font-medium text-slate-700 dark:text-slate-200">{PUBLIC_HOLIDAY_COUNTRY.name} public holidays</p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">{holidaysThisYear.length} holiday{holidaysThisYear.length === 1 ? "" : "s"} configured for {calendarYear}</p>
               </div>
             </div>
+            {holidaysThisYear.filter((holiday) => holiday.date.startsWith(monthPrefix)).map((holiday) => (
+              <p key={holiday.date} className="text-[11px] text-red-600 dark:text-red-400">{holiday.date.slice(8)} {holiday.name}</p>
+            ))}
           </Card>
         </div>
 
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 space-y-4">
           <Card className="p-4">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <button onClick={() => setCalendarDate(new Date(calendarYear, calendarMonth - 1, 1))} className="p-1.5 rounded hover:bg-slate-100 dark:hover:bg-[#232838] text-slate-500 transition-colors">
+                <button aria-label="Previous month" onClick={() => setCalendarDate(new Date(calendarYear, calendarMonth - 1, 1))} className="p-1.5 rounded hover:bg-slate-100 dark:hover:bg-[#232838] text-slate-500 transition-colors">
                   <FaChevronLeft className="w-3 h-3" />
                 </button>
                 <button onClick={() => setCalendarDate(new Date())} className="px-3 py-1 text-xs border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors text-slate-600 dark:text-slate-400">
                   Today
                 </button>
-                <button onClick={() => setCalendarDate(new Date(calendarYear, calendarMonth + 1, 1))} className="p-1.5 rounded hover:bg-slate-100 dark:hover:bg-[#232838] text-slate-500 transition-colors">
+                <button aria-label="Next month" onClick={() => setCalendarDate(new Date(calendarYear, calendarMonth + 1, 1))} className="p-1.5 rounded hover:bg-slate-100 dark:hover:bg-[#232838] text-slate-500 transition-colors">
                   <FaChevronRight className="w-3 h-3" />
                 </button>
               </div>
-              <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">{MONTH_NAMES[calendarMonth]} {calendarYear}</span>
+              <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                {MONTH_NAMES[calendarMonth]} {calendarYear}
+                <span className="ml-2 text-[11px] font-normal text-slate-400">{calendarView === "team" ? "Team" : "My"} calendar</span>
+              </span>
             </div>
 
             <div className="grid grid-cols-7 gap-1 mb-1">
@@ -315,18 +420,24 @@ export function TimeOffTab() {
               <div key={weekIndex} className="grid grid-cols-7 gap-1 mb-1">
                 {week.map((day, dayIndex) => {
                   if (!day) return <div key={dayIndex} />;
+                  const iso = dateKey(day);
                   const isToday = isCurrentMonth && day === today.getDate();
-                  const dayType = getDayType(day);
+                  const items = requestsOnDate(calendarItems, iso);
+                  const holiday = holidayByDate[iso];
+                  const primaryKind = items.length ? getTimeOffKind(items[0].type || items[0].typeName) : null;
                   const dayOfWeek = new Date(calendarYear, calendarMonth, day).getDay();
                   const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+                  const cellStyle = holiday
+                    ? "bg-red-50 dark:bg-red-900/10"
+                    : primaryKind ? TIME_OFF_KIND_STYLES[primaryKind]?.cell : "";
                   return (
-                    <div key={dayIndex} className={`min-h-[52px] p-1 rounded-lg relative ${
-                      isToday ? "ring-2 ring-blue-500 ring-offset-1 dark:ring-offset-[#1c2030]" : ""
-                    } ${
-                      dayType === "sick" || dayType?.includes("sick") ? "bg-purple-50 dark:bg-purple-900/10" :
-                      dayType === "vacation" || dayType?.includes("vacation") ? "bg-amber-50 dark:bg-amber-900/10" :
-                      ""
-                    }`}>
+                    <div
+                      key={dayIndex}
+                      data-testid={`timeoff-day-${iso}`}
+                      data-kind={primaryKind || (holiday ? "holiday" : "")}
+                      title={[holiday?.name, ...items.map((item) => `${item.userName ? `${item.userName}: ` : ""}${item.typeName || item.type} (${getRequestStatus(item)})`)].filter(Boolean).join("\n") || undefined}
+                      className={`min-h-[52px] p-1 rounded-lg relative ${isToday ? "ring-2 ring-blue-500 ring-offset-1 dark:ring-offset-[#1c2030]" : ""} ${cellStyle}`}
+                    >
                       <span className={`text-xs font-medium block text-center ${
                         isToday ? "text-blue-600 dark:text-blue-400 font-bold" :
                         isWeekend ? "text-slate-400 dark:text-slate-500" :
@@ -334,14 +445,69 @@ export function TimeOffTab() {
                       }`}>
                         {day === 1 ? `1 ${MONTH_NAMES[calendarMonth].slice(0, 3)}` : day}
                       </span>
-                      {dayType?.includes("sick") && <div className="mt-0.5 px-1 py-0.5 rounded text-[9px] bg-purple-200 dark:bg-purple-800/40 text-purple-700 dark:text-purple-300 truncate">Sick leave</div>}
-                      {dayType?.includes("vacation") && <div className="mt-0.5 px-1 py-0.5 rounded text-[9px] bg-amber-200 dark:bg-amber-800/40 text-amber-700 dark:text-amber-300 truncate">Vacation</div>}
+                      {holiday && <div className="mt-0.5 px-1 py-0.5 rounded text-[9px] bg-red-200 dark:bg-red-800/40 text-red-700 dark:text-red-300 truncate">{holiday.name}</div>}
+                      {calendarView === "mine" && items.slice(0, 1).map((item) => {
+                        const kind = getTimeOffKind(item.type || item.typeName);
+                        const style = TIME_OFF_KIND_STYLES[kind] || TIME_OFF_KIND_STYLES.other;
+                        return (
+                          <div key={item.id || item.requestId} className={`mt-0.5 px-1 py-0.5 rounded text-[9px] truncate ${style.chip} ${getRequestStatus(item) === "pending" ? "opacity-60 border border-dashed border-current" : ""}`}>
+                            {item.typeName || style.label}
+                          </div>
+                        );
+                      })}
+                      {calendarView === "team" && items.length > 0 && (
+                        <div className="mt-0.5 flex flex-wrap gap-0.5 justify-center">
+                          {items.slice(0, 3).map((item) => {
+                            const kind = getTimeOffKind(item.type || item.typeName);
+                            return (
+                              <span key={item.requestId} className={`w-4 h-4 rounded-full text-[8px] font-semibold text-white flex items-center justify-center ring-2 ${kind === "sick" ? "ring-purple-400" : "ring-amber-400"} ${getRequestStatus(item) === "pending" ? "opacity-60" : ""}`} style={{ backgroundColor: item.userColor || "#6366f1" }}>
+                                {String(item.userName || "?").charAt(0).toUpperCase()}
+                              </span>
+                            );
+                          })}
+                          {items.length > 3 && <span className="text-[9px] text-slate-500">+{items.length - 3}</span>}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
               </div>
             ))}
+
+            <div className="flex flex-wrap items-center gap-3 mt-3 pt-3 border-t border-slate-100 dark:border-[#2a3044]">
+              {["vacation", "sick", "parental", "unpaid", "other"].map((kind) => (
+                <span key={kind} className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+                  <span className={`w-2 h-2 rounded-full ${TIME_OFF_KIND_STYLES[kind].dot}`} /> {TIME_OFF_KIND_STYLES[kind].label}
+                </span>
+              ))}
+              <span className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+                <span className="w-2 h-2 rounded-full bg-red-500" /> Public holiday
+              </span>
+              <span className="text-[11px] text-slate-400 dark:text-slate-500">Faded = pending approval</span>
+            </div>
           </Card>
+
+          {calendarView === "team" && (
+            <Card className="p-4" data-testid="team-absences">
+              <h3 className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-3">Team absences in {MONTH_NAMES[calendarMonth]}</h3>
+              {teamThisMonth.length === 0 ? (
+                <p className="text-xs text-slate-400 dark:text-slate-500">Nobody is away this month.</p>
+              ) : (
+                <div className="space-y-2">
+                  {teamThisMonth.map((absence) => (
+                    <div key={absence.requestId} className="flex items-center gap-3 py-1.5">
+                      <Avatar name={absence.userName || "?"} color={absence.userColor} size="sm" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-slate-700 dark:text-slate-200 truncate">{absence.userName || "Unknown"}</p>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">{absence.typeName || absence.type} · {absence.fromDate} → {absence.toDate}</p>
+                      </div>
+                      {getRequestStatus(absence) === "pending" ? <Badge color="amber">Pending</Badge> : <Badge color="green">Approved</Badge>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+          )}
         </div>
       </div>
     </div>

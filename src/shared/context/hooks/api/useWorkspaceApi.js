@@ -30,9 +30,9 @@ export function useWorkspaceApi({
     deletedUserIds,
     createUser: workspaceActions.createUser,
     updateUser: workspaceActions.updateUser,
+    relinkUser: workspaceActions.relinkUser,
     deleteUser: workspaceActions.deleteUser,
     teamMembers,
     sprintDefaults,
-    updateSprintDefaults: workspaceActions.updateSprintDefaults,
   };
 }

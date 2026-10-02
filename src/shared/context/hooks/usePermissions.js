@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { useAuth } from "../AuthContext";
 import { useAppStore } from "../../store/useAppStore";
 import {
@@ -24,14 +24,36 @@ export function usePermissions() {
     [normalized, role]
   );
 
-  return {
-    rolePermissions,
-    permissionMatrix: normalized,
-    sensitiveActionPolicy,
-    isAdmin,
-    canAccessModule: (moduleKey) => canAccessModule(normalized, role || "viewer", moduleKey),
-    canAccessPage: (pageId) => canAccessModule(normalized, role || "viewer", pageId),
-    canPerform: (actionKey) => canPerformAction(normalized, role || "viewer", actionKey),
-    firstAccessiblePage: getFirstAccessibleModule(normalized, role || "viewer"),
-  };
+
+  const effectiveRole = role || "viewer";
+
+  const canAccessModuleFn = useCallback(
+    (moduleKey) => canAccessModule(normalized, effectiveRole, moduleKey),
+    [normalized, effectiveRole]
+  );
+
+  const canPerform = useCallback(
+    (actionKey) => canPerformAction(normalized, effectiveRole, actionKey),
+    [normalized, effectiveRole]
+  );
+
+  const firstAccessiblePage = useMemo(
+    () => getFirstAccessibleModule(normalized, effectiveRole),
+    [normalized, effectiveRole]
+  );
+
+  // Stable identities so consumers can safely use these in hook deps / memo.
+  return useMemo(
+    () => ({
+      rolePermissions,
+      permissionMatrix: normalized,
+      sensitiveActionPolicy,
+      isAdmin,
+      canAccessModule: canAccessModuleFn,
+      canAccessPage: canAccessModuleFn,
+      canPerform,
+      firstAccessiblePage,
+    }),
+    [rolePermissions, normalized, sensitiveActionPolicy, isAdmin, canAccessModuleFn, canPerform, firstAccessiblePage]
+  );
 }

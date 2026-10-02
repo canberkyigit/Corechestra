@@ -1,5 +1,6 @@
 import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import App, { isCommandPaletteShortcut } from "./App";
 
 const mockUseApp = jest.fn();
 const mockUseAuth = jest.fn();
@@ -17,7 +18,7 @@ jest.mock("react-router-dom", () => {
   }
 
   function Routes({ children }) {
-    const pathname = globalThis.location.pathname;
+    const pathname = global.location.pathname;
     const routes = React.Children.toArray(children);
     const exactMatch = routes.find((child) => child.props.path === pathname);
     const rootMatch = pathname === "/" ? routes.find((child) => child.props.path === "/") : null;
@@ -36,7 +37,7 @@ jest.mock("react-router-dom", () => {
     Route,
     Navigate,
     useNavigate: () => jest.fn(),
-    useLocation: () => ({ pathname: globalThis.location.pathname }),
+    useLocation: () => ({ pathname: global.location.pathname }),
   };
 }, { virtual: true });
 
@@ -99,7 +100,6 @@ jest.mock("../features/archive/pages/ArchivePage", () => () => <div>Archive page
 jest.mock("../features/for-you/pages/ForYouPage", () => () => <div>For you page</div>);
 jest.mock("../features/auth/pages/LoginPage", () => () => <div>Login page</div>);
 
-import App from "./App";
 
 function createAppMock(overrides = {}) {
   return {
@@ -199,5 +199,35 @@ describe("App route and auth behavior", () => {
     fireEvent.click(screen.getByText("Open Create"));
 
     expect(await screen.findByText("Create modal open")).toBeInTheDocument();
+  });
+});
+
+describe("isCommandPaletteShortcut", () => {
+  const key = (overrides = {}) => ({ key: "k", metaKey: false, ctrlKey: false, target: document.body, ...overrides });
+
+  it("fires for Cmd+K / Ctrl+K outside editors, including plain inputs", () => {
+    const input = document.createElement("input");
+    expect(isCommandPaletteShortcut(key({ metaKey: true }), true)).toBe(true);
+    expect(isCommandPaletteShortcut(key({ ctrlKey: true }), false)).toBe(true);
+    expect(isCommandPaletteShortcut(key({ metaKey: true, target: input }), true)).toBe(true);
+    expect(isCommandPaletteShortcut(key({ ctrlKey: true, target: input }), false)).toBe(true);
+  });
+
+  it("ignores plain typing, other modifiers and IME composition", () => {
+    expect(isCommandPaletteShortcut(key(), true)).toBe(false);
+    expect(isCommandPaletteShortcut(key({ metaKey: true, shiftKey: true }), true)).toBe(false);
+    expect(isCommandPaletteShortcut(key({ metaKey: true, isComposing: true }), true)).toBe(false);
+    expect(isCommandPaletteShortcut(key({ key: "j", metaKey: true }), true)).toBe(false);
+  });
+
+  it("does not hijack rich-text editors or macOS Ctrl+K in text fields", () => {
+    const editor = document.createElement("div");
+    editor.setAttribute("contenteditable", "true");
+    const paragraph = document.createElement("p");
+    editor.appendChild(paragraph);
+    const textarea = document.createElement("textarea");
+    expect(isCommandPaletteShortcut(key({ metaKey: true, target: paragraph }), true)).toBe(false);
+    expect(isCommandPaletteShortcut(key({ ctrlKey: true, target: textarea }), true)).toBe(false);
+    expect(isCommandPaletteShortcut(key({ ctrlKey: true, target: document.body }), true)).toBe(true);
   });
 });

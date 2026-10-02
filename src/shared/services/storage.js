@@ -322,14 +322,9 @@ export function saveDomain(domain, data) {
 
   clearTimeout(_timers[domain]);
   _timers[domain] = setTimeout(async () => {
+    // E2E mode never reaches this timer (handled synchronously above), so
+    // this path is Firestore-only.
     try {
-      if (isE2EMode()) {
-        const liveDomains = readE2EDomains();
-        const liveDomainDoc = liveDomains[domain] || {};
-        const liveKnown = stripMeta(liveDomainDoc);
-        _lastKnownDomainData[domain] = liveKnown;
-      }
-
       const pending = _pendingDomainData[domain] || {};
       const known = _lastKnownDomainData[domain] || {};
       const base = _pendingBaseData[domain] || {};
@@ -367,32 +362,17 @@ export function saveDomain(domain, data) {
 
       const ts = Date.now();
       _lastWriteTs[domain] = ts;
-      if (isE2EMode()) {
-        const liveDomains = readE2EDomains();
-        writeE2EDomains({
-          ...liveDomains,
-          [domain]: {
-            ...(liveDomains[domain] || {}),
-            ...changedFields,
-            _updatedAt: ts,
-            _updatedBy: _storageActor || null,
-            _version: ((liveDomains[domain] || {})._version || 0) + 1,
-            _lastMutationId: `${domain}-${ts}`,
-          },
-        });
-      } else {
-        await setDoc(
-          doc(db, COLLECTION, domain),
-          {
-            ...changedFields,
-            _updatedAt: ts,
-            _updatedBy: _storageActor || null,
-            _version: ((_lastRemoteVersion[domain] || 0) + 1),
-            _lastMutationId: `${domain}-${ts}`,
-          },
-          { merge: true }
-        );
-      }
+      await setDoc(
+        doc(db, COLLECTION, domain),
+        {
+          ...changedFields,
+          _updatedAt: ts,
+          _updatedBy: _storageActor || null,
+          _version: ((_lastRemoteVersion[domain] || 0) + 1),
+          _lastMutationId: `${domain}-${ts}`,
+        },
+        { merge: true }
+      );
       _lastRemoteVersion[domain] = (_lastRemoteVersion[domain] || 0) + 1;
       _lastKnownDomainData[domain] = {
         ...known,

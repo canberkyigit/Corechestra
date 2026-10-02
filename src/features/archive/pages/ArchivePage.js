@@ -6,10 +6,8 @@ import {
 } from "react-icons/fa";
 import { useApp } from "../../../shared/context/AppContext";
 import { useToast } from "../../../shared/context/ToastContext";
-
-const PRIORITY_COLORS = {
-  critical: "bg-red-500", high: "bg-orange-500", medium: "bg-yellow-500", low: "bg-green-500",
-};
+import { TASK_PRIORITY_DOT_STYLES, TASK_STATUS_SHORT_LABELS } from "../../../shared/constants/taskMeta";
+import { isInProject } from "../../../shared/utils/helpers";
 
 const STATUS_COLORS = {
   todo: "bg-slate-400", inprogress: "bg-blue-500", review: "bg-purple-500",
@@ -18,7 +16,7 @@ const STATUS_COLORS = {
 
 export default function ArchivePage() {
   const {
-    archivedTasks, restoreTask, permanentDeleteTask, emptyArchive,
+    archivedTasks, archivedProjects, archivedEpics, restoreTask, permanentDeleteTask, emptyArchive,
     projects, currentProjectId, dbReady,
   } = useApp();
   const { addToast } = useToast();
@@ -29,16 +27,21 @@ export default function ArchivePage() {
   const [sortBy, setSortBy] = useState("date");
   const [showAllProjects, setShowAllProjects] = useState(false);
 
+  // Items in the current scope (project or all), before the search filter.
+  const scopedItems = useMemo(() => (
+    showAllProjects
+      ? [...(archivedTasks || [])]
+      : (archivedTasks || []).filter((t) => isInProject(t, currentProjectId))
+  ), [archivedTasks, currentProjectId, showAllProjects]);
+
   const filtered = useMemo(() => {
-    let items = showAllProjects
-      ? [...archivedTasks]
-      : archivedTasks.filter((t) => (t.projectId || "proj-1") === currentProjectId);
+    let items = [...scopedItems];
     if (search.trim()) {
       const q = search.toLowerCase();
       items = items.filter((t) =>
-        t.title?.toLowerCase().includes(q) ||
-        t.description?.toLowerCase().includes(q) ||
-        t.id?.toLowerCase().includes(q)
+        String(t.title || "").toLowerCase().includes(q) ||
+        String(t.description || "").toLowerCase().includes(q) ||
+        String(t.id ?? "").toLowerCase().includes(q)
       );
     }
     if (sortBy === "date") items.sort((a, b) => (b.archivedAt || "").localeCompare(a.archivedAt || ""));
@@ -48,7 +51,7 @@ export default function ArchivePage() {
     }
     if (sortBy === "project") items.sort((a, b) => (a.projectId || "").localeCompare(b.projectId || ""));
     return items;
-  }, [archivedTasks, search, sortBy, currentProjectId, showAllProjects]);
+  }, [scopedItems, search, sortBy]);
 
   const handleRestore = (taskId) => {
     const task = archivedTasks.find((t) => t.id === taskId);
@@ -63,10 +66,21 @@ export default function ArchivePage() {
     addToast(`"${task?.title}" permanently deleted`, "error");
   };
 
+  const extraArchivedCount = (archivedProjects || []).length + (archivedEpics || []).length;
+
+  // "All projects" empties the whole archive (tasks, projects, epics).
+  // Project scope only removes this project's archived tasks.
   const handleEmptyArchive = () => {
-    emptyArchive();
+    if (showAllProjects) {
+      emptyArchive();
+      addToast("Archive emptied", "info");
+    } else {
+      // One store write for the whole project scope (no per-task notifications).
+      const count = scopedItems.length;
+      emptyArchive(currentProjectId);
+      addToast(`${count} archived task${count === 1 ? "" : "s"} permanently deleted`, "info");
+    }
     setConfirmEmpty(false);
-    addToast("Archive emptied", "info");
   };
 
   const getProjectName = (projectId) => {
@@ -79,7 +93,11 @@ export default function ArchivePage() {
     return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
   };
 
-  const totalCount = filtered.length;
+  const totalCount = scopedItems.length;
+  const currentProjectName = getProjectName(currentProjectId);
+  const emptyConfirmText = showAllProjects
+    ? `Delete all ${totalCount} archived task${totalCount === 1 ? "" : "s"}${extraArchivedCount ? ` and ${extraArchivedCount} archived project/epic record${extraArchivedCount === 1 ? "" : "s"}` : ""} in every project?`
+    : `Delete ${totalCount} archived task${totalCount === 1 ? "" : "s"} from ${currentProjectName}?`;
 
   if (!dbReady) return <ArchiveSkeleton />;
   return (
@@ -92,12 +110,14 @@ export default function ArchivePage() {
             <h2 className="text-lg font-bold text-slate-800 dark:text-slate-200">Archive</h2>
             <p className="text-sm text-slate-400 dark:text-slate-500">
               {totalCount} {totalCount === 1 ? "item" : "items"} archived
+              {search.trim() && filtered.length !== totalCount ? ` · ${filtered.length} shown` : ""}
+              {" · "}{showAllProjects ? "all projects" : currentProjectName}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-3">
           <button
-            onClick={() => setShowAllProjects((v) => !v)}
+            onClick={() => { setShowAllProjects((v) => !v); setConfirmEmpty(false); }}
             className={`text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors ${
               showAllProjects
                 ? "bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400"
@@ -113,11 +133,11 @@ export default function ArchivePage() {
                   onClick={() => setConfirmEmpty(true)}
                   className="flex items-center gap-2 px-3 py-2 text-sm text-red-500 border border-red-200 dark:border-red-900/30 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
                 >
-                  <FaTrashAlt className="w-3.5 h-3.5" /> Empty Archive
+                  <FaTrashAlt className="w-3.5 h-3.5" /> {showAllProjects ? "Empty Archive" : "Empty Project Archive"}
                 </button>
               ) : (
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-red-500 font-medium">Delete all permanently?</span>
+                  <span className="text-xs text-red-500 font-medium max-w-xs">{emptyConfirmText}</span>
                   <button onClick={handleEmptyArchive} className="px-3 py-1.5 text-xs bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">Yes, empty</button>
                   <button onClick={() => setConfirmEmpty(false)} className="px-3 py-1.5 text-xs border border-slate-200 dark:border-slate-700 text-slate-500 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">Cancel</button>
                 </div>
@@ -169,6 +189,12 @@ export default function ArchivePage() {
         <div className="text-center py-12">
           <FaSearch className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
           <p className="text-slate-400 dark:text-slate-500 text-sm">No results for "{search}"</p>
+          <button
+            onClick={() => setSearch("")}
+            className="mt-3 text-xs font-medium text-amber-600 dark:text-amber-400 hover:underline"
+          >
+            Clear search
+          </button>
         </div>
       )}
 
@@ -180,25 +206,25 @@ export default function ArchivePage() {
             className="bg-white dark:bg-[#1c2030] border border-slate-200 dark:border-[#2a3044] rounded-xl p-4 flex items-center gap-4 group hover:border-amber-300 dark:hover:border-amber-700 transition-colors"
           >
             {/* Priority dot */}
-            <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${PRIORITY_COLORS[task.priority] || "bg-slate-400"}`} />
+            <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${TASK_PRIORITY_DOT_STYLES[task.priority] || "bg-slate-400"}`} />
 
             {/* Task info */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-0.5">
                 <span className="font-semibold text-sm text-slate-800 dark:text-slate-200 truncate">{task.title}</span>
                 <span className={`text-[10px] px-1.5 py-0.5 rounded-full text-white font-medium ${STATUS_COLORS[task.status] || "bg-slate-400"}`}>
-                  {task.status}
+                  {TASK_STATUS_SHORT_LABELS[task.status] || task.status}
                 </span>
               </div>
               <div className="flex items-center gap-3 text-xs text-slate-400 dark:text-slate-500">
                 <span>{getProjectName(task.projectId)}</span>
                 <span>Archived {formatDate(task.archivedAt)}</span>
-                {task.storyPoint && <span>{task.storyPoint} pts</span>}
+                {Number(task.storyPoint) > 0 && <span>{task.storyPoint} pts</span>}
               </div>
             </div>
 
             {/* Actions */}
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="flex items-center gap-1 sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
               <button
                 onClick={() => handleRestore(task.id)}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/30 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors"

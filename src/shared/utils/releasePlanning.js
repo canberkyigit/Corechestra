@@ -25,15 +25,56 @@ export function createDefaultReleaseChecklist(template) {
   ];
 }
 
+/**
+ * Canonical deployment-timeline event. `type`/`actor`/`timestamp` are the
+ * canonical keys; `eventType`/`author`/`createdAt` are written as aliases so
+ * older readers (and stored data) keep working. Read events through
+ * `normalizeDeploymentTimelineEvent`.
+ */
 export function createDeploymentTimelineEvent(type, text, actor = null, patch = {}) {
-  return {
+  const timestamp = new Date().toISOString();
+  const event = {
     id: `deploy-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
     type,
+    eventType: type,
     text,
-    actor,
-    timestamp: new Date().toISOString(),
+    actor: actor || null,
+    author: actor || null,
+    timestamp,
+    createdAt: timestamp,
     ...patch,
   };
+  // Keep aliases consistent when the patch overrides one side.
+  if (patch.eventType && !patch.type) event.type = patch.eventType;
+  if (patch.type && !patch.eventType) event.eventType = patch.type;
+  if (patch.author && !patch.actor) event.actor = patch.author;
+  if (patch.actor && !patch.author) event.author = patch.actor;
+  if (patch.createdAt && !patch.timestamp) event.timestamp = patch.createdAt;
+  if (patch.timestamp && !patch.createdAt) event.createdAt = patch.timestamp;
+  return event;
+}
+
+/**
+ * Reads any stored timeline event shape — helper events `{type, actor,
+ * timestamp}`, legacy manual events `{eventType, author, createdAt}` and the
+ * merged lifecycle events — into `{ id, type, text, actor, timestamp }`.
+ */
+export function normalizeDeploymentTimelineEvent(event) {
+  if (!event || typeof event !== "object") return null;
+  return {
+    ...event,
+    id: event.id,
+    type: event.eventType || event.type || "event",
+    text: event.text || event.label || "",
+    actor: event.actor || event.author || event.createdBy || null,
+    timestamp: event.timestamp || event.createdAt || null,
+  };
+}
+
+export function normalizeDeploymentTimeline(events) {
+  return (Array.isArray(events) ? events : [])
+    .map(normalizeDeploymentTimelineEvent)
+    .filter(Boolean);
 }
 
 export function hydrateReleaseDefaults(data, template = null, currentUser = null) {

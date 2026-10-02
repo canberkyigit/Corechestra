@@ -57,4 +57,30 @@ describe("buildUniversalTimeline", () => {
       expect.objectContaining({ id: "doc-comment-page-1-dc-1", title: "Comment on Auth RFC" }),
     ]));
   });
+
+  it("includes legacy task comments stored as { user, timestamp } and new { author, createdAt } comments", () => {
+    const entries = buildUniversalTimeline({
+      currentUser: "alice",
+      activeTasks: [
+        {
+          id: "CY-1",
+          title: "Legacy task",
+          comments: [
+            { id: 1, user: "You", text: "old note", timestamp: "2026-04-01T10:00:00.000Z" },
+            { id: 2, user: "bob", text: "@alice ping", timestamp: "2026-04-01T11:00:00.000Z" },
+            { id: "tcmt-3", author: "carol", text: "new shape", createdAt: "2026-04-01T12:00:00.000Z" },
+          ],
+        },
+      ],
+    });
+
+    expect(entries.map((entry) => entry.id)).toEqual([
+      "task-comment-CY-1-tcmt-3",
+      "task-comment-CY-1-2",
+      "task-comment-CY-1-1",
+    ]);
+    expect(entries[0]).toMatchObject({ actor: "carol", title: "Comment on CY-1" });
+    expect(entries[1]).toMatchObject({ actor: "bob", mentionsCurrentUser: true });
+    expect(entries[2]).toMatchObject({ actor: null });
+  });
 });
