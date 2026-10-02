@@ -25,6 +25,10 @@ import {
   getAccountBlockReason,
   isValidRole,
 } from "../constants/permissions";
+import { flushPendingWrites } from "../services/storage";
+import { flushUserPrefs } from "../services/userPrefsStorage";
+
+const LOGOUT_FLUSH_TIMEOUT_MS = 2000;
 
 function createBlockedError(reason) {
   const error = new Error(ACCOUNT_BLOCK_MESSAGES[reason] || ACCOUNT_BLOCK_MESSAGES.disabled);
@@ -253,13 +257,24 @@ export function AuthProvider({ children }) {
     await sendPasswordResetEmail(auth, normalizedEmail);
   };
 
-  const logout = () => {
+  const logout = async () => {
     setAuthError(null);
+    // Write pending prefs and workspace edits while this user is still signed in
+    // (bounded, so an offline client can still log out).
+    let flushTimer;
+    await Promise.race([
+      Promise.all([
+        flushUserPrefs().catch(() => false),
+        flushPendingWrites().catch(() => false),
+      ]),
+      new Promise((resolve) => { flushTimer = setTimeout(resolve, LOGOUT_FLUSH_TIMEOUT_MS); }),
+    ]);
+    clearTimeout(flushTimer);
     if (e2eMode) {
       writeE2ESession(null);
-      return Promise.resolve();
+      return;
     }
-    return signOut(auth);
+    await signOut(auth);
   };
   const isAdmin = role === "admin";
 

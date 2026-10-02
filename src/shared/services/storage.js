@@ -136,10 +136,11 @@ function mergeConflictArray(baseArray, remoteArray, localArray) {
   return merged;
 }
 
+// Personal fields (currentUser, currentProjectId, darkMode, …) are per user in
+// `userPrefs/{uid}` (see userPrefsStorage.js). Their legacy copies may still
+// sit in `appData/config`; they are only read once, to seed that doc.
 export const DOMAIN_FIELDS = {
-  config:    ["currentUser", "currentProjectId", "sprintDefaults",
-              "darkMode", "sidebarCollapsed", "projectsViewMode", "perProjectBoardFilters", "templateRegistry",
-              "savedViews", "recentItems", "favoriteItems", "pinnedItems", "notificationPreferences",
+  config:    ["sprintDefaults", "templateRegistry",
               "permissionMatrix", "workspaceSettings", "sensitiveActionPolicy"],
   entities:  ["projects", "teams", "users", "epics", "labels", "deletedUserIds"],
   tasks:     ["activeTasks", "perProjectBacklog"],

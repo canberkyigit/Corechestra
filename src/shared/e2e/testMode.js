@@ -3,6 +3,8 @@ export const E2E_MODE = process.env.REACT_APP_E2E === "1";
 export const E2E_DOMAINS_KEY = "corechestra_e2e_domains";
 export const E2E_AUTH_USERS_KEY = "corechestra_e2e_auth_users";
 export const E2E_SESSION_KEY = "corechestra_e2e_session";
+// Per-user preferences (`userPrefs/{uid}`): one localStorage key per uid.
+export const E2E_USER_PREFS_KEY_PREFIX = "corechestra_e2e_user_prefs:";
 export const E2E_EVENT_NAME = "corechestra:e2e-update";
 export const E2E_CHANNEL_NAME = "corechestra-e2e-sync";
 
@@ -74,6 +76,18 @@ export function readE2EDomains() {
 
 export function writeE2EDomains(domains) {
   writeE2EJson(E2E_DOMAINS_KEY, domains);
+}
+
+export function getE2EUserPrefsKey(uid) {
+  return `${E2E_USER_PREFS_KEY_PREFIX}${uid}`;
+}
+
+export function readE2EUserPrefs(uid) {
+  return readE2EJson(getE2EUserPrefsKey(uid), null);
+}
+
+export function writeE2EUserPrefs(uid, prefs) {
+  writeE2EJson(getE2EUserPrefsKey(uid), prefs);
 }
 
 export function readE2EAuthUsers() {

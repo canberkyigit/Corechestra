@@ -1,7 +1,7 @@
 import React from "react";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useAppStoreSync } from "./useAppStoreSync";
+import { buildDefaultUserPrefs, useAppStoreSync } from "./useAppStoreSync";
 import { resetAppStore, useAppStore } from "../../store/useAppStore";
 import { isApplyingRemoteUpdate } from "../../automation/automationRunner";
 
@@ -13,7 +13,22 @@ jest.mock("../../services/storage", () => ({
   subscribeToAll: jest.fn(),
 }));
 
+jest.mock("../../services/userPrefsStorage", () => ({
+  USER_PREFS_FIELDS: [
+    "currentUser", "currentProjectId", "darkMode", "sidebarCollapsed", "projectsViewMode",
+    "perProjectBoardFilters", "savedViews", "recentItems", "favoriteItems", "pinnedItems",
+    "notificationPreferences",
+  ],
+  loadUserPrefs: jest.fn(),
+  getUserPrefsSnapshot: jest.fn(),
+  saveUserPrefs: jest.fn(),
+  flushUserPrefs: jest.fn(() => Promise.resolve(false)),
+  subscribeToUserPrefs: jest.fn(),
+  endUserPrefsSession: jest.fn(),
+}));
+
 const storage = jest.requireMock("../../services/storage");
+const userPrefs = jest.requireMock("../../services/userPrefsStorage");
 
 function createWrapper() {
   const queryClient = new QueryClient({
@@ -31,6 +46,9 @@ describe("useAppStoreSync", () => {
     jest.clearAllMocks();
     storage.subscribeToAll.mockReturnValue(() => {});
     storage.loadAllDomains.mockResolvedValue(null);
+    userPrefs.subscribeToUserPrefs.mockReturnValue(() => {});
+    userPrefs.loadUserPrefs.mockResolvedValue({ prefs: {}, migrated: false });
+    userPrefs.getUserPrefsSnapshot.mockReturnValue({});
   });
 
   it("hydrates remote data into the store and marks dbReady", async () => {
@@ -238,6 +256,157 @@ describe("useAppStoreSync", () => {
       window.dispatchEvent(new Event("beforeunload"));
       document.dispatchEvent(new Event("visibilitychange"));
       expect(storage.flushPendingWrites).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("personal prefs (userPrefs/{uid})", () => {
+    function configPayloads() {
+      return storage.saveDomain.mock.calls.filter(([domain]) => domain === "config").map(([, data]) => data);
+    }
+
+    it("waits for the uid and the user's prefs before marking dbReady", async () => {
+      let resolvePrefs;
+      userPrefs.loadUserPrefs.mockReturnValue(new Promise((resolve) => { resolvePrefs = resolve; }));
+      userPrefs.getUserPrefsSnapshot.mockReturnValue({ currentProjectId: "proj-2", darkMode: true, favoriteItems: [{ id: "doc:1" }] });
+
+      renderHook(() => useAppStoreSync("uid-a"), { wrapper: createWrapper() });
+
+      await waitFor(() => expect(storage.loadAllDomains).toHaveBeenCalled());
+      expect(userPrefs.loadUserPrefs).toHaveBeenCalledWith("uid-a");
+      expect(userPrefs.subscribeToUserPrefs).toHaveBeenCalledWith("uid-a", expect.any(Function));
+      await act(async () => { await Promise.resolve(); });
+      expect(useAppStore.getState().dbReady).toBe(false);
+
+      await act(async () => resolvePrefs({ prefs: {}, migrated: false }));
+
+      await waitFor(() => expect(useAppStore.getState().dbReady).toBe(true));
+      expect(useAppStore.getState()).toMatchObject({
+        currentProjectId: "proj-2",
+        darkMode: true,
+        favoriteItems: [{ id: "doc:1" }],
+      });
+      expect(userPrefs.getUserPrefsSnapshot).toHaveBeenCalledWith("uid-a");
+    });
+
+    it("persists personal fields to userPrefs and keeps them out of the config domain", async () => {
+      renderHook(() => useAppStoreSync("uid-a"), { wrapper: createWrapper() });
+      await waitFor(() => expect(useAppStore.getState().dbReady).toBe(true));
+      storage.saveDomain.mockClear();
+      userPrefs.saveUserPrefs.mockClear();
+
+      act(() => {
+        useAppStore.getState().setDarkMode(true);
+        useAppStore.getState().setCurrentProjectId("proj-3");
+        useAppStore.getState().setPerProjectBoardFilters({ "proj-3": { type: "bug" } });
+        useAppStore.getState().setSprintDefaults((previous) => ({ ...previous, duration: 7 }));
+      });
+
+      await waitFor(() => {
+        expect(userPrefs.saveUserPrefs).toHaveBeenCalledWith("uid-a", expect.objectContaining({ darkMode: true }));
+      });
+      expect(userPrefs.saveUserPrefs).toHaveBeenCalledWith("uid-a", expect.objectContaining({ currentProjectId: "proj-3" }));
+      expect(userPrefs.saveUserPrefs).toHaveBeenCalledWith("uid-a", expect.objectContaining({
+        perProjectBoardFilters: { "proj-3": { type: "bug" } },
+      }));
+
+      const personal = Object.keys(buildDefaultUserPrefs());
+      expect(configPayloads().length).toBeGreaterThan(0);
+      expect(configPayloads()).toContainEqual({ sprintDefaults: expect.objectContaining({ duration: 7 }) });
+      configPayloads().forEach((payload) => {
+        personal.forEach((field) => expect(payload).not.toHaveProperty(field));
+      });
+    });
+
+    it("does not persist personal fields without a uid", async () => {
+      renderHook(() => useAppStoreSync(), { wrapper: createWrapper() });
+      await waitFor(() => expect(useAppStore.getState().dbReady).toBe(true));
+      act(() => useAppStore.getState().setDarkMode(true));
+      await act(async () => { await Promise.resolve(); });
+
+      expect(userPrefs.loadUserPrefs).not.toHaveBeenCalled();
+      expect(userPrefs.saveUserPrefs).not.toHaveBeenCalled();
+    });
+
+    it("keeps the store's values as the base for a freshly migrated doc", async () => {
+      // Pre-domain legacy formats return personal fields with the workspace data.
+      storage.loadAllDomains.mockResolvedValue({ sidebarCollapsed: true, currentProjectId: "proj-old" });
+      userPrefs.loadUserPrefs.mockResolvedValue({ prefs: { currentProjectId: "proj-1" }, migrated: true });
+      userPrefs.getUserPrefsSnapshot.mockReturnValue({ currentProjectId: "proj-1" });
+
+      renderHook(() => useAppStoreSync("uid-a"), { wrapper: createWrapper() });
+      await waitFor(() => expect(useAppStore.getState().dbReady).toBe(true));
+
+      expect(useAppStore.getState()).toMatchObject({ sidebarCollapsed: true, currentProjectId: "proj-1" });
+    });
+
+    it("applies remote changes to the user's own doc only after hydration", async () => {
+      let onPrefsUpdate;
+      userPrefs.subscribeToUserPrefs.mockImplementation((uid, callback) => {
+        onPrefsUpdate = callback;
+        return () => {};
+      });
+      renderHook(() => useAppStoreSync("uid-a"), { wrapper: createWrapper() });
+      await waitFor(() => expect(useAppStore.getState().dbReady).toBe(true));
+
+      const seenRemote = [];
+      const unsubscribe = useAppStore.subscribe(() => seenRemote.push(isApplyingRemoteUpdate()));
+      act(() => onPrefsUpdate("sidebarCollapsed", true));
+      unsubscribe();
+      expect(useAppStore.getState().sidebarCollapsed).toBe(true);
+      // Automations must not fire on another tab's pref changes.
+      expect(seenRemote).toEqual([true]);
+    });
+
+    it("resets personal fields on user switch so the next user never sees them", async () => {
+      userPrefs.getUserPrefsSnapshot.mockImplementation((uid) => (uid === "uid-a"
+        ? { darkMode: true, currentProjectId: "proj-a", favoriteItems: [{ id: "a-fav" }] }
+        : { currentProjectId: "proj-b" }));
+
+      const { rerender } = renderHook(({ uid }) => useAppStoreSync(uid), {
+        wrapper: createWrapper(),
+        initialProps: { uid: "uid-a" },
+      });
+      await waitFor(() => expect(useAppStore.getState().currentProjectId).toBe("proj-a"));
+      userPrefs.saveUserPrefs.mockClear();
+
+      rerender({ uid: "uid-b" });
+
+      expect(userPrefs.endUserPrefsSession).toHaveBeenCalledWith("uid-a");
+      await waitFor(() => expect(useAppStore.getState().currentProjectId).toBe("proj-b"));
+      expect(useAppStore.getState().darkMode).toBe(false);
+      expect(useAppStore.getState().favoriteItems).toEqual([]);
+      expect(userPrefs.loadUserPrefs).toHaveBeenLastCalledWith("uid-b");
+      // Nothing of uid-a's state is ever saved into uid-b's doc.
+      userPrefs.saveUserPrefs.mock.calls.forEach(([uid, data]) => {
+        if (uid !== "uid-b") return;
+        expect(data).not.toMatchObject({ darkMode: true });
+        expect(data).not.toMatchObject({ currentProjectId: "proj-a" });
+      });
+      expect(userPrefs.saveUserPrefs.mock.calls.every(([uid]) => uid === "uid-b")).toBe(true);
+    });
+
+    it("resets personal fields and dbReady on logout (unmount)", async () => {
+      userPrefs.getUserPrefsSnapshot.mockReturnValue({ darkMode: true, pinnedItems: [{ id: "pin-1" }] });
+      const { unmount } = renderHook(() => useAppStoreSync("uid-a"), { wrapper: createWrapper() });
+      await waitFor(() => expect(useAppStore.getState().pinnedItems).toEqual([{ id: "pin-1" }]));
+
+      unmount();
+
+      expect(userPrefs.endUserPrefsSession).toHaveBeenCalledWith("uid-a");
+      expect(useAppStore.getState()).toMatchObject({ ...buildDefaultUserPrefs(), dbReady: false });
+    });
+
+    it("flushes pending prefs when the page is hidden or unloaded", async () => {
+      renderHook(() => useAppStoreSync("uid-a"), { wrapper: createWrapper() });
+      await waitFor(() => expect(useAppStore.getState().dbReady).toBe(true));
+      userPrefs.flushUserPrefs.mockClear();
+
+      window.dispatchEvent(new Event("beforeunload"));
+      const visibility = jest.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+      document.dispatchEvent(new Event("visibilitychange"));
+      visibility.mockRestore();
+
+      expect(userPrefs.flushUserPrefs).toHaveBeenCalledTimes(2);
     });
   });
 });

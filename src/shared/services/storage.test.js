@@ -101,8 +101,8 @@ describe("storage service", () => {
     jest.useFakeTimers();
     const { saveDomain } = await import("./storage");
 
-    saveDomain("config", { currentUser: "alice" });
-    saveDomain("config", { darkMode: true });
+    saveDomain("config", { sprintDefaults: { duration: 10 } });
+    saveDomain("config", { workspaceSettings: { displayName: "Acme" } });
 
     await act(async () => {
       jest.advanceTimersByTime(1500);
@@ -111,12 +111,12 @@ describe("storage service", () => {
 
     expect(mockSetDoc).toHaveBeenCalledTimes(1);
     expect(mockSetDoc.mock.calls[0][1]).toEqual(expect.objectContaining({
-      currentUser: "alice",
-      darkMode: true,
+      sprintDefaults: { duration: 10 },
+      workspaceSettings: { displayName: "Acme" },
       _updatedAt: expect.any(Number),
     }));
     expect(mockSetDoc.mock.calls[0][2]).toEqual({
-      mergeFields: ["currentUser", "darkMode", "_updatedAt", "_updatedBy", "_version", "_lastMutationId"],
+      mergeFields: ["sprintDefaults", "workspaceSettings", "_updatedAt", "_updatedBy", "_version", "_lastMutationId"],
     });
   });
 
@@ -124,7 +124,7 @@ describe("storage service", () => {
     jest.useFakeTimers();
     const { saveDomain } = await import("./storage");
 
-    saveDomain("config", { currentUser: "alice" });
+    saveDomain("config", { sprintDefaults: { duration: 10 } });
     await act(async () => {
       jest.advanceTimersByTime(1500);
       await Promise.resolve();
@@ -132,7 +132,7 @@ describe("storage service", () => {
 
     mockSetDoc.mockClear();
 
-    saveDomain("config", { currentUser: "alice" });
+    saveDomain("config", { sprintDefaults: { duration: 10 } });
     await act(async () => {
       jest.advanceTimersByTime(1500);
       await Promise.resolve();
@@ -303,7 +303,7 @@ describe("storage service", () => {
       const { flushPendingWrites, saveDomain } = await import("./storage");
 
       saveDomain("tasks", { activeTasks: [{ id: "task-1" }] });
-      saveDomain("config", { darkMode: true });
+      saveDomain("config", { workspaceSettings: true });
       expect(mockSetDoc).not.toHaveBeenCalled();
 
       flushPendingWrites();
@@ -334,12 +334,12 @@ describe("storage service", () => {
       const dispatchSpy = jest.spyOn(window, "dispatchEvent");
       const { saveDomain } = await import("./storage");
 
-      saveDomain("config", { recentItems: ["a", "b"] });
+      saveDomain("config", { templateRegistry: ["a", "b"] });
       await act(async () => {
         jest.advanceTimersByTime(1500);
         await flushAsync();
       });
-      saveDomain("config", { recentItems: ["a"] });
+      saveDomain("config", { templateRegistry: ["a"] });
       await act(async () => {
         resolveFirst();
         jest.advanceTimersByTime(1500);
@@ -347,7 +347,7 @@ describe("storage service", () => {
       });
 
       expect(mockSetDoc).toHaveBeenCalledTimes(2);
-      expect(mockSetDoc.mock.calls[1][1].recentItems).toEqual(["a"]);
+      expect(mockSetDoc.mock.calls[1][1].templateRegistry).toEqual(["a"]);
       expect(dispatchSpy.mock.calls.some(([event]) => event.type === "corechestra:storage-conflict")).toBe(false);
     });
   });
@@ -390,15 +390,15 @@ describe("storage service", () => {
         .mockResolvedValue();
       const { flushPendingWrites, saveDomain } = await import("./storage");
 
-      saveDomain("config", { currentUser: "alice", darkMode: true });
+      saveDomain("config", { sprintDefaults: "alice", workspaceSettings: true });
       await act(async () => {
         jest.advanceTimersByTime(1500);
         await flushAsync();
       });
       expect(mockSetDoc).toHaveBeenCalledTimes(1);
 
-      // Queued during the in-flight write: a newer darkMode and a new field.
-      saveDomain("config", { darkMode: false, sidebarCollapsed: true });
+      // Queued during the in-flight write: a newer workspaceSettings and a new field.
+      saveDomain("config", { workspaceSettings: false, sensitiveActionPolicy: true });
 
       await act(async () => {
         rejectFirst(new Error("offline"));
@@ -409,11 +409,11 @@ describe("storage service", () => {
       expect(mockSetDoc).toHaveBeenCalledTimes(2);
       const [, payload, options] = mockSetDoc.mock.calls[1];
       expect(payload).toEqual(expect.objectContaining({
-        currentUser: "alice",
-        darkMode: false,
-        sidebarCollapsed: true,
+        sprintDefaults: "alice",
+        workspaceSettings: false,
+        sensitiveActionPolicy: true,
       }));
-      expect(options.mergeFields).toEqual(expect.arrayContaining(["currentUser", "darkMode", "sidebarCollapsed"]));
+      expect(options.mergeFields).toEqual(expect.arrayContaining(["sprintDefaults", "workspaceSettings", "sensitiveActionPolicy"]));
     });
 
     it("stops retrying after the last backoff step but keeps the data pending", async () => {
@@ -446,6 +446,41 @@ describe("storage service", () => {
       flushPendingWrites();
       expect(mockSetDoc).toHaveBeenCalledTimes(5);
       expect(mockSetDoc.mock.calls[4][1].spaces).toEqual([{ id: "space-1" }]);
+    });
+  });
+
+  it("keeps only workspace-wide settings in the shared config domain", async () => {
+    jest.useFakeTimers();
+    mockGetDoc.mockImplementation(async (ref) => (ref.id === "config"
+      ? {
+        exists: () => true,
+        data: () => ({ sprintDefaults: { duration: 14 }, darkMode: true, currentProjectId: "proj-legacy", favoriteItems: [{ id: "f1" }] }),
+      }
+      : { exists: () => false, data: () => ({}) }));
+    const { DOMAIN_FIELDS, loadAllDomains, saveDomain } = await import("./storage");
+
+    expect(DOMAIN_FIELDS.config).toEqual(["sprintDefaults", "templateRegistry", "permissionMatrix", "workspaceSettings", "sensitiveActionPolicy"]);
+    // Legacy personal copies in appData/config are no longer hydrated from it…
+    await expect(loadAllDomains()).resolves.toEqual({ sprintDefaults: { duration: 14 } });
+
+    // …nor written back to it.
+    saveDomain("config", {
+      currentUser: "alice",
+      currentProjectId: "proj-2",
+      darkMode: false,
+      perProjectBoardFilters: { "proj-2": { type: "bug" } },
+      sprintDefaults: { duration: 10 },
+    });
+    await act(async () => {
+      jest.advanceTimersByTime(1500);
+      await Promise.resolve();
+    });
+
+    expect(mockSetDoc).toHaveBeenCalledTimes(1);
+    const payload = mockSetDoc.mock.calls[0][1];
+    expect(payload.sprintDefaults).toEqual({ duration: 10 });
+    ["currentUser", "currentProjectId", "darkMode", "perProjectBoardFilters"].forEach((field) => {
+      expect(payload).not.toHaveProperty(field);
     });
   });
 });

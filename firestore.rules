@@ -1,6 +1,14 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Per-user personal preferences: only the owner may read/write.
+    // NOTE: the wildcard below still grants every signed-in user access to
+    // all documents (Firestore ORs matching rules), so this only takes effect
+    // once the wildcard is tightened.
+    match /userPrefs/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
     // Only authenticated users from the same domain can read/write
     match /{document=**} {
       allow read, write: if request.auth != null;
