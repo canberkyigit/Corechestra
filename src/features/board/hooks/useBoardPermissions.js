@@ -24,6 +24,7 @@ export function useBoardPermissions() {
       canArchiveTask: allow("task:archive"),
       canManageProject: allow("project:manage"),
       canManageWorkspace: allow("workspace:manage"),
+      canManageAutomation: allow("automation:manage"),
     };
   }, [isAdmin, permissionMatrix, role]);
 }

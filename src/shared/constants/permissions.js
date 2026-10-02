@@ -34,6 +34,7 @@ export const ACTION_PERMISSION_META = [
   { key: "docs:edit", label: "Create and edit docs spaces and pages" },
   { key: "releases:manage", label: "Create and edit releases" },
   { key: "chat:manage", label: "Create and manage chat channels" },
+  { key: "automation:manage", label: "Create and edit automation rules" },
 ];
 
 const ALL_MODULE_KEYS = MODULE_PERMISSION_META.map((item) => item.key);
@@ -84,6 +85,7 @@ export const DEFAULT_PERMISSION_MATRIX = {
       "docs:edit": true,
       "releases:manage": true,
       "chat:manage": true,
+      "automation:manage": false,
     },
   },
   viewer: {
@@ -122,6 +124,7 @@ export const DEFAULT_PERMISSION_MATRIX = {
       "docs:edit": false,
       "releases:manage": false,
       "chat:manage": false,
+      "automation:manage": false,
     },
   },
 };

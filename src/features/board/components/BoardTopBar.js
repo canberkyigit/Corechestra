@@ -8,7 +8,7 @@ export function BoardTopBar({ tabs, activeTab, onTabChange, onCreateTask }) {
           <button
             key={tab.id}
             onClick={() => onTabChange(tab.id)}
-            className={`flex-shrink-0 px-2.5 md:px-4 py-2.5 font-medium text-xs md:text-sm transition-all border-b-2 -mb-px whitespace-nowrap ${
+            className={`flex-shrink-0 px-2.5 md:px-3 2xl:px-4 py-2.5 font-medium text-xs md:text-sm transition-all border-b-2 -mb-px whitespace-nowrap ${
               activeTab === tab.id
                 ? "border-blue-500 text-blue-600"
                 : "border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#232838]"

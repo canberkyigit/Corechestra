@@ -3,6 +3,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useAppStoreSync } from "./useAppStoreSync";
 import { resetAppStore, useAppStore } from "../../store/useAppStore";
+import { isApplyingRemoteUpdate } from "../../automation/automationRunner";
 
 jest.mock("../../services/storage", () => ({
   loadAllDomains: jest.fn(),
@@ -156,5 +157,48 @@ describe("useAppStoreSync", () => {
     await waitFor(() => expect(useAppStore.getState().dbReady).toBe(true));
     act(() => onUpdate("testSharedSteps", [{ id: "tss-9", name: "Remote" }]));
     await waitFor(() => expect(useAppStore.getState().testSharedSteps).toEqual([{ id: "tss-9", name: "Remote" }]));
+  });
+
+  it("hydrates and persists automation rules in the automation domain", async () => {
+    storage.loadAllDomains.mockResolvedValue({
+      automationRules: [{ id: "auto-1", name: "Loaded rule" }],
+    });
+
+    renderHook(() => useAppStoreSync(), { wrapper: createWrapper() });
+
+    await waitFor(() => expect(useAppStore.getState().dbReady).toBe(true));
+    expect(useAppStore.getState().automationRules).toEqual([{ id: "auto-1", name: "Loaded rule" }]);
+    storage.saveDomain.mockClear();
+
+    act(() => {
+      useAppStore.getState().setAutomationRules((previous) => [...previous, { id: "auto-2", name: "New rule" }]);
+    });
+
+    await waitFor(() => {
+      expect(storage.saveDomain).toHaveBeenCalledWith("automation", {
+        automationRules: [{ id: "auto-1", name: "Loaded rule" }, { id: "auto-2", name: "New rule" }],
+      });
+    });
+  });
+
+  it("marks remote subscription updates so automations ignore them", async () => {
+    let onUpdate;
+    const seenRemote = [];
+    storage.subscribeToAll.mockImplementation((callback) => {
+      onUpdate = callback;
+      return () => {};
+    });
+
+    renderHook(() => useAppStoreSync(), { wrapper: createWrapper() });
+    await waitFor(() => expect(useAppStore.getState().dbReady).toBe(true));
+
+    const unsubscribe = useAppStore.subscribe(() => seenRemote.push(isApplyingRemoteUpdate()));
+    act(() => {
+      onUpdate("activeTasks", [{ id: "remote-1", title: "Remote" }]);
+    });
+    unsubscribe();
+
+    expect(seenRemote).toContain(true);
+    expect(isApplyingRemoteUpdate()).toBe(false);
   });
 });
