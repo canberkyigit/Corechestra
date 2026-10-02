@@ -136,10 +136,10 @@ function mergeConflictArray(baseArray, remoteArray, localArray) {
   return merged;
 }
 
+// Workspace-wide (shared by every signed-in user). Per-user view state lives
+// in `userPrefs/{uid}` instead (see PERSONAL_FIELDS below).
 export const DOMAIN_FIELDS = {
-  config:    ["currentUser", "currentProjectId", "sprintDefaults",
-              "darkMode", "sidebarCollapsed", "projectsViewMode", "perProjectBoardFilters", "templateRegistry",
-              "savedViews", "recentItems", "favoriteItems", "pinnedItems", "notificationPreferences",
+  config:    ["sprintDefaults", "templateRegistry",
               "permissionMatrix", "workspaceSettings", "sensitiveActionPolicy"],
   entities:  ["projects", "teams", "users", "epics", "labels", "deletedUserIds"],
   tasks:     ["activeTasks", "perProjectBacklog"],
@@ -224,9 +224,11 @@ export async function loadAllDomains() {
 
     return null;
   } catch (e) {
+    // Never resolve with "no data" on a failed read: the caller would start
+    // from empty defaults and the first save could overwrite the real
+    // workspace. Rejecting lets the sync hook retry and show an error screen.
     logStorageDiagnostic("warn", "[Firestore] loadAllDomains failed:", e.message);
-    emitStorageError("Failed to load workspace data from Firestore.");
-    return null;
+    throw e;
   }
 }
 
@@ -386,6 +388,117 @@ export function saveDomain(domain, data) {
       delete _pendingBaseData[domain];
     }
   }, 1500);
+}
+
+// ── Per-user preferences (`userPrefs/{uid}`) ────────────────────────────────
+// View state that must never leak between users: selected project, theme,
+// sidebar, board filters, saved views, recents/favorites/pins and
+// notification preferences. Last-write-wins per field (single owner), no
+// realtime listener so two tabs can sit on different projects.
+
+const PREFS_COLLECTION = "userPrefs";
+const E2E_PREFS_PREFIX = "corechestra_e2e_prefs:";
+const PREFS_DEBOUNCE_MS = 800;
+
+export const PERSONAL_FIELDS = [
+  "currentProjectId",
+  "darkMode",
+  "sidebarCollapsed",
+  "projectsViewMode",
+  "perProjectBoardFilters",
+  "savedViews",
+  "recentItems",
+  "favoriteItems",
+  "pinnedItems",
+  "notificationPreferences",
+];
+
+let _prefsUid = null;
+let _prefsKnown = {};
+let _prefsPending = {};
+let _prefsTimer = null;
+
+function pickPersonal(data) {
+  const picked = {};
+  PERSONAL_FIELDS.forEach((field) => {
+    if (data?.[field] !== undefined) picked[field] = data[field];
+  });
+  return picked;
+}
+
+/**
+ * Personal fields still stored in the shared `appData/config` doc by older
+ * builds. Used once to seed a user's own prefs doc. Call after loadAllDomains.
+ */
+export function getLegacyPersonalPrefs() {
+  return pickPersonal(_lastKnownDomainData.config);
+}
+
+/** Resolves to the user's prefs, or `null` when they have none yet. Rejects on read failure. */
+export async function loadPersonalPrefs(uid) {
+  if (!uid) return null;
+  if (isE2EMode()) {
+    try {
+      const raw = localStorage.getItem(`${E2E_PREFS_PREFIX}${uid}`);
+      return raw ? pickPersonal(JSON.parse(raw)) : null;
+    } catch {
+      return null;
+    }
+  }
+  const snap = await getDoc(doc(db, PREFS_COLLECTION, uid));
+  return snap.exists() ? pickPersonal(stripMeta(snap.data())) : null;
+}
+
+/**
+ * Marks `uid` as hydrated so savePersonalPrefs may write for it. `known` is
+ * what the backend already holds (empty when the doc doesn't exist yet, so
+ * the first save creates it with the migrated values).
+ */
+export function markPersonalPrefsHydrated(uid, known) {
+  clearTimeout(_prefsTimer);
+  _prefsTimer = null;
+  _prefsUid = uid || null;
+  _prefsKnown = cloneData(known || {});
+  _prefsPending = {};
+}
+
+async function flushPersonalPrefs(uid) {
+  _prefsTimer = null;
+  if (uid !== _prefsUid) return;
+  const pending = _prefsPending;
+  _prefsPending = {};
+  const changed = {};
+  Object.entries(pending).forEach(([field, value]) => {
+    if (!isEqualValue(_prefsKnown[field], value)) changed[field] = value;
+  });
+  if (Object.keys(changed).length === 0) return;
+
+  try {
+    if (isE2EMode()) {
+      const key = `${E2E_PREFS_PREFIX}${uid}`;
+      const current = JSON.parse(localStorage.getItem(key) || "{}");
+      localStorage.setItem(key, JSON.stringify({ ...current, ...changed, _updatedAt: Date.now() }));
+    } else {
+      await setDoc(doc(db, PREFS_COLLECTION, uid), { ...changed, _updatedAt: Date.now() }, { merge: true });
+    }
+    if (uid === _prefsUid) _prefsKnown = { ..._prefsKnown, ...changed };
+  } catch (e) {
+    logStorageDiagnostic("warn", "[Firestore] save userPrefs failed:", e.message);
+    emitStorageError("Failed to save your preferences.");
+  }
+}
+
+export function savePersonalPrefs(uid, data) {
+  // Ignore writes until this user's prefs were loaded: prevents another
+  // account's (or default) state from overwriting them after a user switch.
+  if (!uid || uid !== _prefsUid) return;
+  _prefsPending = { ..._prefsPending, ...cloneData(pickPersonal(data)) };
+  if (isE2EMode()) {
+    flushPersonalPrefs(uid);
+    return;
+  }
+  clearTimeout(_prefsTimer);
+  _prefsTimer = setTimeout(() => flushPersonalPrefs(uid), PREFS_DEBOUNCE_MS);
 }
 
 // ── Real-time listeners ─────────────────────────────────────────────────────

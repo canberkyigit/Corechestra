@@ -4,7 +4,7 @@ import { AppProvider, useApp } from "./AppContext";
 import { resetAppStore, useAppStore } from "../store/useAppStore";
 
 jest.mock("./hooks/useAppStoreSync", () => ({
-  useAppStoreSync: () => {},
+  useAppStoreSync: () => ({ loadError: false, retryLoad: () => {}, isRetrying: false }),
 }));
 
 jest.mock("../services/storage", () => ({

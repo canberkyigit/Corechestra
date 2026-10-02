@@ -55,6 +55,61 @@ describe("storage service", () => {
     });
   });
 
+  it("rejects instead of resolving empty when a Firestore read fails", async () => {
+    mockGetDoc.mockRejectedValue(new Error("offline"));
+    const { loadAllDomains } = await import("./storage");
+    await expect(loadAllDomains()).rejects.toThrow("offline");
+  });
+
+  it("keeps per-user fields out of the shared config doc", async () => {
+    const { DOMAIN_FIELDS, PERSONAL_FIELDS } = await import("./storage");
+    PERSONAL_FIELDS.forEach((field) => {
+      expect(DOMAIN_FIELDS.config).not.toContain(field);
+    });
+    expect(DOMAIN_FIELDS.config).not.toContain("currentUser");
+  });
+
+  it("exposes legacy personal fields from the shared config for migration", async () => {
+    const emptySnap = { exists: () => false, data: () => ({}) };
+    mockGetDoc
+      .mockResolvedValueOnce({
+        exists: () => true,
+        data: () => ({ currentProjectId: "proj-9", darkMode: true, sprintDefaults: { durationWeeks: 3 } }),
+      })
+      .mockResolvedValue(emptySnap);
+
+    const { loadAllDomains, getLegacyPersonalPrefs } = await import("./storage");
+    const result = await loadAllDomains();
+
+    expect(result).toEqual({ sprintDefaults: { durationWeeks: 3 } });
+    expect(getLegacyPersonalPrefs()).toEqual({ currentProjectId: "proj-9", darkMode: true });
+  });
+
+  it("writes personal prefs to userPrefs/{uid} only after that user is hydrated", async () => {
+    jest.useFakeTimers();
+    const { savePersonalPrefs, markPersonalPrefsHydrated } = await import("./storage");
+
+    savePersonalPrefs("uid-1", { darkMode: true });
+    await act(async () => {
+      jest.advanceTimersByTime(1000);
+      await Promise.resolve();
+    });
+    expect(mockSetDoc).not.toHaveBeenCalled();
+
+    markPersonalPrefsHydrated("uid-1", { darkMode: false, currentProjectId: "proj-1" });
+    savePersonalPrefs("uid-1", { darkMode: true, currentProjectId: "proj-1", unrelated: 1 });
+    savePersonalPrefs("uid-2", { darkMode: true });
+    await act(async () => {
+      jest.advanceTimersByTime(1000);
+      await Promise.resolve();
+    });
+
+    expect(mockSetDoc).toHaveBeenCalledTimes(1);
+    expect(mockDoc).toHaveBeenCalledWith({ mocked: true }, "userPrefs", "uid-1");
+    expect(mockSetDoc.mock.calls[0][1]).toEqual({ darkMode: true, _updatedAt: expect.any(Number) });
+    expect(mockSetDoc.mock.calls[0][2]).toEqual({ merge: true });
+  });
+
   it("dispatches a UI event when a debounced save fails", async () => {
     jest.useFakeTimers();
     mockSetDoc.mockRejectedValue(new Error("save failed"));
@@ -82,8 +137,8 @@ describe("storage service", () => {
     jest.useFakeTimers();
     const { saveDomain } = await import("./storage");
 
-    saveDomain("config", { currentUser: "alice" });
-    saveDomain("config", { darkMode: true });
+    saveDomain("config", { sprintDefaults: { durationWeeks: 2 } });
+    saveDomain("config", { workspaceSettings: { displayName: "Acme" } });
 
     await act(async () => {
       jest.advanceTimersByTime(1500);
@@ -92,8 +147,8 @@ describe("storage service", () => {
 
     expect(mockSetDoc).toHaveBeenCalledTimes(1);
     expect(mockSetDoc.mock.calls[0][1]).toEqual(expect.objectContaining({
-      currentUser: "alice",
-      darkMode: true,
+      sprintDefaults: { durationWeeks: 2 },
+      workspaceSettings: { displayName: "Acme" },
       _updatedAt: expect.any(Number),
     }));
     expect(mockSetDoc.mock.calls[0][2]).toEqual({ merge: true });
@@ -103,7 +158,7 @@ describe("storage service", () => {
     jest.useFakeTimers();
     const { saveDomain } = await import("./storage");
 
-    saveDomain("config", { currentUser: "alice" });
+    saveDomain("config", { sprintDefaults: { durationWeeks: 2 } });
     await act(async () => {
       jest.advanceTimersByTime(1500);
       await Promise.resolve();
@@ -111,7 +166,7 @@ describe("storage service", () => {
 
     mockSetDoc.mockClear();
 
-    saveDomain("config", { currentUser: "alice" });
+    saveDomain("config", { sprintDefaults: { durationWeeks: 2 } });
     await act(async () => {
       jest.advanceTimersByTime(1500);
       await Promise.resolve();
