@@ -1,190 +1,34 @@
-import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import {
-  FaRocket,
-  FaPlus,
-  FaArrowRight,
-  FaArrowLeft,
-  FaUsers,
-  FaChartBar,
-  FaCheckCircle,
-  FaExclamationCircle,
-} from "react-icons/fa";
+import React, { useCallback, useMemo, useState } from "react";
+import { DragDropContext } from "@hello-pangea/dnd";
+import { FaInfoCircle } from "react-icons/fa";
 import { useApp } from "../../../shared/context/AppContext";
-import { TASK_STATUS_SHORT_LABELS } from "../../../shared/constants/taskMeta";
-import { buildVelocityHistory, getAverageVelocity, sumStoryPoints } from "../utils/sprintMetrics";
-import { getUserColor } from "../utils/userColors";
-import { useBoardPermissions } from "../hooks/useBoardPermissions";
+import { useToast } from "../../../shared/context/ToastContext";
 import { isInProject } from "../../../shared/utils/helpers";
+import { buildVelocityHistory, getAverageVelocity, sumStoryPoints } from "../utils/sprintMetrics";
+import {
+  buildMemberLoad,
+  buildPlanningMembers,
+  getPlanningReadiness,
+  getSprintTiming,
+} from "../utils/planningMetrics";
+import { useBoardPermissions } from "../hooks/useBoardPermissions";
+import PlanningHeader from "../components/planning/PlanningHeader";
+import SprintGoalCard from "../components/planning/SprintGoalCard";
+import BacklogPoolPanel, { POOL_DROPPABLE_PREFIX } from "../components/planning/BacklogPoolPanel";
+import SprintScopePanel, { SPRINT_DROPPABLE_ID } from "../components/planning/SprintScopePanel";
+import TeamCapacityPanel from "../components/planning/TeamCapacityPanel";
+import PlanningReadinessCard from "../components/planning/PlanningReadinessCard";
+import VelocityPanel from "../components/planning/VelocityPanel";
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-const DEFAULT_VELOCITY_PER_PERSON = 10;
-const MAX_CAPACITY_MEMBERS = 8;
+const pluralItems = (count) => `${count} item${count !== 1 ? "s" : ""}`;
 
-// ─── Color helpers ────────────────────────────────────────────────────────────
-const PRIORITY_CLASSES = {
-  critical: "bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/40",
-  high:     "bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/30",
-  medium:   "bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-800/30",
-  low:      "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800/30",
+const withoutIds = (set, ids) => {
+  const next = new Set(set);
+  ids.forEach((id) => next.delete(id));
+  return next;
 };
 
-const STATUS_CLASSES = {
-  todo:       "bg-slate-100 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300",
-  inprogress: "bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400",
-  review:     "bg-purple-50 dark:bg-purple-900/40 text-purple-700 dark:text-purple-400",
-  awaiting:   "bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400",
-  blocked:    "bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400",
-  done:       "bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400",
-};
-
-const TYPE_DOT = {
-  userstory:     "bg-green-400",
-  feature:       "bg-cyan-400",
-  bug:           "bg-red-400",
-  defect:        "bg-orange-400",
-  task:          "bg-blue-400",
-  epic:          "bg-purple-400",
-  investigation: "bg-violet-400",
-  test:          "bg-teal-400",
-  testset:       "bg-indigo-400",
-  testexecution: "bg-lime-500",
-  precondition:  "bg-sky-400",
-};
-
-// ─── Small reusable pieces ────────────────────────────────────────────────────
-function PriorityBadge({ priority }) {
-  const p = (priority || "medium").toLowerCase();
-  return (
-    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded capitalize ${PRIORITY_CLASSES[p] || PRIORITY_CLASSES.medium}`}>
-      {p}
-    </span>
-  );
-}
-
-function StatusChip({ status }) {
-  const s = (status || "todo").toLowerCase();
-  return (
-    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded whitespace-nowrap ${STATUS_CLASSES[s] || STATUS_CLASSES.todo}`}>
-      {TASK_STATUS_SHORT_LABELS[s] || s}
-    </span>
-  );
-}
-
-function SPBadge({ points }) {
-  const n = Number(points) || 0;
-  return (
-    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-[#232838] border border-slate-200 dark:border-[#2a3044] text-slate-600 dark:text-slate-300 min-w-[22px] text-center">
-      {n}
-    </span>
-  );
-}
-
-function TypeDot({ type }) {
-  const t = (type || "task").toLowerCase();
-  return (
-    <span
-      className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${TYPE_DOT[t] || "bg-slate-400"}`}
-      title={t}
-    />
-  );
-}
-
-function Avatar({ name, color, size = "sm" }) {
-  const letter = (name || "?")[0].toUpperCase();
-  const sizeClass = size === "sm" ? "w-6 h-6 text-[10px]" : "w-8 h-8 text-xs";
-  return (
-    <span
-      className={`inline-flex items-center justify-center rounded-full font-bold text-white flex-shrink-0 ${sizeClass}`}
-      style={{ backgroundColor: color || getUserColor(name) }}
-      title={name}
-    >
-      {letter}
-    </span>
-  );
-}
-
-// ─── Section divider label for backlog grouping ───────────────────────────────
-function SectionLabel({ title, count }) {
-  return (
-    <div className="flex items-center gap-2 mt-3 mb-1 first:mt-0">
-      <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">
-        {title}
-      </span>
-      <span className="text-[10px] text-slate-400 dark:text-slate-600 font-medium">({count})</span>
-      <div className="flex-1 h-px bg-slate-200 dark:bg-[#252b3b]" />
-    </div>
-  );
-}
-
-// ─── Capacity bar ─────────────────────────────────────────────────────────────
-function CapacityBar({ totalSP, capacitySP }) {
-  const pct = capacitySP > 0 ? Math.min((totalSP / capacitySP) * 100, 100) : 0;
-  const overCapacity = capacitySP > 0 && totalSP > capacitySP;
-  const nearCapacity = !overCapacity && pct > 80;
-  let barColor = "bg-green-500";
-  if (overCapacity) barColor = "bg-red-500";
-  else if (nearCapacity) barColor = "bg-yellow-400";
-
-  return (
-    <div className="space-y-1">
-      <div className="flex justify-between items-center text-[10px] text-slate-500">
-        <span>{totalSP} SP used</span>
-        <span className={overCapacity ? "text-red-500 dark:text-red-400 font-semibold" : nearCapacity ? "text-yellow-600 dark:text-yellow-400" : "text-green-600 dark:text-green-400"}>
-          {capacitySP > 0 ? `${Math.round(pct)}%` : "—"} of {capacitySP} SP capacity
-        </span>
-      </div>
-      <div className="h-2 rounded-full bg-slate-200 dark:bg-[#232838] overflow-hidden">
-        <div
-          className={`h-full rounded-full transition-all duration-500 ${barColor}`}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-      {overCapacity && (
-        <div className="flex items-center gap-1 text-[10px] text-red-500 dark:text-red-400">
-          <FaExclamationCircle className="w-2.5 h-2.5" />
-          <span>Over capacity by {totalSP - capacitySP} SP</span>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Velocity mini-bar chart (completed sprints) ──────────────────────────────
-function VelocityChart({ history }) {
-  if (!history || history.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-16 text-slate-400 dark:text-slate-500 text-sm text-center">
-        No velocity data yet — complete a sprint to start tracking
-      </div>
-    );
-  }
-
-  const maxV = Math.max(...history.map((entry) => Math.max(entry.completed, entry.committed)), 1);
-
-  return (
-    <div className="flex items-end gap-2 h-16">
-      {history.map((entry) => {
-        const heightPct = (entry.completed / maxV) * 100;
-        return (
-          <div key={entry.id || entry.name} className="flex flex-col items-center gap-1 flex-1 min-w-0">
-            <span className="text-[9px] text-slate-500 font-semibold">{entry.completed} pts</span>
-            <div className="w-full flex items-end" style={{ height: 32 }}>
-              <div
-                className="w-full rounded-t bg-blue-500/70 hover:bg-blue-400/90 transition-colors"
-                style={{ height: `${Math.max(heightPct, 4)}%` }}
-                title={`${entry.name}: ${entry.completed} of ${entry.committed} SP completed`}
-              />
-            </div>
-            <span className="text-[9px] text-slate-400 dark:text-slate-600 truncate w-full text-center" title={entry.name}>{entry.name}</span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-// ─── Main component ───────────────────────────────────────────────────────────
-export default function PlanningTab() {
+export default function PlanningTab({ onTaskClick, onPokerClick }) {
   const {
     activeTasks,
     setActiveTasks,
@@ -198,112 +42,56 @@ export default function PlanningTab() {
     currentProjectId,
   } = useApp();
   const { canEditTask } = useBoardPermissions();
+  const { addToast } = useToast();
 
-  // ── Local state ──────────────────────────────────────────────────────────────
-  const [goalDraft, setGoalDraft] = useState(sprint?.goal || "");
-  const goalFocusedRef = useRef(false);
-  const [hoveredBacklogId, setHoveredBacklogId] = useState(null);
-  const [hoveredSprintId, setHoveredSprintId] = useState(null);
+  const [poolSelection, setPoolSelection] = useState(() => new Set());
+  const [sprintSelection, setSprintSelection] = useState(() => new Set());
 
   // Capacity belongs to the current project's sprint, so it is persisted via
   // perProjectSprint -> the Firestore "sprints" domain.
-  const capacities = useMemo(
-    () => sprint?.teamCapacities || {},
-    [sprint?.teamCapacities]
-  );
-
-  // ── Sync goal draft when sprint / project changes ────────────────────────────
-  useEffect(() => {
-    if (!goalFocusedRef.current) setGoalDraft(sprint?.goal || "");
-  }, [currentProjectId, sprint?.id, sprint?.goal]);
-
-  const handleGoalBlur = useCallback(() => {
-    goalFocusedRef.current = false;
-    if (!sprint || goalDraft === (sprint.goal || "")) return;
-    updateSprint({ goal: goalDraft });
-  }, [updateSprint, goalDraft, sprint]);
+  const capacities = useMemo(() => sprint?.teamCapacities || {}, [sprint?.teamCapacities]);
 
   // ── Derived data ─────────────────────────────────────────────────────────────
-  // Current project active tasks
   const projectActiveTasks = useMemo(
-    () => activeTasks.filter((t) => !currentProjectId || isInProject(t, currentProjectId)),
+    () => (activeTasks || []).filter((t) => !currentProjectId || isInProject(t, currentProjectId)),
     [activeTasks, currentProjectId]
   );
 
-  // All backlog tasks NOT already in sprint, grouped by section
+  // Backlog tasks NOT already in the sprint, grouped by section.
   const backlogGroups = useMemo(() => {
-    const activeIds = new Set(activeTasks.map((t) => t.id));
+    const activeIds = new Set((activeTasks || []).map((t) => t.id));
     return (backlogSections || []).map((section) => ({
       ...section,
       tasks: (section.tasks || []).filter((t) => !activeIds.has(t.id)),
     }));
   }, [backlogSections, activeTasks]);
 
-  const totalBacklogCount = useMemo(
-    () => backlogGroups.reduce((sum, g) => sum + g.tasks.length, 0),
-    [backlogGroups]
-  );
-
-  // Sprint stats
-  const sprintTotalSP = useMemo(
-    () => sumStoryPoints(projectActiveTasks),
-    [projectActiveTasks]
-  );
+  const committedSP = useMemo(() => sumStoryPoints(projectActiveTasks), [projectActiveTasks]);
 
   // Real velocity: completed story points of the last completed sprints.
   const avgVelocity = useMemo(() => getAverageVelocity(completedSprints || [], 3), [completedSprints]);
-  const velocityHistory = useMemo(() => buildVelocityHistory(completedSprints || [], 5), [completedSprints]);
+  const velocityHistory = useMemo(() => buildVelocityHistory(completedSprints || [], 6), [completedSprints]);
 
-  // Team capacity — filter to current project members only, then normalize to [{id, name}]
-  const memberList = useMemo(() => {
-    const currentProject = projects?.find((p) => p.id === currentProjectId);
-    const memberNames = new Set(currentProject?.memberUsernames || []);
-    const filtered = memberNames.size > 0
-      ? (users || []).filter((u) =>
-          typeof u === "string"
-            ? memberNames.has(u)
-            : memberNames.has(u.username) || memberNames.has(u.id)
-        )
-      : (users || []);
+  const members = useMemo(
+    () => buildPlanningMembers(users, projects?.find((p) => p.id === currentProjectId)),
+    [users, projects, currentProjectId]
+  );
+  const memberLoad = useMemo(
+    () => buildMemberLoad(members, projectActiveTasks, capacities),
+    [members, projectActiveTasks, capacities]
+  );
+  const capacitySP = useMemo(
+    () => memberLoad.rows.reduce((sum, row) => sum + row.capacity, 0),
+    [memberLoad]
+  );
 
-    const seen = new Set();
-    const normalized = filtered
-      .filter((u) => (typeof u === "string" ? true : u?.status !== "deleted"))
-      .map((u) => {
-        if (typeof u === "string") {
-          return {
-            id: u,
-            name: u,
-            uniqueKey: u.toLowerCase(),
-          };
-        }
+  const timing = useMemo(() => getSprintTiming(sprint), [sprint]);
+  const readiness = useMemo(
+    () => getPlanningReadiness({ sprint, tasks: projectActiveTasks, committedSP, capacitySP, avgVelocity }),
+    [sprint, projectActiveTasks, committedSP, capacitySP, avgVelocity]
+  );
 
-        const displayName = u.name || u.username || u.email || u.id;
-        const uniqueKey = String(u.username || u.email || displayName || u.id).toLowerCase();
-
-        return {
-          ...u,
-          id: u.id || uniqueKey,
-          name: displayName,
-          uniqueKey,
-        };
-      })
-      .filter((u) => {
-        if (!u.uniqueKey || seen.has(u.uniqueKey)) return false;
-        seen.add(u.uniqueKey);
-        return true;
-      });
-
-    return normalized.slice(0, MAX_CAPACITY_MEMBERS);
-  }, [users, projects, currentProjectId]);
-
-  const totalCapacitySP = useMemo(() => {
-    return memberList.reduce((sum, u) => {
-      const pct = capacities[u.id] ?? 80;
-      return sum + Math.round(DEFAULT_VELOCITY_PER_PERSON * (pct / 100));
-    }, 0);
-  }, [memberList, capacities]);
-
+  // ── Capacity ─────────────────────────────────────────────────────────────────
   const handleCapacityChange = useCallback((userId, value) => {
     const capacity = Number(value);
     updateSprint((currentSprint) => ({
@@ -316,332 +104,167 @@ export default function PlanningTab() {
 
   const resetCapacities = useCallback(() => {
     const map = {};
-    memberList.forEach((u) => { map[u.id] = 100; });
+    members.forEach((u) => { map[u.id] = 100; });
     updateSprint({ teamCapacities: map });
-  }, [memberList, updateSprint]);
+  }, [members, updateSprint]);
 
-  // ── Actions ──────────────────────────────────────────────────────────────────
-  const addToSprint = useCallback((task, sectionId) => {
-    if (!canEditTask) return;
-    // Remove from backlog section
-    setBacklogSections((prev) =>
-      prev.map((s) =>
-        s.id !== sectionId ? s : { ...s, tasks: s.tasks.filter((t) => t.id !== task.id) }
-      )
-    );
-    // Add to active sprint
-    setActiveTasks((prev) => [
-      ...prev,
-      {
-        ...task,
-        status: task.status || "todo",
-        priority: task.priority || "medium",
-        projectId: currentProjectId,
-      },
-    ]);
-  }, [setBacklogSections, setActiveTasks, currentProjectId, canEditTask]);
+  const handleGoalSave = useCallback((goal) => updateSprint({ goal }), [updateSprint]);
 
-  const removeFromSprint = useCallback((task) => {
-    if (!canEditTask) return;
-    // Remove from active tasks
-    setActiveTasks((prev) => prev.filter((t) => t.id !== task.id));
-    // Add back to the first backlog section — create one if none exists so the
-    // task is never dropped.
-    setBacklogSections((prev) => {
-      if (!prev || prev.length === 0) return [{ id: Date.now(), title: "Backlog", tasks: [task] }];
-      return prev.map((s, i) =>
-        i !== 0 ? s : { ...s, tasks: [...(s.tasks || []), task] }
-      );
+  // ── Moves between backlog and sprint ─────────────────────────────────────────
+  const addTasksToSprint = useCallback((tasks) => {
+    if (!canEditTask || !tasks?.length) return;
+    const ids = new Set(tasks.map((t) => t.id));
+    setBacklogSections((prev) => (prev || []).map((s) => ({
+      ...s,
+      tasks: (s.tasks || []).filter((t) => !ids.has(t.id)),
+    })));
+    setActiveTasks((prev) => {
+      const existing = new Set((prev || []).map((t) => t.id));
+      return [
+        ...(prev || []),
+        ...tasks
+          .filter((task) => !existing.has(task.id))
+          .map((task) => ({
+            ...task,
+            status: task.status || "todo",
+            priority: task.priority || "medium",
+            projectId: currentProjectId,
+          })),
+      ];
     });
-  }, [setActiveTasks, setBacklogSections, canEditTask]);
+    setPoolSelection((prev) => withoutIds(prev, ids));
+    addToast(`Added ${pluralItems(tasks.length)} · ${sumStoryPoints(tasks)} SP to ${sprint?.name || "the sprint"}`, "success");
+  }, [addToast, canEditTask, currentProjectId, setActiveTasks, setBacklogSections, sprint?.name]);
 
-  // ── Sprint date helpers ──────────────────────────────────────────────────────
-  const formatDate = (dateStr) => {
-    if (!dateStr) return "—";
-    try {
-      return new Date(dateStr + "T00:00:00").toLocaleDateString(undefined, {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      });
-    } catch {
-      return dateStr;
+  const removeTasksFromSprint = useCallback((tasks, targetSectionId = null) => {
+    if (!canEditTask || !tasks?.length) return;
+    const ids = new Set(tasks.map((t) => t.id));
+    setActiveTasks((prev) => (prev || []).filter((t) => !ids.has(t.id)));
+    // Return to the chosen (or first) backlog section — create one if none
+    // exists so the task is never dropped.
+    setBacklogSections((prev) => {
+      if (!prev || prev.length === 0) return [{ id: Date.now(), title: "Backlog", tasks: [...tasks] }];
+      const targetIndex = Math.max(0, prev.findIndex((s) => String(s.id) === String(targetSectionId)));
+      return prev.map((s, i) => (
+        i !== targetIndex ? s : { ...s, tasks: [...(s.tasks || []).filter((t) => !ids.has(t.id)), ...tasks] }
+      ));
+    });
+    setSprintSelection((prev) => withoutIds(prev, ids));
+    addToast(`Moved ${pluralItems(tasks.length)} back to the backlog`, "info");
+  }, [addToast, canEditTask, setActiveTasks, setBacklogSections]);
+
+  const moveBetweenSections = useCallback((task, fromId, toId) => {
+    if (!canEditTask || String(fromId) === String(toId)) return;
+    setBacklogSections((prev) => (prev || []).map((s) => {
+      if (String(s.id) === String(fromId)) return { ...s, tasks: (s.tasks || []).filter((t) => t.id !== task.id) };
+      if (String(s.id) === String(toId)) return { ...s, tasks: [...(s.tasks || []), task] };
+      return s;
+    }));
+  }, [canEditTask, setBacklogSections]);
+
+  const addSingle = useCallback((task) => addTasksToSprint([task]), [addTasksToSprint]);
+  const removeSingle = useCallback((task) => removeTasksFromSprint([task]), [removeTasksFromSprint]);
+
+  const handleDragEnd = useCallback((result) => {
+    const { source, destination, draggableId } = result;
+    if (!destination || !canEditTask) return;
+    const fromSprint = source.droppableId === SPRINT_DROPPABLE_ID;
+    const toSprint = destination.droppableId === SPRINT_DROPPABLE_ID;
+    if (fromSprint && toSprint) return;
+
+    if (fromSprint) {
+      const task = projectActiveTasks.find((t) => String(t.id) === draggableId);
+      if (task) removeTasksFromSprint([task], destination.droppableId.slice(POOL_DROPPABLE_PREFIX.length));
+      return;
     }
-  };
+
+    const fromSectionId = source.droppableId.slice(POOL_DROPPABLE_PREFIX.length);
+    const section = backlogGroups.find((g) => String(g.id) === fromSectionId);
+    const task = section?.tasks.find((t) => String(t.id) === draggableId);
+    if (!task) return;
+    if (toSprint) addTasksToSprint([task]);
+    else moveBetweenSections(task, fromSectionId, destination.droppableId.slice(POOL_DROPPABLE_PREFIX.length));
+  }, [addTasksToSprint, backlogGroups, canEditTask, moveBetweenSections, projectActiveTasks, removeTasksFromSprint]);
+
+  const togglePool = useCallback((id) => setPoolSelection((prev) => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  }), []);
+  const toggleSprint = useCallback((id) => setSprintSelection((prev) => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  }), []);
+  const removeSelected = useCallback((tasks) => removeTasksFromSprint(tasks), [removeTasksFromSprint]);
 
   // ─────────────────────────────────────────────────────────────────────────────
   return (
-    <div className="w-full max-w-7xl mx-auto flex flex-col gap-5 px-4 py-4 pb-12 overflow-y-auto">
+    <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-4 px-4 py-4 pb-12">
+      <PlanningHeader
+        sprint={sprint}
+        timing={timing}
+        committedSP={committedSP}
+        capacitySP={capacitySP}
+        avgVelocity={avgVelocity}
+        scopeCount={projectActiveTasks.length}
+        readiness={readiness}
+      />
 
-      {/* ── 1. Top Header ─────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-lg bg-blue-600/20 border border-blue-500/30">
-            <FaRocket className="w-4 h-4 text-blue-400" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-slate-800 dark:text-slate-100 leading-tight">Sprint Planning</h1>
-            <p className="text-xs text-slate-500 mt-0.5">
-              {sprint?.name || "No sprint"}&nbsp;
-              {sprint?.startDate || sprint?.endDate ? (
-                <span>
-                  · {formatDate(sprint.startDate)} → {formatDate(sprint.endDate)}
-                </span>
-              ) : null}
-            </p>
-          </div>
+      {!sprint && (
+        <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300" role="status">
+          <FaInfoCircle className="h-3 w-3 flex-shrink-0" />
+          There is no active sprint for this project. Start one from the board to set a goal and capacity.
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          {avgVelocity !== null ? (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white dark:bg-[#1c2030] border border-slate-200 dark:border-[#2a3044] text-sm font-semibold text-slate-700 dark:text-slate-200">
-              <FaChartBar className="w-3 h-3 text-blue-400" />
-              Avg velocity: <span className="text-blue-500 dark:text-blue-400">{avgVelocity} SP</span>
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white dark:bg-[#1c2030] border border-slate-200 dark:border-[#2a3044] text-xs text-slate-500">
-              <FaChartBar className="w-3 h-3" />
-              Velocity: —
-            </span>
-          )}
-          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white dark:bg-[#1c2030] border border-slate-200 dark:border-[#2a3044] text-xs font-semibold text-slate-600 dark:text-slate-300">
-            {projectActiveTasks.length} tasks · {sprintTotalSP} SP
-          </span>
-        </div>
+      )}
+
+      <SprintGoalCard sprint={sprint} canEdit={canEditTask} onSave={handleGoalSave} resetKey={currentProjectId} />
+
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_320px]">
+        <DragDropContext onDragEnd={handleDragEnd}>
+          <BacklogPoolPanel
+            groups={backlogGroups}
+            canEdit={canEditTask}
+            users={users}
+            selectedIds={poolSelection}
+            onToggleSelect={togglePool}
+            onSetSelection={setPoolSelection}
+            onAddSelected={addTasksToSprint}
+            onAddTask={addSingle}
+            onOpen={onTaskClick}
+            onEstimate={canEditTask ? onPokerClick : undefined}
+          />
+          <SprintScopePanel
+            sprint={sprint}
+            tasks={projectActiveTasks}
+            committedSP={committedSP}
+            capacitySP={capacitySP}
+            avgVelocity={avgVelocity}
+            canEdit={canEditTask}
+            users={users}
+            selectedIds={sprintSelection}
+            onToggleSelect={toggleSprint}
+            onSetSelection={setSprintSelection}
+            onRemoveSelected={removeSelected}
+            onRemoveTask={removeSingle}
+            onOpen={onTaskClick}
+            onEstimate={canEditTask ? onPokerClick : undefined}
+          />
+        </DragDropContext>
+
+        <aside className="grid grid-cols-1 gap-4 lg:col-span-2 lg:grid-cols-3 xl:col-span-1 xl:grid-cols-1" aria-label="Planning insights">
+          <TeamCapacityPanel
+            load={memberLoad}
+            capacitySP={capacitySP}
+            users={users}
+            canEdit={canEditTask}
+            onCapacityChange={handleCapacityChange}
+            onReset={resetCapacities}
+          />
+          <PlanningReadinessCard readiness={readiness} />
+          <VelocityPanel history={velocityHistory} avgVelocity={avgVelocity} committedSP={committedSP} />
+        </aside>
       </div>
-
-      {/* ── 2. Sprint Goal card ────────────────────────────────────────────── */}
-      <div className="rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700/40 p-4">
-        <div className="flex items-center gap-2 mb-2">
-          <FaCheckCircle className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400 flex-shrink-0" />
-          <span className="text-xs font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400">Sprint Goal</span>
-        </div>
-        <textarea
-          className="w-full bg-transparent text-slate-700 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-600 text-sm leading-relaxed resize-none focus:outline-none focus:ring-1 focus:ring-blue-500/50 rounded px-1 min-h-[48px]"
-          placeholder="Define the sprint goal — what value will be delivered by the end of this sprint?"
-          value={goalDraft}
-          onChange={(e) => setGoalDraft(e.target.value)}
-          onFocus={() => { goalFocusedRef.current = true; }}
-          onBlur={handleGoalBlur}
-          disabled={!sprint}
-          rows={2}
-        />
-      </div>
-
-      {/* ── 3. Three-column planning layout ───────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
-
-        {/* ── Left: Backlog Pool ─────────────────────────────────────────── */}
-        <div className="rounded-xl bg-slate-50 dark:bg-[#1a1f2e] border border-slate-200 dark:border-[#252b3b] flex flex-col overflow-hidden">
-          {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-[#252b3b]">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">Backlog Pool</span>
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-[#232838] text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044]">
-                {totalBacklogCount}
-              </span>
-            </div>
-            <FaArrowRight className="w-3 h-3 text-slate-400 dark:text-slate-600" />
-          </div>
-
-          {/* Task list */}
-          <div className="flex-1 overflow-y-auto max-h-[420px] px-3 py-2 space-y-0.5">
-            {totalBacklogCount === 0 ? (
-              <div className="flex flex-col items-center justify-center py-10 text-slate-400 dark:text-slate-600 text-xs text-center gap-2">
-                <FaCheckCircle className="w-5 h-5 text-green-500/60 dark:text-green-700/60" />
-                All backlog tasks are in the sprint
-              </div>
-            ) : (
-              backlogGroups.map((section) => {
-                if (section.tasks.length === 0) return null;
-                return (
-                  <div key={section.id}>
-                    <SectionLabel title={section.title} count={section.tasks.length} />
-                    {section.tasks.map((task) => {
-                      const isHovered = hoveredBacklogId === task.id;
-                      return (
-                        <div
-                          key={task.id}
-                          className="group relative flex items-center gap-2 py-2 px-2 rounded-lg hover:bg-slate-100 dark:hover:bg-[#232838] transition-colors cursor-default"
-                          onMouseEnter={() => setHoveredBacklogId(task.id)}
-                          onMouseLeave={() => setHoveredBacklogId(null)}
-                        >
-                          <TypeDot type={task.type} />
-                          <span className="flex-1 text-xs text-slate-700 dark:text-slate-300 truncate" title={task.title}>
-                            {task.title}
-                          </span>
-                          <div className="flex items-center gap-1 flex-shrink-0">
-                            <SPBadge points={task.storyPoint} />
-                            <PriorityBadge priority={task.priority} />
-                          </div>
-                          {isHovered && canEditTask && (
-                            <button
-                              onClick={() => addToSprint(task, section.id)}
-                              className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white shadow-lg transition-colors"
-                              title="Add to Sprint"
-                            >
-                              <FaArrowRight className="w-2.5 h-2.5" />
-                              Add
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-
-        {/* ── Center: Sprint Backlog ─────────────────────────────────────── */}
-        <div className="rounded-xl bg-white dark:bg-[#1c2030] border border-slate-200 dark:border-[#252b3b] flex flex-col overflow-hidden">
-          {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-[#252b3b]">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">Sprint Backlog</span>
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-[#232838] text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044]">
-                {projectActiveTasks.length} tasks · {sprintTotalSP} SP
-              </span>
-            </div>
-            <FaRocket className="w-3 h-3 text-blue-500" />
-          </div>
-
-          {/* Capacity bar */}
-          <div className="px-4 py-3 border-b border-slate-200 dark:border-[#252b3b]">
-            <CapacityBar totalSP={sprintTotalSP} capacitySP={totalCapacitySP} />
-          </div>
-
-          {/* Task list */}
-          <div className="flex-1 overflow-y-auto max-h-[380px] px-3 py-2 space-y-0.5">
-            {projectActiveTasks.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-10 text-slate-400 dark:text-slate-600 text-xs text-center gap-2">
-                <FaPlus className="w-5 h-5 text-slate-300 dark:text-slate-700" />
-                No tasks in sprint yet
-                <span className="text-slate-400 dark:text-slate-700 text-[10px]">Add tasks from the Backlog Pool →</span>
-              </div>
-            ) : (
-              projectActiveTasks.map((task) => {
-                const isHovered = hoveredSprintId === task.id;
-                return (
-                  <div
-                    key={task.id}
-                    data-testid={`planning-sprint-task-${task.id}`}
-                    className="group relative flex items-center gap-2 py-2 px-2 rounded-lg hover:bg-slate-100 dark:hover:bg-[#232838] transition-colors cursor-default"
-                    onMouseEnter={() => setHoveredSprintId(task.id)}
-                    onMouseLeave={() => setHoveredSprintId(null)}
-                  >
-                    <StatusChip status={task.status} />
-                    <span className="flex-1 text-xs text-slate-700 dark:text-slate-300 truncate" title={task.title}>
-                      {task.title}
-                    </span>
-                    <div className="flex items-center gap-1.5 flex-shrink-0">
-                      <SPBadge points={task.storyPoint} />
-                      {task.assignedTo && task.assignedTo !== "unassigned" && (
-                        <Avatar
-                          name={typeof task.assignedTo === "object" ? task.assignedTo.name : task.assignedTo}
-                          color={typeof task.assignedTo === "string" ? getUserColor(task.assignedTo, users) : undefined}
-                        />
-                      )}
-                    </div>
-                    {isHovered && canEditTask && (
-                      <button
-                        onClick={() => removeFromSprint(task)}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 shadow-lg transition-colors"
-                        title="Remove from Sprint"
-                      >
-                        <FaArrowLeft className="w-2.5 h-2.5" />
-                        Remove
-                      </button>
-                    )}
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-
-        {/* ── Right: Team Capacity ───────────────────────────────────────── */}
-        <div className="rounded-xl bg-slate-50 dark:bg-[#1a1f2e] border border-slate-200 dark:border-[#252b3b] flex flex-col overflow-hidden">
-          {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-[#252b3b]">
-            <div className="flex items-center gap-2">
-              <FaUsers className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
-              <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">Team Capacity</span>
-            </div>
-            <button
-              onClick={resetCapacities}
-              className="text-[10px] font-semibold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors px-2 py-1 rounded hover:bg-slate-100 dark:hover:bg-[#232838]"
-            >
-              Reset to 100%
-            </button>
-          </div>
-
-          {/* Member list */}
-          <div className="flex-1 overflow-y-auto max-h-[380px] px-3 py-2 space-y-3">
-            {memberList.length === 0 ? (
-              <div className="flex items-center justify-center py-8 text-slate-400 dark:text-slate-600 text-xs">
-                No team members found
-              </div>
-            ) : (
-              memberList.map((member) => {
-                const pct = capacities[member.id] ?? 80;
-                const spContrib = Math.round(DEFAULT_VELOCITY_PER_PERSON * (pct / 100));
-                return (
-                  <div key={member.id} className="space-y-1.5 py-1">
-                    <div className="flex items-center gap-2">
-                      <Avatar name={member.name || member.id} color={member.color} size="sm" />
-                      <span className="flex-1 text-xs font-medium text-slate-700 dark:text-slate-300 truncate capitalize">
-                        {member.name || member.id}
-                      </span>
-                      <span className="text-[10px] text-slate-500 font-semibold min-w-[36px] text-right">
-                        {spContrib} SP
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="range"
-                        aria-label={`${member.name || member.id} capacity`}
-                        min={0}
-                        max={100}
-                        step={10}
-                        value={pct}
-                        onChange={(e) => handleCapacityChange(member.id, e.target.value)}
-                        className="flex-1 h-1.5 accent-blue-500 cursor-pointer"
-                      />
-                      <span className="text-[10px] font-bold text-slate-400 w-7 text-right">
-                        {pct}%
-                      </span>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-
-          {/* Total capacity footer */}
-          <div className="px-4 py-3 border-t border-slate-200 dark:border-[#252b3b] flex items-center justify-between">
-            <span className="text-xs text-slate-500">Total capacity</span>
-            <span className="text-sm font-bold text-blue-500 dark:text-blue-400">{totalCapacitySP} SP</span>
-          </div>
-        </div>
-      </div>
-
-      {/* ── 4. Velocity Reference row ──────────────────────────────────────── */}
-      <div className="rounded-xl bg-slate-50 dark:bg-[#1a1f2e] border border-slate-200 dark:border-[#252b3b] p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <FaChartBar className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
-          <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-            Velocity Reference
-          </span>
-          {velocityHistory.length > 0 && (
-            <span className="text-[10px] text-slate-400 dark:text-slate-600 ml-auto">
-              Completed SP · last {velocityHistory.length} sprint{velocityHistory.length !== 1 ? "s" : ""}
-            </span>
-          )}
-        </div>
-        <VelocityChart history={velocityHistory} />
-      </div>
-
     </div>
   );
 }

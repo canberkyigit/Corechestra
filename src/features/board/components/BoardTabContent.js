@@ -120,7 +120,7 @@ export function BoardTabContent({
         {activeTab === "refinement" && <div className="flex-1 overflow-y-auto"><RefinementTab onTaskClick={handleTaskClick} onPokerClick={handlePokerClick} /></div>}
         {activeTab === "review" && <div className="flex-1 overflow-y-auto"><SprintReviewTab onTaskClick={handleTaskClick} /></div>}
         {activeTab === "retrospective" && <div className="flex-1 overflow-y-auto"><RetrospectiveTab /></div>}
-        {activeTab === "planning" && <div className="flex-1 overflow-y-auto"><PlanningTab /></div>}
+        {activeTab === "planning" && <div className="flex-1 overflow-y-auto"><PlanningTab onTaskClick={handleTaskClick} onPokerClick={handlePokerClick} /></div>}
         {activeTab === "allsprints" && (
           <div className="flex-1 overflow-y-auto">
             <AllSprintsTab onNavigate={(tab, sectionId) => { if (sectionId) setBacklogFocusSectionId(sectionId); setActiveTab(tab); }} />
