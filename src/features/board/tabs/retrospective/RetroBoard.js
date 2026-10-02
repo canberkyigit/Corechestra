@@ -97,7 +97,7 @@ export default function RetroBoard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-4 items-start">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 items-start">
         {COLUMNS.map((col) => {
           const columnItems = items[col.key] || [];
           return (

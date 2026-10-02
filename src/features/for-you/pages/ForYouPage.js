@@ -6,6 +6,7 @@ import { usePermissions } from "../../../shared/context/hooks/usePermissions";
 import { ForYouSkeleton } from "../../../shared/components/Skeleton";
 import { requestNavigate, requestOpenTask } from "../../../shared/components/appNavigation";
 import { buildUniversalTimeline } from "../../../shared/utils/universalTimeline";
+import { formatDueRelative, formatDueShort } from "../../../shared/utils/dueDate";
 import { taskKey } from "../../../shared/utils/helpers";
 import { TASK_STATUS_BADGE_STYLES, TASK_TYPE_ICON_META } from "../../../shared/constants/taskMeta";
 import {
@@ -22,6 +23,18 @@ export function parseLocalDueDate(value) {
   if (!value) return null;
   const parsed = parseISO(String(value));
   return isValid(parsed) ? parsed : null;
+}
+
+/** Open tasks whose due date is before today (local), most overdue first. */
+export function selectOverdueTasks(tasks, now = new Date(), limit = 5) {
+  const start = startOfDay(now);
+  return (tasks || [])
+    .filter((task) => task.status !== "done")
+    .map((task) => ({ task, due: parseLocalDueDate(task.dueDate) }))
+    .filter(({ due }) => due && due < start)
+    .sort((left, right) => left.due - right.due)
+    .slice(0, limit)
+    .map(({ task }) => task);
 }
 
 /** Tasks due today (local) through the next 7 days, soonest first. */
@@ -48,6 +61,34 @@ function relativeTime(isoStr) {
   const days = Math.floor(hrs / 24);
   if (days === 1) return "Yesterday";
   return `${days}d ago`;
+}
+
+function friendlyDue(dueDate) {
+  const label = formatDueRelative(dueDate);
+  return /^(Today|Tomorrow|Yesterday)$/.test(label) ? label.toLowerCase() : label;
+}
+
+function DueTaskButton({ task, overdue = false }) {
+  return (
+    <button
+      type="button"
+      onClick={() => requestOpenTask(task)}
+      title={formatDueShort(task.dueDate)}
+      className={`w-full text-left flex items-center gap-3 rounded-xl px-3 py-2 transition-colors ${
+        overdue
+          ? "bg-red-50 dark:bg-red-900/15 hover:bg-red-100 dark:hover:bg-red-900/25"
+          : "bg-slate-50 dark:bg-[#232838] hover:bg-slate-100 dark:hover:bg-[#2a3044]"
+      }`}
+    >
+      <FaCheckSquare className={`w-3.5 h-3.5 flex-shrink-0 ${overdue ? "text-red-500" : "text-blue-500"}`} />
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">{task.title}</p>
+        <p className={`text-xs ${overdue ? "text-red-600 dark:text-red-400" : "text-slate-500 dark:text-slate-400"}`}>
+          {taskKey(task.id)} · {overdue ? "was due" : "due"} {friendlyDue(task.dueDate)}
+        </p>
+      </div>
+    </button>
+  );
 }
 
 export default function ForYouPage() {
@@ -108,6 +149,7 @@ export default function ForYouPage() {
   const inProgressTasks = assignedTasks.filter((t) => t.status === "inprogress");
 
   const dueSoonTasks = useMemo(() => selectDueSoonTasks(assignedTasks), [assignedTasks]);
+  const overdueTasks = useMemo(() => selectOverdueTasks(assignedTasks), [assignedTasks]);
 
   const universalTimeline = useMemo(() => buildUniversalTimeline({
     currentUser,
@@ -247,7 +289,7 @@ export default function ForYouPage() {
           </section>
         )}
 
-        {(dueSoonTasks.length > 0 || mentionItems.length > 0) && (
+        {(dueSoonTasks.length > 0 || overdueTasks.length > 0 || mentionItems.length > 0) && (
           <section className="grid gap-4 md:grid-cols-2">
             <div className="rounded-2xl border border-slate-200 dark:border-[#252b3b] bg-white dark:bg-[#1c2030] p-4">
               <div className="flex items-center gap-2 mb-3">
@@ -256,27 +298,37 @@ export default function ForYouPage() {
                 </div>
                 <div>
                   <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Due Soon</h2>
-                  <p className="text-xs text-slate-400 dark:text-slate-500">Tasks due in the next 7 days</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Overdue work and tasks due in the next 7 days</p>
                 </div>
               </div>
-              {dueSoonTasks.length === 0 ? (
-                <p className="text-xs text-slate-400 dark:text-slate-500">Nothing urgent on your plate.</p>
+              {dueSoonTasks.length === 0 && overdueTasks.length === 0 ? (
+                <p className="text-xs text-slate-500 dark:text-slate-400">Nothing urgent on your plate.</p>
               ) : (
-                <div className="space-y-2">
-                  {dueSoonTasks.map((task) => (
-                    <button
-                      type="button"
-                      key={task.id}
-                      onClick={() => requestOpenTask(task)}
-                      className="w-full text-left flex items-center gap-3 rounded-xl bg-slate-50 dark:bg-[#232838] px-3 py-2 hover:bg-slate-100 dark:hover:bg-[#2a3044] transition-colors"
-                    >
-                      <FaCheckSquare className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">{task.title}</p>
-                        <p className="text-xs text-slate-400 dark:text-slate-500">{taskKey(task.id)} · due {task.dueDate}</p>
+                <div className="space-y-3">
+                  {overdueTasks.length > 0 && (
+                    <div data-testid="for-you-overdue">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-red-600 dark:text-red-400 mb-1.5">
+                        Overdue · {overdueTasks.length}
+                      </p>
+                      <div className="space-y-2">
+                        {overdueTasks.map((task) => (
+                          <DueTaskButton key={task.id} task={task} overdue />
+                        ))}
                       </div>
-                    </button>
-                  ))}
+                    </div>
+                  )}
+                  {dueSoonTasks.length > 0 && (
+                    <div>
+                      {overdueTasks.length > 0 && (
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1.5">Upcoming</p>
+                      )}
+                      <div className="space-y-2">
+                        {dueSoonTasks.map((task) => (
+                          <DueTaskButton key={task.id} task={task} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

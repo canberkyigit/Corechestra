@@ -613,7 +613,7 @@ export default function ReportsPage() {
             <BurndownChart tasks={allProjectTasks} sprint={sprint} burndownSnapshots={burndownSnapshots} />
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-white dark:bg-[#1c2030] rounded-xl border border-slate-200 dark:border-[#2a3044] p-5 shadow-sm text-center">
               <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Total Points</p>
               <p className="text-3xl font-bold text-slate-700 dark:text-slate-200">{totalPoints}</p>

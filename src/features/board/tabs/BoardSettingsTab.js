@@ -221,7 +221,7 @@ export default function BoardSettingsTab() {
         <div className="flex items-center gap-3 mb-5">
           <h2 className="text-lg font-bold text-slate-800 dark:text-slate-200">Board Columns</h2>
         </div>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {(columns || []).map((col) => {
             const count = projectActiveTasks.filter((t) => t.status === col.id).length;
             return (
@@ -270,7 +270,7 @@ export default function BoardSettingsTab() {
       {/* Board Stats */}
       <div className="bg-white dark:bg-[#1c2030] rounded-xl border border-slate-200 dark:border-[#2a3044] shadow-sm p-6">
         <h2 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-4">Board Statistics</h2>
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
             { label: "Total Tasks", value: totalTasks, color: "blue" },
             { label: "Active Sprint", value: projectActiveTasks.length, color: "purple" },

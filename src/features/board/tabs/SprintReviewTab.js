@@ -145,7 +145,7 @@ export default function SprintReviewTab({ onTaskClick }) {
         </div>
 
         {/* Stats row */}
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {[
             { label: "Total Tasks", value: projectTasks.length, color: "text-slate-700 dark:text-slate-200", bg: "bg-slate-50 dark:bg-[#232838] border-slate-200 dark:border-[#2a3044]" },
             { label: "Completed",   value: doneTasks.length,   color: "text-green-600 dark:text-green-400", bg: "bg-green-50 dark:bg-green-900/10 border-green-100 dark:border-green-900/30" },

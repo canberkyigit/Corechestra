@@ -14,6 +14,7 @@ import { AppButton, AppEmptyState } from "../../../shared/components/AppPrimitiv
 import { usePermissions } from "../../../shared/context/hooks/usePermissions";
 import { requiresConfirmation } from "../../../shared/constants/permissions";
 import { useConfirm } from "../../../shared/context/ConfirmContext";
+import { PanelSkeleton } from "../../../shared/components/Skeleton";
 import { useToast } from "../../../shared/context/ToastContext";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -484,7 +485,7 @@ export default function AdminPage() {
     teams, createTeam, updateTeam, deleteTeam,
     projects, createProject, updateProject, deleteProject,
     users, deletedUserIds, createUser, updateUser, deleteUser,
-    workspaceSettings,
+    workspaceSettings, dbReady,
   } = useApp();
 
   const { user: authUser } = useAuth();
@@ -515,6 +516,15 @@ export default function AdminPage() {
     ...(canPerform("workspace:manage") ? [{ id: "workspace", label: "Workspace", icon: FaCog }] : []),
     ...(canPerform("audit:view") ? [{ id: "audit", label: "Audit", icon: FaStream }] : []),
   ];
+
+  // Avoid flashing "No teams yet" / zero stats before the workspace loads.
+  if (dbReady === false) {
+    return (
+      <div className="h-full overflow-y-auto p-4 md:p-6 max-w-6xl mx-auto">
+        <PanelSkeleton testId="admin-skeleton" />
+      </div>
+    );
+  }
 
   return (
     <div className="h-full overflow-y-auto p-4 md:p-6 max-w-6xl mx-auto">

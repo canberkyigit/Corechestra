@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { FaCalendarAlt, FaClock, FaDollarSign, FaFileAlt, FaFolder, FaHome, FaSitemap, FaUserCircle, FaUserFriends, FaUserTie } from "react-icons/fa";
 import { useAuth } from "../../../shared/context/AuthContext";
 import { useApp } from "../../../shared/context/AppContext";
+import { useHR } from "../../../shared/context/HRContext";
+import { PanelSkeleton } from "../../../shared/components/Skeleton";
 import { HRTabNav } from "../components/HRTabNav";
 import { useHrUsers } from "../hooks/useHrUsers";
 import { ContractTab } from "../tabs/ContractTab";
@@ -32,6 +34,7 @@ export default function HRPage() {
   const [activeTab, setActiveTab] = useState("overview");
   const { user, profile } = useAuth();
   const { users: rawUsers } = useApp();
+  const hrLoading = Boolean(useHR()?.loading);
 
   const { users, userName, userEmail } = useHrUsers({
     rawUsers,
@@ -44,17 +47,18 @@ export default function HRPage() {
       <HRTabNav tabs={TABS} activeTab={activeTab} setActiveTab={setActiveTab} />
 
       <div className="flex-1 overflow-auto">
-        <div className="px-6 py-6 max-w-7xl mx-auto">
-          {activeTab === "overview" && <OverviewTab userName={userName} setActiveTab={setActiveTab} />}
-          {activeTab === "people" && <PeopleTab employees={users || []} currentUserId={user?.uid} />}
-          {activeTab === "orgchart" && <OrgChartTab users={users || []} currentUserId={user?.uid} />}
-          {activeTab === "profile" && <MyProfileTab userName={userName} userEmail={userEmail} setActiveTab={setActiveTab} />}
-          {activeTab === "contract" && <ContractTab userName={userName} setActiveTab={setActiveTab} />}
-          {activeTab === "timetracking" && <TimeTrackingTab />}
-          {activeTab === "timeoff" && <TimeOffTab />}
-          {activeTab === "documents" && <DocumentsTab />}
-          {activeTab === "finance" && <FinanceTab userName={userName} setActiveTab={setActiveTab} />}
-          {activeTab === "interview" && <InterviewTab />}
+        <div className="px-4 sm:px-6 py-6 max-w-7xl mx-auto">
+          {hrLoading && <PanelSkeleton testId="hr-skeleton" />}
+          {!hrLoading && activeTab === "overview" && <OverviewTab userName={userName} setActiveTab={setActiveTab} />}
+          {!hrLoading && activeTab === "people" && <PeopleTab employees={users || []} currentUserId={user?.uid} />}
+          {!hrLoading && activeTab === "orgchart" && <OrgChartTab users={users || []} currentUserId={user?.uid} />}
+          {!hrLoading && activeTab === "profile" && <MyProfileTab userName={userName} userEmail={userEmail} setActiveTab={setActiveTab} />}
+          {!hrLoading && activeTab === "contract" && <ContractTab userName={userName} setActiveTab={setActiveTab} />}
+          {!hrLoading && activeTab === "timetracking" && <TimeTrackingTab />}
+          {!hrLoading && activeTab === "timeoff" && <TimeOffTab />}
+          {!hrLoading && activeTab === "documents" && <DocumentsTab />}
+          {!hrLoading && activeTab === "finance" && <FinanceTab userName={userName} setActiveTab={setActiveTab} />}
+          {!hrLoading && activeTab === "interview" && <InterviewTab />}
         </div>
       </div>
     </div>
