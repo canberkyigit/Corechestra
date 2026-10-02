@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { FaRocket, FaPlus, FaEdit, FaTrash, FaCheck } from "react-icons/fa";
 import { useApp } from "../../../shared/context/AppContext";
+import { useToast } from "../../../shared/context/ToastContext";
 import { useBoardPermissions } from "../hooks/useBoardPermissions";
 import { isInProject } from "../../../shared/utils/helpers";
 
@@ -87,6 +88,7 @@ function EpicForm({ initial = {}, onSave, onCancel }) {
 
 export default function EpicsTab() {
   const { epics, createEpic, updateEpic, deleteEpic, activeTasks, backlogSections, currentProjectId } = useApp();
+  const { addToast } = useToast();
   const { canEditTask } = useBoardPermissions();
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -201,6 +203,7 @@ export default function EpicsTab() {
                           className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
                           onClick={() => setConfirmDelete(epic.id)}
                           title="Delete"
+                          aria-label={`Delete epic ${epic.title}`}
                         >
                           <FaTrash className="w-3.5 h-3.5" />
                         </button>
@@ -218,7 +221,7 @@ export default function EpicsTab() {
                       <button
                         type="button"
                         className="px-3 py-1 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700"
-                        onClick={() => { deleteEpic(epic.id); setConfirmDelete(null); }}
+                        onClick={() => { deleteEpic(epic.id); setConfirmDelete(null); addToast(`Epic "${epic.title}" deleted`, "info"); }}
                       >
                         Delete
                       </button>

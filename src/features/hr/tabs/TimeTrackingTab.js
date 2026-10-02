@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
-import { FaCheckCircle, FaChevronLeft, FaChevronRight, FaSyncAlt, FaTimes, FaUmbrellaBeach } from "react-icons/fa";
+import { FaCheckCircle, FaChevronLeft, FaChevronRight, FaSyncAlt, FaUmbrellaBeach } from "react-icons/fa";
 import { useHR } from "../../../shared/context/HRContext";
 import { useToast } from "../../../shared/context/ToastContext";
 import { Badge, Card } from "../components/HRSharedUI";
+import { HRModal, hrPrimaryButton, hrSecondaryButton } from "../components/HRModal";
 import { toLocalIsoDate } from "../utils/dates";
 import { getStandardDailyHours } from "../utils/contract";
 
@@ -54,16 +54,29 @@ function SubmitHoursModal({ open, onClose, prefillDate, existingEntry, dailyHour
   const [breakMinutes, setBreakMinutes] = useState(60);
   const [leaveHours, setLeaveHours] = useState(dailyHours);
   const [saving, setSaving] = useState(false);
+  const [initialValues, setInitialValues] = useState(null);
 
   useEffect(() => {
     if (!open) return;
-    setDate(existingEntry?.date || prefillDate || toLocalIsoDate());
-    setType(existingEntry?.type || "work");
-    setStartTime(existingEntry?.startTime || "09:00");
-    setEndTime(existingEntry?.endTime || "18:00");
-    setBreakMinutes(existingEntry?.breakMinutes ?? 60);
-    setLeaveHours(existingEntry && existingEntry.type !== "work" ? existingEntry.hours ?? dailyHours : dailyHours);
+    const next = {
+      date: existingEntry?.date || prefillDate || toLocalIsoDate(),
+      type: existingEntry?.type || "work",
+      startTime: existingEntry?.startTime || "09:00",
+      endTime: existingEntry?.endTime || "18:00",
+      breakMinutes: existingEntry?.breakMinutes ?? 60,
+      leaveHours: existingEntry && existingEntry.type !== "work" ? existingEntry.hours ?? dailyHours : dailyHours,
+    };
+    setDate(next.date);
+    setType(next.type);
+    setStartTime(next.startTime);
+    setEndTime(next.endTime);
+    setBreakMinutes(next.breakMinutes);
+    setLeaveHours(next.leaveHours);
+    setInitialValues(next);
   }, [dailyHours, existingEntry, open, prefillDate]);
+
+  const current = { date, type, startTime, endTime, breakMinutes, leaveHours };
+  const dirty = Boolean(initialValues) && Object.keys(current).some((key) => String(current[key] ?? "") !== String(initialValues[key] ?? ""));
 
   const totalHours = useMemo(() => computeWorkHours(startTime, endTime, breakMinutes), [startTime, endTime, breakMinutes]);
   const invalidWork = type === "work" && totalHours <= 0;
@@ -100,81 +113,74 @@ function SubmitHoursModal({ open, onClose, prefillDate, existingEntry, dailyHour
   const inputClassName = "w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#232838] text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500";
 
   return (
-    <AnimatePresence>
-      {open && (
+    <HRModal
+      open={open}
+      onClose={onClose}
+      title={existingEntry ? "Update hours" : "Submit hours"}
+      size="md"
+      dirty={dirty}
+      footer={(
         <>
-          <motion.div key="bd" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-          <motion.div key="md" initial={{ opacity: 0, scale: 0.95, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 16 }} transition={{ duration: 0.2 }} className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
-            <div role="dialog" aria-modal="true" aria-label="Submit hours" className="pointer-events-auto w-full max-w-md bg-white dark:bg-[#1a1f2e] rounded-2xl shadow-2xl border border-slate-200 dark:border-[#2a3044]" onClick={(event) => event.stopPropagation()}>
-              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-[#2a3044]">
-                <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">{existingEntry ? "Update hours" : "Submit hours"}</h2>
-                <button onClick={onClose} aria-label="Close" className="w-7 h-7 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#232838] transition-colors">
-                  <FaTimes className="w-3.5 h-3.5" />
-                </button>
-              </div>
-              <div className="px-5 py-4 space-y-3">
-                {existingEntry?.status === "rejected" && (
-                  <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 text-xs text-red-700 dark:text-red-300">
-                    Rejected{existingEntry.resolvedByName ? ` by ${existingEntry.resolvedByName}` : ""}{existingEntry.decisionNote ? `: ${existingEntry.decisionNote}` : ""}. Update and resubmit.
-                  </div>
-                )}
-                <div>
-                  <label htmlFor="time-entry-date" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Date</label>
-                  <input id="time-entry-date" type="date" value={date} disabled={!!existingEntry} onChange={(event) => setDate(event.target.value)} className={inputClassName + " disabled:opacity-60 [color-scheme:light] dark:[color-scheme:dark]"} />
-                </div>
-                <div>
-                  <label htmlFor="time-entry-type" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Type</label>
-                  <select id="time-entry-type" value={type} onChange={(event) => setType(event.target.value)} className={inputClassName}>
-                    {ENTRY_TYPES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                  </select>
-                </div>
-                {type === "work" ? (
-                  <>
-                    <div className="grid grid-cols-3 gap-3">
-                      <div>
-                        <label htmlFor="time-entry-start" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Start time</label>
-                        <input id="time-entry-start" type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} className={inputClassName} />
-                      </div>
-                      <div>
-                        <label htmlFor="time-entry-end" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">End time</label>
-                        <input id="time-entry-end" type="time" value={endTime} onChange={(event) => setEndTime(event.target.value)} className={inputClassName} />
-                      </div>
-                      <div>
-                        <label htmlFor="time-entry-break" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Break (min)</label>
-                        <input id="time-entry-break" type="number" min={0} max={480} value={breakMinutes} onChange={(event) => setBreakMinutes(event.target.value)} className={inputClassName} />
-                      </div>
-                    </div>
-                    <div className={`flex items-center justify-between p-3 rounded-lg ${invalidWork ? "bg-red-50 dark:bg-red-900/10" : "bg-slate-50 dark:bg-[#232838]"}`}>
-                      <span className="text-xs text-slate-500 dark:text-slate-400">{invalidWork ? "End time must be after start time plus break" : "Total hours"}</span>
-                      <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">{totalHours}h</span>
-                    </div>
-                  </>
-                ) : (
-                  <div>
-                    <label htmlFor="time-entry-leave-hours" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Hours credited</label>
-                    <input id="time-entry-leave-hours" type="number" min={0} max={24} step={0.5} value={leaveHours} onChange={(event) => setLeaveHours(event.target.value)} className={inputClassName} />
-                    <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
-                      Defaults to your standard working day ({dailyHours}h). Use a lower value for a partial day. Leave hours are tracked separately from hours worked.
-                    </p>
-                  </div>
-                )}
-              </div>
-              <div className="px-5 py-4 border-t border-slate-200 dark:border-[#2a3044] flex justify-end gap-2">
-                {existingEntry?.id && existingEntry.status !== "approved" && (
-                  <button onClick={handleWithdraw} disabled={saving} className="mr-auto px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-lg transition-colors disabled:opacity-50">
-                    Withdraw
-                  </button>
-                )}
-                <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">Cancel</button>
-                <button onClick={handleSave} disabled={!date || saving || invalidWork || invalidLeave} className="px-5 py-2 text-sm bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg transition-colors font-medium">
-                  {saving ? "Saving..." : existingEntry ? "Resubmit" : "Submit"}
-                </button>
-              </div>
-            </div>
-          </motion.div>
+          {existingEntry?.id && existingEntry.status !== "approved" && (
+            <button type="button" onClick={handleWithdraw} disabled={saving} className="mr-auto px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-lg transition-colors disabled:opacity-50">
+              Withdraw
+            </button>
+          )}
+          <button type="button" onClick={onClose} className={hrSecondaryButton}>Cancel</button>
+          <button type="submit" form="submit-hours-form" disabled={!date || saving || invalidWork || invalidLeave} className={hrPrimaryButton}>
+            {saving ? "Saving..." : existingEntry ? "Resubmit" : "Submit"}
+          </button>
         </>
       )}
-    </AnimatePresence>
+    >
+      <form id="submit-hours-form" onSubmit={(event) => { event.preventDefault(); handleSave(); }} className="space-y-3">
+        {existingEntry?.status === "rejected" && (
+          <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 text-xs text-red-700 dark:text-red-300">
+            Rejected{existingEntry.resolvedByName ? ` by ${existingEntry.resolvedByName}` : ""}{existingEntry.decisionNote ? `: ${existingEntry.decisionNote}` : ""}. Update and resubmit.
+          </div>
+        )}
+        <div>
+          <label htmlFor="time-entry-date" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Date</label>
+          <input id="time-entry-date" type="date" value={date} disabled={!!existingEntry} onChange={(event) => setDate(event.target.value)} className={inputClassName + " disabled:opacity-60 [color-scheme:light] dark:[color-scheme:dark]"} />
+        </div>
+        <div>
+          <label htmlFor="time-entry-type" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Type</label>
+          <select id="time-entry-type" value={type} onChange={(event) => setType(event.target.value)} className={inputClassName}>
+            {ENTRY_TYPES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </select>
+        </div>
+        {type === "work" ? (
+          <>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label htmlFor="time-entry-start" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Start time</label>
+                <input id="time-entry-start" type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} className={inputClassName} />
+              </div>
+              <div>
+                <label htmlFor="time-entry-end" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">End time</label>
+                <input id="time-entry-end" type="time" value={endTime} onChange={(event) => setEndTime(event.target.value)} className={inputClassName} />
+              </div>
+              <div>
+                <label htmlFor="time-entry-break" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Break (min)</label>
+                <input id="time-entry-break" type="number" min={0} max={480} value={breakMinutes} onChange={(event) => setBreakMinutes(event.target.value)} className={inputClassName} />
+              </div>
+            </div>
+            <div className={`flex items-center justify-between p-3 rounded-lg ${invalidWork ? "bg-red-50 dark:bg-red-900/10" : "bg-slate-50 dark:bg-[#232838]"}`}>
+              <span className="text-xs text-slate-500 dark:text-slate-400">{invalidWork ? "End time must be after start time plus break" : "Total hours"}</span>
+              <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">{totalHours}h</span>
+            </div>
+          </>
+        ) : (
+          <div>
+            <label htmlFor="time-entry-leave-hours" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Hours credited</label>
+            <input id="time-entry-leave-hours" type="number" min={0} max={24} step={0.5} value={leaveHours} onChange={(event) => setLeaveHours(event.target.value)} className={inputClassName} />
+            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
+              Defaults to your standard working day ({dailyHours}h). Use a lower value for a partial day. Leave hours are tracked separately from hours worked.
+            </p>
+          </div>
+        )}
+      </form>
+    </HRModal>
   );
 }
 

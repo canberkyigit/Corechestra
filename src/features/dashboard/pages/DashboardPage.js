@@ -8,9 +8,10 @@ import { format, parseISO, isValid, differenceInDays } from "date-fns";
 import { isOverdue } from "../../../shared/utils/dueDate";
 import {
   FaRocket, FaCheckCircle, FaHourglass, FaBolt, FaUserAlt,
-  FaHistory, FaFlag, FaTimes,
+  FaHistory, FaFlag,
 } from "react-icons/fa";
 import { usePermissions } from "../../../shared/context/hooks/usePermissions";
+import { Modal } from "../../../shared/ui/Modal";
 import { WorkspaceSetupChecklist } from "../../../shared/components/WorkspaceSetupChecklist";
 import { buildWorkspaceSetupState } from "../../../shared/utils/workspaceSetup";
 import { isInProject } from "../../../shared/utils/helpers";
@@ -123,45 +124,32 @@ function SprintProgressBar({ done, total }) {
   );
 }
 
-function TaskDrillModal({ title, tasks, onClose, onOpenTask }) {
+function TaskDrillModal({ open, title, tasks, onClose, onOpenTask }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div
-        className="bg-white dark:bg-[#1c2030] rounded-2xl shadow-2xl border border-slate-200 dark:border-[#2a3044] w-full max-w-lg mx-4 max-h-[80vh] flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-[#232838]">
-          <h3 className="font-semibold text-slate-800 dark:text-slate-200">{title}</h3>
-          <button onClick={onClose} className="p-1 rounded text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#232838]">
-            <FaTimes className="w-4 h-4" />
-          </button>
-        </div>
-        <div className="overflow-y-auto flex-1 p-4 space-y-2">
-          {tasks.length === 0 ? (
-            <p className="text-center text-slate-400 dark:text-slate-500 py-8">No tasks</p>
-          ) : tasks.map((t) => (
-            <button
-              type="button"
-              key={t.id}
-              onClick={() => onOpenTask?.(t)}
-              className="w-full text-left flex items-start gap-3 p-3 rounded-lg bg-slate-50 dark:bg-[#141720] border border-slate-100 dark:border-[#232838] hover:border-blue-300 dark:hover:border-blue-700 transition-colors"
-            >
-              <div className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${
-                t.priority === "critical" ? "bg-red-500" :
-                t.priority === "high" ? "bg-orange-400" :
-                t.priority === "medium" ? "bg-yellow-400" : "bg-green-400"
-              }`} />
-              <div className="min-w-0 flex-1">
-                <div className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">{t.title}</div>
-                <div className="text-xs text-slate-400 dark:text-slate-500 capitalize mt-0.5">
-                  {TASK_STATUS_SHORT_LABELS[t.status] || t.status} · {t.assignedTo || "unassigned"}
-                </div>
-              </div>
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
+    <Modal open={open} onClose={onClose} title={title} size="lg" bodyClassName="p-4 space-y-2" testId="dashboard-drill-modal">
+      {tasks.length === 0 ? (
+        <p className="text-center text-slate-400 dark:text-slate-500 py-8">No tasks</p>
+      ) : tasks.map((t) => (
+        <button
+          type="button"
+          key={t.id}
+          onClick={() => onOpenTask?.(t)}
+          className="w-full text-left flex items-start gap-3 p-3 rounded-lg bg-slate-50 dark:bg-[#141720] border border-slate-100 dark:border-[#232838] hover:border-blue-300 dark:hover:border-blue-700 transition-colors"
+        >
+          <div className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${
+            t.priority === "critical" ? "bg-red-500" :
+            t.priority === "high" ? "bg-orange-400" :
+            t.priority === "medium" ? "bg-yellow-400" : "bg-green-400"
+          }`} />
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">{t.title}</div>
+            <div className="text-xs text-slate-400 dark:text-slate-500 capitalize mt-0.5">
+              {TASK_STATUS_SHORT_LABELS[t.status] || t.status} · {t.assignedTo || "unassigned"}
+            </div>
+          </div>
+        </button>
+      ))}
+    </Modal>
   );
 }
 
@@ -419,6 +407,7 @@ export default function DashboardPage() {
       {/* Drill-down modal */}
       {drillModal && (
         <TaskDrillModal
+          open
           title={drillModal.title}
           tasks={drillModal.tasks}
           onClose={() => setDrillModal(null)}

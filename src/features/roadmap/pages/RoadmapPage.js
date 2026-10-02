@@ -12,6 +12,7 @@ import {
   FaSearchPlus, FaSearchMinus, FaCalendarAlt, FaEdit,
 } from "react-icons/fa";
 import { isInProject } from "../../../shared/utils/helpers";
+import { Modal } from "../../../shared/ui/Modal";
 
 // ─── Zoom levels: label → px per day ─────────────────────────────────────────
 const ZOOM_LEVELS = [
@@ -171,6 +172,8 @@ export default function RoadmapPage() {
     return map;
   }, [projectTaskIndex]);
   const editDatesInvalid = Boolean(editStart && editEnd && editEnd < editStart);
+  const editingEpic = editId ? projectEpics.find((e) => e.id === editId) : null;
+  const editDatesDirty = Boolean(editingEpic) && (editStart !== (editingEpic.startDate || "") || editEnd !== (editingEpic.endDate || ""));
 
   const { start: rangeStart } = useMemo(
     () => getDateRange(projectEpics, sprint),
@@ -503,55 +506,67 @@ export default function RoadmapPage() {
       </div>
 
       {/* ── Date editor modal ────────────────────────────────────────────────── */}
-      {editId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setEditId(null)}>
-          <div
-            className="bg-white dark:bg-[#1c2030] rounded-xl shadow-xl p-5 w-80 space-y-3 border border-slate-200 dark:border-[#2a3044]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
-              <FaEdit className="w-3.5 h-3.5 text-blue-500" /> Set Epic Dates
-            </h3>
-            <div>
-              <label className="text-xs text-slate-500 dark:text-slate-400 mb-1 block font-medium">Start Date</label>
-              <input
-                type="date"
-                className="w-full border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#141720] text-slate-700 dark:text-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-                value={editStart}
-                onChange={(e) => setEditStart(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="text-xs text-slate-500 dark:text-slate-400 mb-1 block font-medium">End Date</label>
-              <input
-                type="date"
-                className="w-full border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#141720] text-slate-700 dark:text-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-                value={editEnd}
-                onChange={(e) => setEditEnd(e.target.value)}
-                min={editStart || undefined}
-              />
-              {editDatesInvalid && (
-                <p className="mt-1 text-xs text-red-500">End date must be on or after the start date.</p>
-              )}
-            </div>
-            <div className="flex gap-2 pt-1">
-              <button
-                className="flex-1 px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                onClick={handleEditSave}
-                disabled={editDatesInvalid}
-              >
-                Save
-              </button>
-              <button
-                className="flex-1 px-3 py-2 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] text-sm transition-colors"
-                onClick={() => setEditId(null)}
-              >
-                Cancel
-              </button>
-            </div>
+      <Modal
+        open={Boolean(editId)}
+        onClose={() => setEditId(null)}
+        title="Set Epic Dates"
+        subtitle={editingEpic?.title}
+        icon={<FaEdit className="w-3.5 h-3.5 text-blue-500" />}
+        size="sm"
+        confirmClose={editDatesDirty}
+        closeOnBackdrop={!editDatesDirty}
+        testId="roadmap-date-editor"
+        footer={(
+          <>
+            <button
+              type="button"
+              className="px-4 py-2 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] text-sm transition-colors"
+              onClick={() => setEditId(null)}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              form="roadmap-epic-dates-form"
+              className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              disabled={editDatesInvalid}
+            >
+              Save
+            </button>
+          </>
+        )}
+      >
+        <form
+          id="roadmap-epic-dates-form"
+          className="space-y-3"
+          onSubmit={(e) => { e.preventDefault(); handleEditSave(); }}
+        >
+          <div>
+            <label htmlFor="roadmap-epic-start" className="text-xs text-slate-500 dark:text-slate-400 mb-1 block font-medium">Start Date</label>
+            <input
+              id="roadmap-epic-start"
+              type="date"
+              className="w-full border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#141720] text-slate-700 dark:text-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 [color-scheme:light] dark:[color-scheme:dark]"
+              value={editStart}
+              onChange={(e) => setEditStart(e.target.value)}
+            />
           </div>
-        </div>
-      )}
+          <div>
+            <label htmlFor="roadmap-epic-end" className="text-xs text-slate-500 dark:text-slate-400 mb-1 block font-medium">End Date</label>
+            <input
+              id="roadmap-epic-end"
+              type="date"
+              className="w-full border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#141720] text-slate-700 dark:text-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 [color-scheme:light] dark:[color-scheme:dark]"
+              value={editEnd}
+              onChange={(e) => setEditEnd(e.target.value)}
+              min={editStart || undefined}
+            />
+            {editDatesInvalid && (
+              <p className="mt-1 text-xs text-red-500">End date must be on or after the start date.</p>
+            )}
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }
