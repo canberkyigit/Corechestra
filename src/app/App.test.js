@@ -69,6 +69,14 @@ jest.mock("../shared/context/HRContext", () => ({
   HRProvider: ({ children }) => <>{children}</>,
 }));
 
+jest.mock("../shared/context/ChatContext", () => ({
+  ChatProvider: ({ children }) => <>{children}</>,
+}));
+
+jest.mock("../features/chat/components/ChatIncomingToasts", () => () => null);
+jest.mock("../features/chat/huddle/HuddleContext", () => ({ HuddleProvider: ({ children }) => <>{children}</> }));
+jest.mock("../features/chat/huddle/HuddleWindow", () => () => null);
+
 jest.mock("../shared/components/AppErrorFallback", () => () => <div>Error boundary</div>);
 jest.mock("../shared/components/Logo", () => () => <div>Logo</div>);
 jest.mock("../shared/components/Layout", () => ({ children, onCreateClick }) => (
@@ -98,6 +106,7 @@ jest.mock("../features/releases/pages/ReleasesPage", () => () => <div>Releases p
 jest.mock("../features/tests/pages/TestsPage", () => () => <div>Tests page</div>);
 jest.mock("../features/archive/pages/ArchivePage", () => () => <div>Archive page</div>);
 jest.mock("../features/for-you/pages/ForYouPage", () => () => <div>For you page</div>);
+jest.mock("../features/chat/pages/ChatsPage", () => () => <div>Chats page</div>);
 jest.mock("../features/auth/pages/LoginPage", () => () => <div>Login page</div>);
 
 

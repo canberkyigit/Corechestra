@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   FaSearch, FaTimes, FaPlusSquare, FaRocket, FaColumns,
   FaTachometerAlt, FaChartBar, FaCalendarAlt, FaShieldAlt, FaLayerGroup, FaStream, FaMoon, FaBook,
-  FaTag, FaFlask, FaArchive, FaBell, FaBuilding, FaHistory,
+  FaTag, FaFlask, FaArchive, FaBell, FaBuilding, FaHistory, FaComments,
 } from "react-icons/fa";
 import { useApp } from "../context/AppContext";
 import { TASK_STATUS_BADGE_STYLES, TASK_STATUS_SHORT_LABELS, TASK_TYPE_ICON_META } from "../constants/taskMeta";
@@ -13,6 +13,7 @@ import { usePermissions } from "../context/hooks/usePermissions";
 const PAGES = [
   { id: "dashboard", label: "Dashboard",  icon: FaTachometerAlt },
   { id: "board",     label: "Board",      icon: FaColumns       },
+  { id: "chats",     label: "Chats",      icon: FaComments      },
   { id: "roadmap",   label: "Roadmap",    icon: FaRocket        },
   { id: "reports",   label: "Reports",    icon: FaChartBar      },
   { id: "calendar",  label: "Calendar",   icon: FaCalendarAlt   },

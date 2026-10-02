@@ -5,6 +5,7 @@ import {
   FaBolt,
   FaCheckCircle,
   FaComment,
+  FaComments,
   FaExclamationTriangle,
   FaLayerGroup,
   FaPlay,
@@ -36,6 +37,7 @@ export const NOTIF_META = {
   epic_deleted:     { icon: FaExclamationTriangle, color: "text-red-500 bg-red-50 dark:bg-red-900/20" },
   archive_emptied:  { icon: FaArchive,             color: "text-red-500 bg-red-50 dark:bg-red-900/20" },
   release_update:   { icon: FaTag,                 color: "text-violet-500 bg-violet-50 dark:bg-violet-900/20" },
+  chat_mention:     { icon: FaComments,            color: "text-blue-500 bg-blue-50 dark:bg-blue-900/20" },
 };
 
 export function getNotificationMeta(type) {

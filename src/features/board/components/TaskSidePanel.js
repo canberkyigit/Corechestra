@@ -18,6 +18,7 @@ import PanelSubtasksTable from "./task-panel/PanelSubtasksTable";
 import PanelLinkedItems from "./task-panel/PanelLinkedItems";
 import PanelSubtasksTab from "./task-panel/PanelSubtasksTab";
 import { usePanelResize } from "./task-panel/usePanelResize";
+import { useTaskDiscussionCount } from "../../chat/hooks/useTaskDiscussion";
 import TaskAttachments from "./task-shared/TaskAttachments";
 import {
   buildLink,
@@ -30,6 +31,7 @@ import {
 } from "./task-shared/taskDetailHooks";
 
 const TaskDetailModal = lazy(() => import("./TaskDetailModal"));
+const TaskDiscussion = lazy(() => import("../../chat/components/task/TaskDiscussion"));
 
 /**
  * Resizable right-hand task panel. Action fields (status, priority, assignee,
@@ -41,7 +43,8 @@ const TaskDetailModal = lazy(() => import("./TaskDetailModal"));
  * draft applied.
  */
 export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpenModal }) {
-  const { labels, deleteTask, logActivity, allTasks, users } = useApp();
+  const { labels, deleteTask, logActivity, allTasks, users, currentProjectId } = useApp();
+  const discussionCount = useTaskDiscussionCount(task, currentProjectId);
   const { addToast } = useToast();
   const { canEditTask, canArchiveTask } = useBoardPermissions();
   const readOnly = !canEditTask;
@@ -396,7 +399,8 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
               {[
                 { id: "details", label: "Details" },
                 { id: "subtasks", label: `Subtasks (${subtasks.length})` },
-              ].map((tab) => (
+                discussionCount !== null && task?.id ? { id: "discussion", label: discussionCount ? `Discussion (${discussionCount})` : "Discussion" } : null,
+              ].filter(Boolean).map((tab) => (
                 <button
                   type="button"
                   key={tab.id}
@@ -536,6 +540,12 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
                     onUpdate={(newComments) => onTaskUpdate?.({ ...buildUpdated(), comments: newComments })}
                   />
                 </div>
+              )}
+
+              {activeTab === "discussion" && task?.id && (
+                <Suspense fallback={<p className="p-6 text-center text-sm text-slate-400">Loading discussion…</p>}>
+                  <TaskDiscussion task={task} />
+                </Suspense>
               )}
 
               {activeTab === "subtasks" && (

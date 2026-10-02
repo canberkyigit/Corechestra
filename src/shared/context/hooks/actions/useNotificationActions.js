@@ -2,7 +2,7 @@ import { useCallback } from "react";
 
 function getPreferenceCategory(type) {
   if (type === "assignment") return "assignments";
-  if (type === "mention") return "mentions";
+  if (type === "mention" || type === "chat_mention") return "mentions";
   if (type === "comment") return "comments";
   if (type?.startsWith("release")) return "releases";
   if (type?.startsWith("approval") || type?.startsWith("workflow")) return "workflow";
