@@ -58,6 +58,53 @@ describe("board actions", () => {
     resetAppStore();
   });
 
+  it("restores archived tasks to their backlog section and keeps their status", () => {
+    const result = seed({
+      activeTasks: [{ id: "s1", projectId: "proj-1", title: "Sprint task", status: "inprogress" }],
+      perProjectBacklog: {
+        "proj-1": [{ id: "sec-1", title: "Backlog", tasks: [{ id: "b1", projectId: "proj-1", title: "Backlog task", status: "review" }] }],
+      },
+    });
+
+    act(() => {
+      expect(result.current.deleteTask("b1")).toBe(true);
+      expect(result.current.deleteTask("s1")).toBe(true);
+    });
+    expect(useAppStore.getState().archivedTasks.find((task) => task.id === "b1").archivedFrom)
+      .toEqual({ kind: "backlog", projectId: "proj-1", sectionId: "sec-1" });
+
+    let destinations;
+    act(() => {
+      destinations = [result.current.restoreTask("b1"), result.current.restoreTask("s1")];
+    });
+
+    expect(destinations).toEqual(["backlog", "sprint"]);
+    const state = useAppStore.getState();
+    expect(state.perProjectBacklog["proj-1"][0].tasks.map((task) => task.id)).toEqual(["b1"]);
+    expect(state.perProjectBacklog["proj-1"][0].tasks[0]).not.toHaveProperty("archivedFrom");
+    expect(state.activeTasks.find((task) => task.id === "s1").status).toBe("inprogress");
+    expect(state.archivedTasks).toHaveLength(0);
+  });
+
+  it("soft-deletes projects into the archive and restores them", () => {
+    const result = seed({
+      projects: [{ id: "proj-1", name: "Core" }, { id: "proj-2", name: "Apollo" }],
+      activeTasks: [{ id: "t1", projectId: "proj-2", title: "Kept", status: "todo" }],
+    });
+
+    act(() => { result.current.deleteProject("proj-2"); });
+    let state = useAppStore.getState();
+    expect(state.projects.map((project) => project.id)).toEqual(["proj-1"]);
+    expect(state.archivedProjects[0]).toMatchObject({ id: "proj-2", name: "Apollo", archivedAt: expect.any(String) });
+    expect(state.activeTasks.map((task) => task.id)).toEqual(["t1"]);
+
+    act(() => { expect(result.current.restoreProject("proj-2")).toBe(true); });
+    state = useAppStore.getState();
+    expect(state.projects.map((project) => project.id)).toEqual(["proj-1", "proj-2"]);
+    expect(state.projects[1]).not.toHaveProperty("archivedAt");
+    expect(state.archivedProjects).toHaveLength(0);
+  });
+
   it("moveTask reorders via anchors, records activity and notifies the assignee (not the actor)", () => {
     const result = seed({
       activeTasks: [

@@ -67,6 +67,7 @@ export function useBoardApi({
     notesList,
     addNote: boardActions.addNote,
     deleteNote: boardActions.deleteNote,
+    restoreNote: boardActions.restoreNote,
     pokerHistory,
     savePokerResult: boardActions.savePokerResult,
     burndownSnapshots,

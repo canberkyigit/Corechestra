@@ -41,7 +41,7 @@ const TaskDetailModal = lazy(() => import("./TaskDetailModal"));
  * draft applied.
  */
 export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpenModal }) {
-  const { labels, deleteTask, logActivity, allTasks, users } = useApp();
+  const { labels, deleteTask, restoreTask, logActivity, allTasks, users } = useApp();
   const { addToast } = useToast();
   const { canEditTask, canArchiveTask } = useBoardPermissions();
   const readOnly = !canEditTask;
@@ -162,8 +162,11 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
 
   const handleDelete = () => {
     if (!canArchiveTask) return;
-    if (task.id) deleteTask(task.id);
-    addToast("Task moved to archive", "info");
+    const taskId = task.id;
+    const archived = taskId ? deleteTask(taskId) : false;
+    addToast("Task moved to archive", "info", archived && restoreTask ? {
+      action: { label: "Undo", onClick: () => restoreTask(taskId) },
+    } : undefined);
     onClose();
   };
 

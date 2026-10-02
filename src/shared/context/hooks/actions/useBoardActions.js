@@ -416,10 +416,21 @@ export function useBoardActions({
   const deleteTask = useCallback((taskId) => {
     const { activeTasks, perProjectBacklog } = useAppStore.getState();
     const task = findTask(activeTasks, perProjectBacklog, taskId);
+    // Remember where the task lived so restore can put it back there.
+    let archivedFrom = { kind: "sprint" };
+    if (!(activeTasks || []).some((item) => item.id === taskId)) {
+      for (const [projectId, sections] of Object.entries(perProjectBacklog || {})) {
+        const section = (sections || []).find((entry) => (entry.tasks || []).some((item) => item.id === taskId));
+        if (section) {
+          archivedFrom = { kind: "backlog", projectId, sectionId: section.id };
+          break;
+        }
+      }
+    }
     setActiveTasks((prev) => prev.filter((item) => item.id !== taskId));
     setPerProjectBacklog((prev) => mapBacklogTasks(prev, (tasks) => tasks.filter((item) => item.id !== taskId)));
     if (task) {
-      setArchivedTasks((prev) => [{ ...stripTransientTaskFields(task), archivedAt: new Date().toISOString() }, ...prev]);
+      setArchivedTasks((prev) => [{ ...stripTransientTaskFields(task), archivedAt: new Date().toISOString(), archivedFrom }, ...prev]);
       notify({
         type: "task_archived",
         taskId,
@@ -427,22 +438,45 @@ export function useBoardActions({
         text: `"${task.title}" moved to archive`,
       });
     }
+    return Boolean(task);
   }, [notify, setActiveTasks, setArchivedTasks, setPerProjectBacklog]);
 
+  /**
+   * Restores an archived task to where it was archived from (its backlog
+   * section if that still exists, otherwise the active sprint), keeping its
+   * status. Returns where it went: "sprint" | "backlog" | null.
+   */
   const restoreTask = useCallback((taskId) => {
-    const { archivedTasks } = useAppStore.getState();
+    const { archivedTasks, perProjectBacklog } = useAppStore.getState();
     const task = (archivedTasks || []).find((item) => item.id === taskId);
-    if (!task) return;
-    const { archivedAt, ...restored } = task;
+    if (!task) return null;
+    const { archivedAt, archivedFrom, ...restored } = task;
     setArchivedTasks((prev) => prev.filter((item) => item.id !== taskId));
-    setActiveTasks((prev) => [...prev, { ...restored, status: "todo" }]);
+
+    const sections = archivedFrom?.kind === "backlog" ? perProjectBacklog?.[archivedFrom.projectId] : null;
+    const sectionExists = (sections || []).some((section) => section.id === archivedFrom?.sectionId);
+    let destination = "sprint";
+    if (sectionExists) {
+      destination = "backlog";
+      setPerProjectBacklog((prev) => ({
+        ...prev,
+        [archivedFrom.projectId]: (prev[archivedFrom.projectId] || []).map((section) => (
+          section.id === archivedFrom.sectionId && !(section.tasks || []).some((item) => item.id === taskId)
+            ? { ...section, tasks: [...(section.tasks || []), restored] }
+            : section
+        )),
+      }));
+    } else {
+      setActiveTasks((prev) => (prev.some((item) => item.id === taskId) ? prev : [...prev, { ...restored, status: restored.status || "todo" }]));
+    }
     notify({
       type: "task_restored",
       taskId,
       taskTitle: restored.title,
       text: `"${restored.title}" restored from archive`,
     });
-  }, [notify, setActiveTasks, setArchivedTasks]);
+    return destination;
+  }, [notify, setActiveTasks, setArchivedTasks, setPerProjectBacklog]);
 
   const permanentDeleteTask = useCallback((taskId) => {
     const { archivedTasks } = useAppStore.getState();
@@ -862,8 +896,25 @@ export function useBoardActions({
     }, ...prev]);
   }, [currentUser, setNotesList]);
 
+  /** Returns `{ note, index }` of the removed note so callers can offer Undo via restoreNote. */
   const deleteNote = useCallback((noteId) => {
-    setNotesList((prev) => prev.filter((note) => note.id !== noteId));
+    let removed = null;
+    setNotesList((prev) => {
+      const index = prev.findIndex((note) => note.id === noteId);
+      if (index >= 0) removed = { note: prev[index], index };
+      return prev.filter((note) => note.id !== noteId);
+    });
+    return removed;
+  }, [setNotesList]);
+
+  const restoreNote = useCallback((note, index = 0) => {
+    if (!note) return;
+    setNotesList((prev) => {
+      if (prev.some((item) => item.id === note.id)) return prev;
+      const next = [...prev];
+      next.splice(Math.min(Math.max(index, 0), next.length), 0, note);
+      return next;
+    });
   }, [setNotesList]);
 
   const savePokerResult = useCallback((result) => {
@@ -935,6 +986,7 @@ export function useBoardActions({
     setRetroItemEditing,
     addNote,
     deleteNote,
+    restoreNote,
     savePokerResult,
     updateBoardSettings,
   };

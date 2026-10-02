@@ -52,7 +52,7 @@ export default function TaskDetailModal({
   setSelectedSprint,
   onOpenPanel,
 }) {
-  const { labels, deleteTask, logActivity, sprint, users } = useApp();
+  const { labels, deleteTask, restoreTask, logActivity, sprint, users } = useApp();
   const { canCreateTask, canEditTask, canArchiveTask } = useBoardPermissions();
   const readOnly = isCreate ? !canCreateTask : !canEditTask;
   const { addToast } = useToast();
@@ -211,8 +211,11 @@ export default function TaskDetailModal({
 
   const handleDelete = () => {
     if (!canArchiveTask) return;
-    if (task.id) deleteTask(task.id);
-    addToast("Task moved to archive", "info");
+    const taskId = task.id;
+    const archived = taskId ? deleteTask(taskId) : false;
+    addToast("Task moved to archive", "info", archived && restoreTask ? {
+      action: { label: "Undo", onClick: () => restoreTask(taskId) },
+    } : undefined);
     onClose();
   };
 

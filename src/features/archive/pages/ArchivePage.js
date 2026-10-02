@@ -55,8 +55,9 @@ export default function ArchivePage() {
 
   const handleRestore = (taskId) => {
     const task = archivedTasks.find((t) => t.id === taskId);
-    restoreTask(taskId);
-    addToast(`"${task?.title}" restored`, "success");
+    const destination = restoreTask(taskId);
+    const where = destination === "backlog" ? "its backlog section" : "the active sprint";
+    addToast(`"${task?.title}" restored to ${where}`, "success");
   };
 
   const handlePermanentDelete = (taskId) => {

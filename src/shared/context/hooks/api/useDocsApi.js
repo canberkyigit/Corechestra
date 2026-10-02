@@ -16,5 +16,6 @@ export function useDocsApi({
     reorderDocPages: docsActions.reorderDocPages,
     addDocComment: docsActions.addDocComment,
     deleteDocComment: docsActions.deleteDocComment,
+    restoreDocComment: docsActions.restoreDocComment,
   };
 }

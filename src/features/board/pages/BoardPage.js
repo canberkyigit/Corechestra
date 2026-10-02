@@ -29,6 +29,7 @@ export default function BoardPage() {
     updateTask,
     moveTask,
     deleteTask,
+    restoreTask,
     savePokerResult,
     columns,
     updateBoardSettings,
@@ -144,10 +145,12 @@ export default function BoardPage() {
       tone: "warning",
     });
     if (!ok) return;
-    selectedIds.forEach((id) => deleteTask(id));
-    addToast(`${selectedIds.size} task${selectedIds.size === 1 ? "" : "s"} archived`, "info");
+    const archivedIds = [...selectedIds].filter((id) => deleteTask(id));
+    addToast(`${archivedIds.length} task${archivedIds.length === 1 ? "" : "s"} archived`, "info", restoreTask && archivedIds.length ? {
+      action: { label: "Undo", onClick: () => archivedIds.forEach((id) => restoreTask(id)) },
+    } : undefined);
     setSelectedIds(new Set());
-  }, [addToast, canArchiveTask, confirm, deleteTask, selectedIds]);
+  }, [addToast, canArchiveTask, confirm, deleteTask, restoreTask, selectedIds]);
 
   // ── Task detail surfaces ────────────────────────────────────────────────────
   const [createModalOpen, setCreateModalOpen] = useState(false);

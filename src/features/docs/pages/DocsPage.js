@@ -266,6 +266,23 @@ export default function DocsPage() {
     }
   }, [addToast, ensureCanEdit, isFiltering, reorderDocPages, spacePages]);
 
+  const deleteTarget = useMemo(() => {
+    if (!deleteConfirm) return { title: "", descendantCount: 0 };
+    const page = docPages.find((entry) => entry.id === deleteConfirm);
+    const seen = new Set([deleteConfirm]);
+    const queue = [deleteConfirm];
+    while (queue.length) {
+      const parentId = queue.shift();
+      docPages.forEach((entry) => {
+        if (entry.parentId === parentId && !seen.has(entry.id)) {
+          seen.add(entry.id);
+          queue.push(entry.id);
+        }
+      });
+    }
+    return { title: page?.title || "this page", descendantCount: seen.size - 1 };
+  }, [deleteConfirm, docPages]);
+
   const handleDeletePage = useCallback((pageId) => {
     if (!ensureCanEdit()) return;
     setDeleteConfirm(pageId);
@@ -425,8 +442,12 @@ export default function DocsPage() {
       )}
 
       {deleteConfirm && canEditDocs && (
-        <DocsConfirmDialog title="Delete Page" onConfirm={confirmDelete} onCancel={() => setDeleteConfirm(null)}>
-          Are you sure you want to delete this page and all its child pages? This action cannot be undone.
+        <DocsConfirmDialog title="Delete Page" confirmLabel="Delete Page" onConfirm={confirmDelete} onCancel={() => setDeleteConfirm(null)}>
+          {deleteTarget.descendantCount > 0 ? (
+            <>Delete <strong>{deleteTarget.title}</strong> and its <strong>{deleteTarget.descendantCount} child page{deleteTarget.descendantCount === 1 ? "" : "s"}</strong>? This action cannot be undone.</>
+          ) : (
+            <>Delete <strong>{deleteTarget.title}</strong>? This action cannot be undone.</>
+          )}
         </DocsConfirmDialog>
       )}
 

@@ -195,15 +195,28 @@ export function useDocsActions({
     return comment;
   }, [currentUser, setDocPages]);
 
+  /** Returns the removed comment so callers can offer Undo via restoreDocComment. */
   const deleteDocComment = useCallback((pageId, commentId) => {
-    setDocPages((prev) => prev.map((page) => (
-      page.id === pageId
-        ? {
-            ...page,
-            comments: (page.comments || []).filter((comment) => comment.id !== commentId),
-          }
-        : page
-    )));
+    let removed = null;
+    setDocPages((prev) => prev.map((page) => {
+      if (page.id !== pageId) return page;
+      removed = (page.comments || []).find((comment) => comment.id === commentId) || null;
+      return {
+        ...page,
+        comments: (page.comments || []).filter((comment) => comment.id !== commentId),
+      };
+    }));
+    return removed;
+  }, [setDocPages]);
+
+  const restoreDocComment = useCallback((pageId, comment) => {
+    if (!comment) return;
+    setDocPages((prev) => prev.map((page) => {
+      if (page.id !== pageId || (page.comments || []).some((item) => item.id === comment.id)) return page;
+      const comments = [...(page.comments || []), comment]
+        .sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")));
+      return { ...page, comments };
+    }));
   }, [setDocPages]);
 
   return {
@@ -217,5 +230,6 @@ export function useDocsActions({
     reorderDocPages,
     addDocComment,
     deleteDocComment,
+    restoreDocComment,
   };
 }
