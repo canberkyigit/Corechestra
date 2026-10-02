@@ -4,6 +4,7 @@ import { FaChevronDown, FaChevronUp, FaList, FaBan, FaRocket } from "react-icons
 import { taskKey } from "../../../shared/utils/helpers";
 import { TASK_TYPE_CHIP_STYLES, TASK_TYPE_OPTIONS } from "../../../shared/constants/taskMeta";
 import { findUser, getInitial, getUserColor } from "../utils/userColors";
+import { buildCardFieldChips } from "../../../shared/utils/customFields";
 
 // Pre-rendered once at module load (cards are hot; avoid re-creating icons per render).
 const TYPE_ICON = Object.fromEntries(
@@ -45,6 +46,7 @@ function TaskCard({
   epicsById,
   labelsById,
   users,
+  cardFields,
   compact = false,
 }) {
   const [showSubtasks, setShowSubtasks] = useState(false);
@@ -90,6 +92,7 @@ function TaskCard({
   const completedSubtasks = subtasks.filter((subtask) => subtask.done).length;
   const totalSubtasks = subtasks.length;
   const hasStoryPoints = task.storyPoint != null && task.storyPoint !== "";
+  const fieldChips = cardFields?.length ? buildCardFieldChips(task, cardFields, { users }) : [];
 
   return (
     <div
@@ -157,6 +160,24 @@ function TaskCard({
               +{taskLabels.length - 2}
             </span>
           )}
+        </div>
+      )}
+
+      {/* Custom fields flagged "show on card" (max 3) */}
+      {fieldChips.length > 0 && (
+        <div className="flex flex-wrap gap-1 mb-2 min-w-0 overflow-hidden" data-testid={`task-card-fields-${task.id}`}>
+          {fieldChips.map((chip) => (
+            <span
+              key={chip.fieldId}
+              title={chip.type === "checkbox" ? chip.name : `${chip.name}: ${chip.text}`}
+              className={`text-[11px] px-1.5 py-0.5 rounded font-medium truncate max-w-[140px] ${
+                chip.color ? "" : "bg-slate-100 dark:bg-[#232838] text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-[#2a3044]"
+              }`}
+              style={chip.color ? { backgroundColor: `${chip.color}22`, color: chip.color, border: `1px solid ${chip.color}44` } : undefined}
+            >
+              {chip.type === "checkbox" ? `✓ ${chip.text}` : chip.text}
+            </span>
+          ))}
         </div>
       )}
 

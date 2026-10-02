@@ -20,7 +20,7 @@ export function FieldLabel({ children }) {
 export function SelectField({ label, value, options, onChange, renderOption, renderValue, disabled = false }) {
   return (
     <div>
-      <FieldLabel>{label}</FieldLabel>
+      {label && <FieldLabel>{label}</FieldLabel>}
       <Listbox value={value} onChange={onChange} disabled={disabled}>
         <div className="relative">
           <Listbox.Button className="app-field w-full flex items-center justify-between text-sm hover:bg-slate-100 dark:hover:bg-[#2a3044] disabled:opacity-60 disabled:cursor-not-allowed">

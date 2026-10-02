@@ -28,6 +28,7 @@ export function useAppStoreSync() {
     teams,
     users,
     deletedUserIds,
+    customFieldDefs,
     sprintDefaults,
     spaces,
     docPages,
@@ -77,6 +78,7 @@ export function useAppStoreSync() {
     setTeams,
     setUsers,
     setDeletedUserIds,
+    setCustomFieldDefs,
     setSprintDefaults,
     setSpaces,
     setDocPages,
@@ -128,6 +130,7 @@ export function useAppStoreSync() {
     teams: setTeams,
     users: setUsers,
     deletedUserIds: setDeletedUserIds,
+    customFieldDefs: setCustomFieldDefs,
     sprintDefaults: setSprintDefaults,
     perProjectBurndownSnapshots: setPerProjectBurndownSnapshots,
     spaces: setSpaces,
@@ -177,6 +180,7 @@ export function useAppStoreSync() {
     setTeams,
     setUsers,
     setDeletedUserIds,
+    setCustomFieldDefs,
     setSprintDefaults,
     setPerProjectBurndownSnapshots,
     setSpaces,
@@ -326,6 +330,11 @@ export function useAppStoreSync() {
     if (!dbReady) return;
     saveDomain("entities", { users, deletedUserIds });
   }, [users, deletedUserIds, dbReady]);
+
+  useEffect(() => {
+    if (!dbReady) return;
+    saveDomain("entities", { customFieldDefs });
+  }, [customFieldDefs, dbReady]);
 
   useEffect(() => {
     if (!dbReady) return;

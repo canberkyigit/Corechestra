@@ -13,6 +13,7 @@ import {
   getLanePatch,
   parseDroppableId,
 } from "../utils/boardDnd";
+import { getCardCustomFields } from "../../../shared/utils/customFields";
 
 function filterTasks(tasks, { filter, member, search }) {
   const query = (search || "").trim().toLowerCase();
@@ -74,6 +75,7 @@ export default function KanbanBoard({
     users,
     moveTask,
     createTask,
+    customFieldDefs,
   } = useApp();
   const { canEditTask, canCreateTask } = useBoardPermissions();
   const readOnly = !canEditTask;
@@ -92,6 +94,10 @@ export default function KanbanBoard({
 
   const epicsById = useMemo(() => new Map((epics || []).map((epic) => [epic.id, epic])), [epics]);
   const labelsById = useMemo(() => new Map((labels || []).map((label) => [label.id, label])), [labels]);
+  const cardFields = useMemo(
+    () => getCardCustomFields(customFieldDefs || [], currentProjectId),
+    [currentProjectId, customFieldDefs]
+  );
 
   const { columns: boardColumns, groups } = useMemo(
     () => groupTasksByColumn(shownTasks, columns),
@@ -175,6 +181,7 @@ export default function KanbanBoard({
     epicsById,
     labelsById,
     users,
+    cardFields,
     readOnly,
     onInlineCreate: canCreateTask ? handleInlineCreate : null,
   };

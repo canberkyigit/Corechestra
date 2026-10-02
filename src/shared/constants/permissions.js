@@ -35,6 +35,7 @@ export const ACTION_PERMISSION_META = [
   { key: "releases:manage", label: "Create and edit releases" },
   { key: "chat:manage", label: "Create and manage chat channels" },
   { key: "automation:manage", label: "Create and edit automation rules" },
+  { key: "fields:manage", label: "Manage project custom fields" },
 ];
 
 const ALL_MODULE_KEYS = MODULE_PERMISSION_META.map((item) => item.key);
@@ -86,6 +87,7 @@ export const DEFAULT_PERMISSION_MATRIX = {
       "releases:manage": true,
       "chat:manage": true,
       "automation:manage": false,
+      "fields:manage": false,
     },
   },
   viewer: {
@@ -125,6 +127,7 @@ export const DEFAULT_PERMISSION_MATRIX = {
       "releases:manage": false,
       "chat:manage": false,
       "automation:manage": false,
+      "fields:manage": false,
     },
   },
 };

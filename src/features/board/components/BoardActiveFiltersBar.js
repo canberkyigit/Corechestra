@@ -3,6 +3,7 @@ import { Listbox } from "@headlessui/react";
 import { FaBars, FaCheck, FaChevronDown, FaFlag, FaHashtag, FaLayerGroup, FaTags } from "react-icons/fa";
 import { BOARD_FILTER_TYPE_OPTIONS } from "../../../shared/constants/taskMeta";
 import { SWIMLANE_MODES } from "../utils/boardDnd";
+import CustomFieldFilter from "../../custom-fields/components/CustomFieldFilter";
 
 export function BoardActiveFiltersBar({
   filter,
@@ -10,6 +11,9 @@ export function BoardActiveFiltersBar({
   member,
   setMember,
   projectMembers,
+  fieldDefs = [],
+  fieldFilter,
+  setFieldFilter,
   showBadges,
   showPriorityColors,
   showTaskIds,
@@ -76,6 +80,10 @@ export function BoardActiveFiltersBar({
             </Listbox.Options>
           </div>
         </Listbox>
+
+        {setFieldFilter && (
+          <CustomFieldFilter defs={fieldDefs} value={fieldFilter} onChange={setFieldFilter} members={projectMembers} />
+        )}
 
         {[
           { key: "showBadges", icon: FaTags, title: "Toggle badges", val: showBadges },

@@ -181,6 +181,31 @@ describe("useAppStoreSync", () => {
     });
   });
 
+  it("hydrates and persists custom field definitions in the entities domain", async () => {
+    storage.loadAllDomains.mockResolvedValue({
+      customFieldDefs: [{ id: "cf-1", projectId: "proj-1", name: "Severity", type: "select" }],
+    });
+
+    renderHook(() => useAppStoreSync(), { wrapper: createWrapper() });
+
+    await waitFor(() => expect(useAppStore.getState().dbReady).toBe(true));
+    expect(useAppStore.getState().customFieldDefs).toHaveLength(1);
+    storage.saveDomain.mockClear();
+
+    act(() => {
+      useAppStore.getState().setCustomFieldDefs((previous) => [...previous, { id: "cf-2", projectId: "proj-1", name: "Customer", type: "text" }]);
+    });
+
+    await waitFor(() => {
+      expect(storage.saveDomain).toHaveBeenCalledWith("entities", {
+        customFieldDefs: [
+          { id: "cf-1", projectId: "proj-1", name: "Severity", type: "select" },
+          { id: "cf-2", projectId: "proj-1", name: "Customer", type: "text" },
+        ],
+      });
+    });
+  });
+
   it("marks remote subscription updates so automations ignore them", async () => {
     let onUpdate;
     const seenRemote = [];

@@ -2,16 +2,19 @@ import { useMemo } from "react";
 import { useAppStore } from "../../store/useAppStore";
 import { useProjectTaskIndex } from "./selectors/useProjectTaskIndex";
 import { useSprintMetrics } from "./useSprintMetrics";
+import { customFieldSearchText, getProjectCustomFieldDefs, matchesCustomFieldFilter } from "../../utils/customFields";
 
 export function useBoardState({
   projectId: projectIdOverride,
   filterValue = "",
   memberValue = "",
   search = "",
+  customFieldFilter = null,
 }) {
   const currentProjectId = useAppStore((state) => state.currentProjectId);
   const projects = useAppStore((state) => state.projects);
   const users = useAppStore((state) => state.users);
+  const customFieldDefs = useAppStore((state) => state.customFieldDefs);
   const projectId = projectIdOverride ?? currentProjectId;
 
   const { projectActiveTasks } = useProjectTaskIndex(projectId);
@@ -59,16 +62,23 @@ export function useBoardState({
       result = result.filter((task) => task.assignedTo === memberValue);
     }
 
+    const fieldDefs = getProjectCustomFieldDefs(customFieldDefs, projectId);
+    if (customFieldFilter?.fieldId && customFieldFilter.value) {
+      result = result.filter((task) => matchesCustomFieldFilter(task, customFieldFilter, fieldDefs));
+    }
+
     if (search.trim()) {
       const query = search.toLowerCase();
+      // Custom field values are searchable too (e.g. a customer name field).
       result = result.filter((task) => (
-        task.title.toLowerCase().includes(query)
+        (task.title || "").toLowerCase().includes(query)
         || (task.description || "").toLowerCase().includes(query)
+        || (fieldDefs.length > 0 && customFieldSearchText(task, fieldDefs, { users }).includes(query))
       ));
     }
 
     return result;
-  }, [filterValue, memberValue, projectActiveTasks, search]);
+  }, [customFieldDefs, customFieldFilter, filterValue, memberValue, projectActiveTasks, projectId, search, users]);
 
   return {
     projectActiveTasks,

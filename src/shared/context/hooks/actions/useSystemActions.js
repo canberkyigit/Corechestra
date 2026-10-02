@@ -27,6 +27,7 @@ export function useSystemActions({
   setTeams,
   setUsers,
   setDeletedUserIds,
+  setCustomFieldDefs,
   setSprintDefaults,
   setSpaces,
   setDocPages,
@@ -81,6 +82,7 @@ export function useSystemActions({
     setTeams([]);
     setUsers([]);
     setDeletedUserIds([]);
+    setCustomFieldDefs?.([]);
     setSprintDefaults(DEFAULT_SPRINT_DEFAULTS);
     setSpaces([]);
     setDocPages([]);
@@ -141,6 +143,7 @@ export function useSystemActions({
     setCurrentUser,
     setDarkMode,
     setDeletedUserIds,
+    setCustomFieldDefs,
     setDocPages,
     setEpics,
     setGlobalActivityLog,

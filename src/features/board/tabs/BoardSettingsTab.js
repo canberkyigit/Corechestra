@@ -4,6 +4,7 @@ import { useApp } from "../../../shared/context/AppContext";
 import { useBoardPermissions } from "../hooks/useBoardPermissions";
 import { getInitial, getUserColor } from "../utils/userColors";
 import { isInProject } from "../../../shared/utils/helpers";
+import CustomFieldsManager from "../../custom-fields/components/CustomFieldsManager";
 
 function ToggleRow({ label, description, checked, onChange, icon: Icon, iconColor }) {
   return (
@@ -217,6 +218,11 @@ export default function BoardSettingsTab() {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Custom fields (per project) */}
+      <div className="bg-white dark:bg-[#1c2030] rounded-xl border border-slate-200 dark:border-[#2a3044] shadow-sm p-6">
+        <CustomFieldsManager projectId={currentProjectId} />
       </div>
 
       {/* Board Columns */}

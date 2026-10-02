@@ -1,13 +1,14 @@
 import React, { useState } from "react";
 import {
   FaTimes, FaCheck, FaCog, FaUsers, FaColumns, FaRocket,
-  FaTag, FaBell, FaExclamationTriangle, FaPlus, FaTrash, FaEdit,
+  FaTag, FaBell, FaExclamationTriangle, FaPlus, FaTrash, FaEdit, FaSlidersH,
 } from "react-icons/fa";
 import { useApp } from "../../../shared/context/AppContext";
 import { useToast } from "../../../shared/context/ToastContext";
 import { DEFAULT_COLUMNS } from "../../../shared/context/AppSeeds";
 import { useEscapeKey } from "../hooks/useEscapeKey";
 import { useBoardPermissions } from "../hooks/useBoardPermissions";
+import CustomFieldsManager from "../../custom-fields/components/CustomFieldsManager";
 
 const PROJECT_COLORS = [
   "#2563eb", "#7c3aed", "#059669", "#d97706", "#dc2626",
@@ -22,6 +23,7 @@ const TABS = [
   { id: "workflow",      label: "Workflow",       icon: FaColumns },
   { id: "sprint",        label: "Sprint",         icon: FaRocket },
   { id: "labels",        label: "Labels",         icon: FaTag },
+  { id: "fields",        label: "Fields",         icon: FaSlidersH },
   { id: "notifications", label: "Notifications",  icon: FaBell },
   { id: "danger",        label: "Danger Zone",    icon: FaExclamationTriangle },
 ];
@@ -253,7 +255,9 @@ export default function ProjectSettingsModal({ project: projectProp, onClose }) 
 
           {/* Content */}
           <div className="flex-1 overflow-y-auto px-6 py-5">
-            {readOnly && (
+            {/* Custom fields use their own permission (fields:manage). */}
+            {tab === "fields" && <CustomFieldsManager projectId={project.id} compact />}
+            {readOnly && tab !== "fields" && (
               <div className="mb-4 rounded-lg border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-900/20 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
                 You can view these settings, but only people with the “Manage projects” permission can change them.
               </div>

@@ -133,4 +133,36 @@ describe("TaskSidePanel", () => {
     expect(screen.queryByTitle("Delete")).not.toBeInTheDocument();
     expect(screen.getByDisplayValue("Original title")).toBeDisabled();
   });
+  it("auto-saves custom fields on blur / toggle and rejects malformed values", () => {
+    const onTaskUpdate = jest.fn();
+    mockUseApp.mockReturnValue(appMock({
+      customFieldDefs: [
+        { id: "cf-cu", projectId: "proj-1", name: "Customer", type: "text", order: 0 },
+        { id: "cf-url", projectId: "proj-1", name: "Spec", type: "url", order: 1 },
+        { id: "cf-chk", projectId: "proj-1", name: "Customer facing", type: "checkbox", order: 2 },
+        { id: "cf-bug", projectId: "proj-1", name: "Bug only", type: "text", order: 3, appliesToTypes: ["bug"] },
+      ],
+    }));
+    render(<TaskSidePanel open task={{ ...TASK, customFields: { "cf-cu": "Acme" } }} onClose={jest.fn()} onTaskUpdate={onTaskUpdate} />);
+    expect(screen.queryByText("Bug only")).not.toBeInTheDocument();
+
+    const customer = screen.getByLabelText("Customer", { selector: "input" });
+    fireEvent.blur(customer, { target: { value: "Acme" } });
+    expect(onTaskUpdate).not.toHaveBeenCalled(); // unchanged value
+
+    fireEvent.change(customer, { target: { value: "Beta" } });
+    expect(onTaskUpdate).not.toHaveBeenCalled(); // drafts are not saved while typing
+    fireEvent.blur(customer, { target: { value: "Beta" } });
+    expect(onTaskUpdate).toHaveBeenLastCalledWith(expect.objectContaining({ customFields: { "cf-cu": "Beta" } }));
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Customer facing" }));
+    expect(onTaskUpdate).toHaveBeenLastCalledWith(expect.objectContaining({ customFields: expect.objectContaining({ "cf-chk": true }) }));
+
+    onTaskUpdate.mockClear();
+    const spec = screen.getByLabelText("Spec", { selector: "input" });
+    fireEvent.change(spec, { target: { value: "nope" } });
+    fireEvent.blur(spec, { target: { value: "nope" } });
+    expect(onTaskUpdate).not.toHaveBeenCalled();
+  });
+
 });

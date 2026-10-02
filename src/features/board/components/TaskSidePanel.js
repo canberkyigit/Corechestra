@@ -20,6 +20,14 @@ import PanelSubtasksTab from "./task-panel/PanelSubtasksTab";
 import { usePanelResize } from "./task-panel/usePanelResize";
 import { useTaskDiscussionCount } from "../../chat/hooks/useTaskDiscussion";
 import TaskAttachments from "./task-shared/TaskAttachments";
+import TaskCustomFields from "../../custom-fields/components/TaskCustomFields";
+import {
+  getApplicableCustomFields,
+  getProjectCustomFieldDefs,
+  isSameCustomFieldDraft,
+  normalizeCustomFieldValuesMap,
+  validateCustomFieldValue,
+} from "../../../shared/utils/customFields";
 import {
   buildLink,
   createSubtask,
@@ -43,7 +51,7 @@ const TaskDiscussion = lazy(() => import("../../chat/components/task/TaskDiscuss
  * draft applied.
  */
 export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpenModal }) {
-  const { labels, deleteTask, logActivity, allTasks, users, currentProjectId } = useApp();
+  const { labels, deleteTask, logActivity, allTasks, users, currentProjectId, customFieldDefs } = useApp();
   const discussionCount = useTaskDiscussionCount(task, currentProjectId);
   const { addToast } = useToast();
   const { canEditTask, canArchiveTask } = useBoardPermissions();
@@ -65,6 +73,7 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
   const [subtasks, setSubtasks] = useState([]);
   const [linkedItems, setLinkedItems] = useState([]);
   const [attachments, setAttachments] = useState([]);
+  const [customFieldValues, setCustomFieldValues] = useState({});
   const [hasChanges, setHasChanges] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
@@ -76,6 +85,9 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
   const prevId = useRef(null);
 
   const projectId = task?.projectId;
+  const fieldProjectId = projectId || currentProjectId || "";
+  const projectFieldDefs = getProjectCustomFieldDefs(customFieldDefs, fieldProjectId);
+  const applicableFields = getApplicableCustomFields(customFieldDefs, { projectId: fieldProjectId, taskType: type });
   const projectAssignees = useProjectAssignees(projectId);
   const projectEpics = useProjectEpics(projectId, epicId);
   const statusOptions = useTaskStatusOptions(projectId, status);
@@ -95,6 +107,7 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
     setSubtasks(source.subtasks || []);
     setLinkedItems((source.linkedItems || []).map(normalizeLinkedItem).filter(Boolean));
     setAttachments(source.attachments || []);
+    setCustomFieldValues({ ...(source.customFields || {}) });
   }, []);
 
   useEffect(() => {
@@ -128,6 +141,7 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
     dueDate, storyPoint: storyPoint !== "" ? Number(storyPoint) : undefined,
     epicId, labels: taskLabels, watchers, subtasks, linkedItems,
     attachments,
+    customFields: normalizeCustomFieldValuesMap(projectFieldDefs, customFieldValues),
     comments: task.comments || [],
   });
 
@@ -135,6 +149,22 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
   const autoSave = (patch) => {
     if (readOnly) return;
     onTaskUpdate?.({ ...buildUpdated(), ...patch });
+  };
+
+  // Custom fields auto-save like the other quick fields; text inputs save on
+  // blur / Enter, malformed values are reported instead of saved.
+  const handleCustomFieldChange = (fieldId, value, { commit } = {}) => {
+    const next = { ...customFieldValues, [fieldId]: value };
+    setCustomFieldValues(next);
+    if (!commit || readOnly) return;
+    const def = projectFieldDefs.find((item) => item.id === fieldId);
+    const error = validateCustomFieldValue(def, value);
+    if (error) {
+      addToast(error, "error");
+      return;
+    }
+    if (isSameCustomFieldDraft(task?.customFields?.[fieldId], value)) return;
+    autoSave({ customFields: normalizeCustomFieldValuesMap(projectFieldDefs, next) });
   };
 
   const handleClose = () => {
@@ -436,6 +466,16 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
                     onStoryPointChange={(value) => { setStoryPoint(value); changed(); }}
                     onDueDateChange={(value) => { setDueDate(value); autoSave({ dueDate: value }); }}
                     onEpicChange={(value) => { setEpicId(value); autoSave({ epicId: value }); }}
+                  />
+
+                  <TaskCustomFields
+                    variant="panel"
+                    defs={applicableFields}
+                    values={customFieldValues}
+                    onChange={handleCustomFieldChange}
+                    readOnly={readOnly}
+                    members={projectAssignees}
+                    users={users}
                   />
 
                   <div>

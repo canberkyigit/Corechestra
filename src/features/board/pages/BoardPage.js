@@ -15,6 +15,7 @@ import { useWorkflowGuard } from "../hooks/useWorkflowGuard";
 import { useBoardPermissions } from "../hooks/useBoardPermissions";
 import { BOARD_TABS, BOARD_VIEW_MODES } from "../constants/boardPageConfig";
 import { buildStatusOptions } from "../utils/boardColumns";
+import { useProjectFieldDefs } from "../../custom-fields/hooks/useCustomFields";
 
 export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
   const {
@@ -72,6 +73,8 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
     setSearch,
     viewMode,
     setViewMode,
+    fieldFilter,
+    setFieldFilter,
     activeFilterCount,
     hasActiveFilters,
     clearFilters,
@@ -87,7 +90,9 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
     filterValue: filter.value,
     memberValue: member.value,
     search,
+    customFieldFilter: fieldFilter,
   });
+  const projectFieldDefs = useProjectFieldDefs(currentProjectId);
 
   // ── Bulk selection (list / table views) ─────────────────────────────────────
   const [bulkMode, setBulkMode] = useState(false);
@@ -236,6 +241,9 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
           member={member}
           setMember={setMember}
           projectMembers={projectMembers}
+          fieldDefs={projectFieldDefs}
+          fieldFilter={fieldFilter}
+          setFieldFilter={setFieldFilter}
           showBadges={showBadges}
           showPriorityColors={showPriorityColors}
           showTaskIds={showTaskIds}

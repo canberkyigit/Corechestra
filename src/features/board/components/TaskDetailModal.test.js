@@ -287,4 +287,60 @@ describe("TaskDetailModal", () => {
     renderModal();
     expect(screen.getByTitle("Delete task")).toBeInTheDocument();
   });
+  describe("custom fields", () => {
+    const FIELDS = [
+      { id: "cf-env", projectId: "proj-1", name: "Environment", type: "select", order: 0, required: true, appliesToTypes: [], defaultValue: null,
+        options: [{ id: "prod", label: "Prod", color: "#dc2626" }, { id: "stg", label: "Staging", color: "#059669" }] },
+      { id: "cf-cu", projectId: "proj-1", name: "Customer", type: "text", order: 1, appliesToTypes: [], defaultValue: "Acme" },
+      { id: "cf-bug", projectId: "proj-1", name: "Repro steps", type: "textarea", order: 2, appliesToTypes: ["bug"] },
+      { id: "cf-old", projectId: "proj-1", name: "Old", type: "text", order: 3, archived: true },
+    ];
+
+    it("prefills defaults and blocks create until required fields are set", () => {
+      mockUseApp.mockReturnValue(createAppMock({ customFieldDefs: FIELDS }));
+      const { onTaskUpdate } = renderModal({ isCreate: true, task: {} });
+
+      expect(screen.getByLabelText("Customer", { selector: "input" })).toHaveValue("Acme");
+      expect(screen.queryByText("Repro steps")).not.toBeInTheDocument();
+      expect(screen.queryByText("Old")).not.toBeInTheDocument();
+
+      fireEvent.change(screen.getByPlaceholderText(/Task title/i), { target: { value: "Needs env" } });
+      fireEvent.click(screen.getByRole("button", { name: /Create Task/i }));
+      expect(onTaskUpdate).not.toHaveBeenCalled();
+      expect(mockAddToast).toHaveBeenCalledWith('"Environment" is required', "error");
+
+      const env = screen.getByTestId("custom-field-cf-env");
+      fireEvent.click(within(env).getAllByText("Staging").pop());
+      fireEvent.click(screen.getByRole("button", { name: /Create Task/i }));
+      expect(onTaskUpdate).toHaveBeenCalledWith(expect.objectContaining({
+        title: "Needs env",
+        customFields: { "cf-env": "stg", "cf-cu": "Acme" },
+      }));
+    });
+
+    it("keeps stored values of archived fields and shows required warnings on edit", () => {
+      mockUseApp.mockReturnValue(createAppMock({ customFieldDefs: FIELDS }));
+      const { onTaskUpdate } = renderModal({
+        task: { id: "task-1", title: "Existing", status: "todo", priority: "medium", projectId: "proj-1", customFields: { "cf-old": "legacy" } },
+      });
+      expect(screen.getByText("1 required field empty")).toBeInTheDocument();
+      fireEvent.change(screen.getByLabelText("Customer", { selector: "input" }), { target: { value: "Beta" } });
+      fireEvent.click(screen.getByRole("button", { name: /Save Changes/i }));
+      expect(onTaskUpdate).toHaveBeenCalledWith(expect.objectContaining({
+        customFields: { "cf-old": "legacy", "cf-cu": "Beta" },
+      }));
+    });
+
+    it("shows fields read-only to viewers", () => {
+      mockUseAuth.mockReturnValue({ role: "viewer" });
+      mockUseApp.mockReturnValue(createAppMock({ customFieldDefs: FIELDS }));
+      renderModal({
+        task: { id: "task-1", title: "Existing", status: "todo", projectId: "proj-1", customFields: { "cf-cu": "Acme", "cf-env": "prod" } },
+      });
+      const section = screen.getByTestId("task-custom-fields");
+      expect(within(section).queryByRole("textbox")).not.toBeInTheDocument();
+      expect(within(section).getByText("Acme")).toBeInTheDocument();
+      expect(within(section).getByText("Prod")).toBeInTheDocument();
+    });
+  });
 });
