@@ -20,6 +20,7 @@ import {
   TaskSubtasksSection,
 } from "./task-modal/TaskDetailSections";
 import TaskModalHeader from "./task-modal/TaskModalHeader";
+import { useFocusTrap } from "../../../shared/hooks/useFocusTrap";
 import TaskInlineSubtasks from "./task-modal/TaskInlineSubtasks";
 import TaskInlineLinks from "./task-modal/TaskInlineLinks";
 import { TaskEpicPicker, TaskLabelsPicker, TaskWatchersPicker } from "./task-modal/TaskModalFields";
@@ -38,6 +39,9 @@ const fmtDate = (value) => {
   if (!value) return "—";
   try { return format(parseISO(value), "MMM d, yyyy"); } catch { return value; }
 };
+
+
+const IS_MAC = typeof navigator !== "undefined" && /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent || "");
 
 export default function TaskDetailModal({
   open,
@@ -203,6 +207,16 @@ export default function TaskDetailModal({
   }, [confirmDelete, showDiscardConfirm, hasChanges]); // eslint-disable-line react-hooks/exhaustive-deps
   useEscapeKey(handleEscape, Boolean(shouldRender) && !openSubtask);
 
+  const panelRef = useRef(null);
+  useFocusTrap(panelRef, Boolean(shouldRender) && Boolean(open) && !openSubtask, { autoFocus: !isCreate });
+
+  // ⌘/Ctrl+Enter saves from anywhere in the dialog (incl. textareas).
+  const handlePanelKeyDown = (event) => {
+    if (event.key !== "Enter" || !(event.metaKey || event.ctrlKey) || event.isComposing) return;
+    event.preventDefault();
+    handleSave();
+  };
+
   const handleConfirmDiscard = () => {
     setShowDiscardConfirm(false);
     setHasChanges(false);
@@ -307,8 +321,11 @@ export default function TaskDetailModal({
             onClick={handleClose}
           >
             <motion.div
+              ref={panelRef}
               role="dialog"
               aria-modal="true"
+              aria-label={isCreate ? "Create task" : `Task ${title || ""}`.trim()}
+              onKeyDown={handlePanelKeyDown}
               className="app-surface rounded-t-2xl md:rounded-3xl w-full max-w-5xl md:mx-4 flex flex-col max-h-[92dvh] md:max-h-[90vh] overflow-hidden transition-colors relative"
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -530,8 +547,16 @@ export default function TaskDetailModal({
 
               {/* Footer */}
               <div className="flex items-center justify-between px-5 py-3 border-t app-divider bg-slate-50/70 dark:bg-[#141720]/60 flex-shrink-0">
-                <div className="text-xs text-slate-400">
+                <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-3">
                   {hasChanges && <span className="text-orange-500 font-medium">Unsaved changes</span>}
+                  {!readOnly && (
+                    <span className="hidden md:inline">
+                      <kbd className="px-1.5 py-0.5 rounded border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#1c2030] font-sans">{IS_MAC ? "⌘" : "Ctrl"}</kbd>
+                      {" + "}
+                      <kbd className="px-1.5 py-0.5 rounded border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#1c2030] font-sans">Enter</kbd>
+                      {isCreate ? " to create" : " to save"}
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   <AppButton variant="secondary" onClick={handleClose}>

@@ -198,7 +198,7 @@ describe("DocsPage", () => {
 
     render(<DocsPage />);
 
-    fireEvent.click(screen.getAllByRole("button", { name: /Getting Started/i })[0]);
+    fireEvent.click(screen.getByRole("treeitem", { name: "Getting Started" }));
     fireEvent.click(screen.getAllByTitle(/Add child page/i).at(-1));
     fireEvent.click(screen.getByRole("button", { name: /Blank Page/i }));
     fireEvent.change(screen.getByPlaceholderText(/Page title/i), {
@@ -220,7 +220,7 @@ describe("DocsPage", () => {
 
     render(<DocsPage />);
 
-    fireEvent.click(screen.getAllByRole("button", { name: /Getting Started/i })[0]);
+    fireEvent.click(screen.getByRole("treeitem", { name: "Getting Started" }));
     fireEvent.change(screen.getByPlaceholderText(/Add a comment/i), {
       target: { value: "Looks good to me" },
     });
@@ -358,7 +358,7 @@ describe("DocsPage", () => {
     mockUseApp.mockReturnValue(appMock);
 
     const { rerender } = render(<DocsPage />);
-    fireEvent.click(screen.getAllByRole("button", { name: /Getting Started/i })[0]);
+    fireEvent.click(screen.getByRole("treeitem", { name: "Getting Started" }));
     expect(screen.getByRole("heading", { level: 1, name: "Getting Started" })).toBeInTheDocument();
 
     mockUseApp.mockReturnValue({ ...appMock, docPages: appMock.docPages.filter((page) => page.id !== "page-1") });
@@ -376,7 +376,7 @@ describe("DocsPage", () => {
 
     render(<DocsPage />);
 
-    fireEvent.click(screen.getAllByRole("button", { name: /Getting Started/i })[0]);
+    fireEvent.click(screen.getByRole("treeitem", { name: "Getting Started" }));
     fireEvent.click(screen.getByRole("heading", { level: 1, name: "Getting Started" }));
     const titleInput = screen.getByDisplayValue("Getting Started");
     fireEvent.change(titleInput, { target: { value: "Getting Started v2" } });
@@ -397,7 +397,7 @@ describe("DocsPage", () => {
 
     render(<DocsPage />);
 
-    fireEvent.click(screen.getAllByRole("button", { name: /Architecture/i })[0]);
+    fireEvent.click(screen.getByRole("treeitem", { name: "Architecture" }));
     fireEvent.change(screen.getByPlaceholderText(/Add a comment/i), {
       target: { value: "@bob @alice @nobody please review" },
     });
@@ -440,7 +440,7 @@ describe("DocsPage", () => {
       mockUseApp.mockReturnValue(appMock);
       render(<DocsPage />);
 
-      fireEvent.click(screen.getAllByRole("button", { name: /Getting Started/i })[0]);
+      fireEvent.click(screen.getByRole("treeitem", { name: "Getting Started" }));
       const heading = screen.getByRole("heading", { level: 1, name: "Getting Started" });
       expect(heading).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: /^Edit$/i })).not.toBeInTheDocument();
@@ -460,7 +460,7 @@ describe("DocsPage", () => {
       mockUseApp.mockReturnValue(appMock);
       render(<DocsPage />);
 
-      fireEvent.click(screen.getAllByRole("button", { name: /Getting Started/i })[0]);
+      fireEvent.click(screen.getByRole("treeitem", { name: "Getting Started" }));
 
       expect(screen.getByText("Existing note")).toBeInTheDocument();
       expect(screen.getByTestId("docs-comments-read-only")).toBeInTheDocument();

@@ -120,7 +120,7 @@ function TaskCard({
       )}
 
       {/* Title */}
-      <div className={`font-medium text-slate-800 dark:text-slate-200 leading-snug break-words ${compact ? "text-xs" : "text-sm"} mb-2 line-clamp-2`}>
+      <div title={task.title} className={`font-medium text-slate-800 dark:text-slate-200 leading-snug break-words ${compact ? "text-xs" : "text-sm"} mb-2 line-clamp-2`}>
         {task.title}
       </div>
 
