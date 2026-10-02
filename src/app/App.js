@@ -27,7 +27,6 @@ const DashboardPage = lazy(() => import("../features/dashboard/pages/DashboardPa
 const ActivityPage = lazy(() => import("../features/activity/pages/ActivityPage"));
 const RoadmapPage = lazy(() => import("../features/roadmap/pages/RoadmapPage"));
 const CalendarPage = lazy(() => import("../features/calendar/pages/CalendarPage"));
-const ReportsPage = lazy(() => import("../features/reports/pages/ReportsPage"));
 const ProfilePage = lazy(() => import("../features/profile/pages/ProfilePage"));
 const AdminPage = lazy(() => import("../features/admin/pages/AdminPage"));
 const HRPage = lazy(() => import("../features/hr/pages/HRPage"));
@@ -57,7 +56,6 @@ const PATH_TO_PAGE = {
   "/dashboard": "dashboard",
   "/roadmap":   "roadmap",
   "/calendar":  "calendar",
-  "/reports":   "reports",
   "/profile":   "profile",
   "/admin":     "admin",
   "/projects":  "projects",
@@ -327,7 +325,8 @@ function AppInner() {
           <Route path="/dashboard" element={renderProtectedPage("dashboard", <DashboardPage />)} />
           <Route path="/roadmap"   element={renderProtectedPage("roadmap", <RoadmapPage />)} />
           <Route path="/calendar"  element={renderProtectedPage("calendar", <CalendarPage />, { fullHeight: true })} />
-          <Route path="/reports"   element={renderProtectedPage("reports", <ReportsPage />)} />
+          {/* Reports was merged into the Dashboard; keep old links working. */}
+          <Route path="/reports"   element={<Navigate to="/dashboard?tab=sprint" replace />} />
           <Route path="/profile"   element={<LazyPage><ProfilePage /></LazyPage>} />
           <Route path="/admin"     element={renderProtectedPage("admin", <AdminPage />)} />
           <Route path="/projects"  element={renderProtectedPage("projects", <ProjectsPage onNavigate={(p) => navigate(`/${p}`)} />)} />

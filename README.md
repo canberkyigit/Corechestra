@@ -13,10 +13,9 @@
 | Module | Highlights |
 |---|---|
 | **Board** | Kanban columns with drag-and-drop, backlog, sprint management, task filters by assignee / priority / type |
-| **Dashboard** | Project overview, activity feed, metrics at a glance |
+| **Dashboard** | Project health: sprint pace, burndown, velocity, team workload, epic progress, delivery & test quality, sprint history, CSV export |
 | **Roadmap** | Timeline view of epics and tasks across projects |
 | **Calendar** | Calendar view of scheduled work, time-off, and deadlines |
-| **Reports** | Burndown charts, velocity, sprint analytics |
 | **Projects** | Multi-project workspace; grid and list view; per-project settings (board name, key, columns) |
 | **Docs** | Confluence-like spaces and pages — TipTap rich editor, Markdown editor, @mentions, image embeds, drag-and-drop page tree, per-page comments |
 | **Releases** | Version management, changelog, tasks linked to releases |
@@ -209,7 +208,6 @@ src/
 │   ├── roadmap/               # Roadmap page and related UI
 │   ├── dashboard/             # Dashboard page
 │   ├── calendar/              # Calendar page
-│   ├── reports/               # Reports page
 │   ├── docs/                  # Docs experience
 │   ├── projects/              # Project switcher and settings
 │   ├── releases/              # Releases module

@@ -3,7 +3,7 @@ import { taskKey } from "../utils/helpers";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   FaSearch, FaTimes, FaPlusSquare, FaRocket, FaColumns,
-  FaTachometerAlt, FaChartBar, FaCalendarAlt, FaShieldAlt, FaLayerGroup, FaStream, FaMoon, FaBook,
+  FaTachometerAlt, FaCalendarAlt, FaShieldAlt, FaLayerGroup, FaStream, FaMoon, FaBook,
   FaTag, FaFlask, FaArchive, FaBell, FaBuilding, FaHistory, FaComments,
 } from "react-icons/fa";
 import { useApp } from "../context/AppContext";
@@ -15,7 +15,6 @@ const PAGES = [
   { id: "board",     label: "Board",      icon: FaColumns       },
   { id: "chats",     label: "Chats",      icon: FaComments      },
   { id: "roadmap",   label: "Roadmap",    icon: FaRocket        },
-  { id: "reports",   label: "Reports",    icon: FaChartBar      },
   { id: "calendar",  label: "Calendar",   icon: FaCalendarAlt   },
   { id: "projects",  label: "Projects",   icon: FaLayerGroup    },
   { id: "docs",      label: "Documentation", icon: FaBook       },

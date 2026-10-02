@@ -42,41 +42,43 @@ export function BoardSkeleton() {
 
 // ─── Dashboard page skeleton ──────────────────────────────────────────────────
 export function DashboardSkeleton() {
+  const card = "rounded-xl border border-slate-200 dark:border-[#252b3b] bg-white dark:bg-[#1a1f2e]";
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
-      {/* Stat cards row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[0, 1, 2, 3].map((i) => (
-          <div
-            key={i}
-            className="rounded-xl border border-slate-200 dark:border-slate-700/50 bg-white dark:bg-[#1c2030] p-4 space-y-2"
-          >
+    <div className="p-4 md:p-6 space-y-5 max-w-[1400px] mx-auto">
+      <div className="space-y-2">
+        <SkeletonBlock className="h-3 w-40" />
+        <SkeletonBlock className="h-7 w-36" />
+        <SkeletonBlock className="h-3 w-52" />
+      </div>
+      <div className="flex gap-4 border-b border-slate-200 dark:border-[#252b3b] pb-2">
+        {[0, 1, 2, 3, 4].map((i) => <SkeletonBlock key={i} className="h-4 w-16" />)}
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+        {[0, 1, 2, 3, 4, 5].map((i) => (
+          <div key={i} className={`${card} p-4 space-y-2`}>
             <SkeletonBlock className="h-3 w-20" />
-            <SkeletonBlock className="h-8 w-16" />
+            <SkeletonBlock className="h-7 w-14" />
             <SkeletonBlock className="h-3 w-24" />
           </div>
         ))}
       </div>
-      {/* Chart area */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {[0, 1].map((i) => (
-          <div
-            key={i}
-            className="rounded-xl border border-slate-200 dark:border-slate-700/50 bg-white dark:bg-[#1c2030] p-4 space-y-3"
-          >
-            <SkeletonBlock className="h-4 w-32" />
-            <SkeletonBlock className="h-40 w-full rounded-lg" />
-          </div>
-        ))}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        <div className={`${card} p-4 space-y-4 lg:col-span-5`}>
+          <SkeletonBlock className="h-4 w-32" />
+          <SkeletonBlock className="h-2 w-full rounded-full" />
+          <SkeletonBlock className="h-2 w-full rounded-full" />
+          <SkeletonBlock className="h-16 w-full rounded-lg" />
+        </div>
+        <div className={`${card} p-4 space-y-3 lg:col-span-7`}>
+          <SkeletonBlock className="h-4 w-32" />
+          <SkeletonBlock className="h-48 w-full rounded-lg" />
+        </div>
       </div>
-      {/* Table / list area */}
-      <div className="rounded-xl border border-slate-200 dark:border-slate-700/50 bg-white dark:bg-[#1c2030] p-4 space-y-3">
-        <SkeletonBlock className="h-4 w-40" />
-        {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="flex items-center gap-3">
-            <SkeletonBlock className="h-8 w-8 rounded-full flex-shrink-0" />
-            <SkeletonBlock className="h-3 flex-1" />
-            <SkeletonBlock className="h-3 w-16" />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className={`${card} p-4 space-y-3`}>
+            <SkeletonBlock className="h-4 w-28" />
+            {[0, 1, 2, 3].map((j) => <SkeletonBlock key={j} className="h-3 w-full" />)}
           </div>
         ))}
       </div>
@@ -313,40 +315,6 @@ export function ForYouSkeleton() {
               <SkeletonBlock className="h-5 w-12 rounded-full" />
             </div>
           ))}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ─── Reports page skeleton ────────────────────────────────────────────────────
-export function ReportsSkeleton() {
-  return (
-    <div className="p-6 space-y-6 max-w-5xl mx-auto">
-      <div className="flex items-center justify-between mb-2">
-        <SkeletonBlock className="h-6 w-24" />
-        <SkeletonBlock className="h-8 w-36 rounded-lg" />
-      </div>
-      {/* Top stat row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[0, 1, 2, 3].map((i) => (
-          <div
-            key={i}
-            className="rounded-xl border border-slate-200 dark:border-slate-700/50 bg-white dark:bg-[#1c2030] p-4 space-y-2"
-          >
-            <SkeletonBlock className="h-3 w-20" />
-            <SkeletonBlock className="h-7 w-12" />
-          </div>
-        ))}
-      </div>
-      {/* Charts */}
-      {[0, 1].map((i) => (
-        <div
-          key={i}
-          className="rounded-xl border border-slate-200 dark:border-slate-700/50 bg-white dark:bg-[#1c2030] p-4 space-y-3"
-        >
-          <SkeletonBlock className="h-4 w-36" />
-          <SkeletonBlock className="h-48 w-full rounded-lg" />
         </div>
       ))}
     </div>
