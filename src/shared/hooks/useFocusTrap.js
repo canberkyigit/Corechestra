@@ -25,7 +25,7 @@ export function getFocusableElements(container) {
  * - wraps Tab / Shift+Tab at the edges,
  * - restores focus to the element that opened the overlay on close.
  */
-export function useFocusTrap(containerRef, active = true, { autoFocus = true, restoreFocus = true } = {}) {
+export function useFocusTrap(containerRef, active = true, { autoFocus = true, restoreFocus = true, focusContainer = false } = {}) {
   const previousFocusRef = useRef(null);
 
   useEffect(() => {
@@ -35,7 +35,13 @@ export function useFocusTrap(containerRef, active = true, { autoFocus = true, re
 
     previousFocusRef.current = typeof document !== "undefined" ? document.activeElement : null;
 
-    if (autoFocus && !container.contains(document.activeElement)) {
+    if (focusContainer && !container.contains(document.activeElement)) {
+      // Read-first dialogs: focus the dialog itself so screen readers announce
+      // it and Tab/Esc work, without dropping the caret into a field.
+      if (!container.hasAttribute("tabindex")) container.setAttribute("tabindex", "-1");
+      const raf = window.requestAnimationFrame(() => container.focus?.({ preventScroll: true }));
+      previousFocusRef.raf = raf;
+    } else if (autoFocus && !container.contains(document.activeElement)) {
       const preferred = container.querySelector("[data-autofocus]");
       const fields = getFocusableElements(container);
       const firstField = fields.find((element) => /^(INPUT|TEXTAREA|SELECT)$/.test(element.tagName)) || fields[0];

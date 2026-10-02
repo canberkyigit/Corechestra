@@ -208,7 +208,7 @@ export default function TaskDetailModal({
   useEscapeKey(handleEscape, Boolean(shouldRender) && !openSubtask);
 
   const panelRef = useRef(null);
-  useFocusTrap(panelRef, Boolean(shouldRender) && Boolean(open) && !openSubtask, { autoFocus: !isCreate });
+  useFocusTrap(panelRef, Boolean(shouldRender) && Boolean(open) && !openSubtask, { focusContainer: !isCreate });
 
   // ⌘/Ctrl+Enter saves from anywhere in the dialog (incl. textareas).
   const handlePanelKeyDown = (event) => {
@@ -326,7 +326,7 @@ export default function TaskDetailModal({
               aria-modal="true"
               aria-label={isCreate ? "Create task" : `Task ${title || ""}`.trim()}
               onKeyDown={handlePanelKeyDown}
-              className="app-surface rounded-t-2xl md:rounded-3xl w-full max-w-5xl md:mx-4 flex flex-col max-h-[92dvh] md:max-h-[90vh] overflow-hidden transition-colors relative"
+              className="app-surface focus:outline-none rounded-t-2xl md:rounded-3xl w-full max-w-5xl md:mx-4 flex flex-col max-h-[92dvh] md:max-h-[90vh] overflow-hidden transition-colors relative"
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
