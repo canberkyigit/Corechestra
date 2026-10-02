@@ -1,77 +1,90 @@
 /* ═══════════════════════════════════════════════════════════
    CORECHESTRA — DARK MODE OVERRIDES
    Applied when <html class="dark"> is set.
-   Uses descendant specificity (.dark .bg-white) to beat
-   Tailwind's single-class specificity without !important.
+
+   These are FALLBACKS for elements that only carry light classes
+   (e.g. `bg-white`, `text-slate-500`). Each selector wraps the class
+   in `:where()` so it has the same specificity as the plain Tailwind
+   class (0,1,0): it beats the light class (this file loads later) but
+   loses to an explicit `dark:` variant (0,2,0). Always prefer writing
+   `dark:` classes in components; never raise specificity here.
 ═══════════════════════════════════════════════════════════ */
 
 /* ── Backgrounds ── */
-.dark .bg-white          { background-color: #1c2030; }
-.dark .bg-slate-50       { background-color: #141720; }
-.dark .bg-slate-100      { background-color: #232838; }
-.dark .bg-slate-200      { background-color: #2a3044; }
-.dark .bg-gray-50        { background-color: #141720; }
-.dark .bg-gray-100       { background-color: #232838; }
-.dark .bg-gray-200       { background-color: #2a3044; }
+.dark :where(.bg-white)          { background-color: #1c2030; }
+.dark :where(.bg-slate-50)       { background-color: #141720; }
+.dark :where(.bg-slate-100)      { background-color: #232838; }
+.dark :where(.bg-slate-200)      { background-color: #2a3044; }
+.dark :where(.bg-gray-50)        { background-color: #141720; }
+.dark :where(.bg-gray-100)       { background-color: #232838; }
+.dark :where(.bg-gray-200)       { background-color: #2a3044; }
 
-/* ── Text ── */
-.dark .text-slate-900    { color: #f1f5f9; }
-.dark .text-slate-800    { color: #e2e8f0; }
-.dark .text-slate-700    { color: #cbd5e1; }
-.dark .text-slate-600    { color: #94a3b8; }
-.dark .text-slate-500    { color: #64748b; }
-.dark .text-slate-400    { color: #475569; }
-.dark .text-gray-800     { color: #e2e8f0; }
-.dark .text-gray-700     { color: #cbd5e1; }
-.dark .text-gray-600     { color: #94a3b8; }
-.dark .text-gray-500     { color: #64748b; }
-.dark .text-gray-400     { color: #475569; }
+/* ── Text ──
+   Muted tones are tuned for >= 4.5:1 contrast on #1c2030 cards. */
+.dark :where(.text-slate-900)    { color: #f1f5f9; }
+.dark :where(.text-slate-800)    { color: #e2e8f0; }
+.dark :where(.text-slate-700)    { color: #cbd5e1; }
+.dark :where(.text-slate-600)    { color: #a3b0c2; }
+.dark :where(.text-slate-500)    { color: #94a3b8; }
+.dark :where(.text-slate-400)    { color: #8291a8; }
+.dark :where(.text-gray-800)     { color: #e2e8f0; }
+.dark :where(.text-gray-700)     { color: #cbd5e1; }
+.dark :where(.text-gray-600)     { color: #a3b0c2; }
+.dark :where(.text-gray-500)     { color: #94a3b8; }
+.dark :where(.text-gray-400)     { color: #8291a8; }
+
+/* Explicit dark variants that are too dim on the app's dark surfaces
+   (Tailwind slate-500 is ~3.4:1 on #1c2030). Same specificity as
+   Tailwind's own rule; wins by source order. */
+.dark .dark\:text-slate-500      { color: #8291a8; }
+.dark .dark\:text-slate-600      { color: #64748b; }
 
 /* ── Borders ── */
-.dark .border-slate-100  { border-color: #232838; }
-.dark .border-slate-200  { border-color: #2a3044; }
-.dark .border-slate-300  { border-color: #374155; }
-.dark .border-gray-200   { border-color: #2a3044; }
-.dark .border-gray-300   { border-color: #374155; }
+.dark :where(.border-slate-100)  { border-color: #232838; }
+.dark :where(.border-slate-200)  { border-color: #2a3044; }
+.dark :where(.border-slate-300)  { border-color: #374155; }
+.dark :where(.border-gray-200)   { border-color: #2a3044; }
+.dark :where(.border-gray-300)   { border-color: #374155; }
 
 /* ── Shadows ── */
-.dark .shadow-sm         { box-shadow: 0 1px 3px rgba(0,0,0,0.5); }
-.dark .shadow            { box-shadow: 0 2px 6px rgba(0,0,0,0.6); }
-.dark .shadow-md         { box-shadow: 0 4px 12px rgba(0,0,0,0.7); }
-.dark .shadow-lg         { box-shadow: 0 8px 24px rgba(0,0,0,0.8); }
-.dark .shadow-xl         { box-shadow: 0 16px 40px rgba(0,0,0,0.9); }
-.dark .shadow-2xl        { box-shadow: 0 24px 48px rgba(0,0,0,0.95); }
+.dark :where(.shadow-sm)         { box-shadow: 0 1px 3px rgba(0,0,0,0.5); }
+.dark :where(.shadow)            { box-shadow: 0 2px 6px rgba(0,0,0,0.6); }
+.dark :where(.shadow-md)         { box-shadow: 0 4px 12px rgba(0,0,0,0.7); }
+.dark :where(.shadow-lg)         { box-shadow: 0 8px 24px rgba(0,0,0,0.8); }
+.dark :where(.shadow-xl)         { box-shadow: 0 16px 40px rgba(0,0,0,0.9); }
+.dark :where(.shadow-2xl)        { box-shadow: 0 24px 48px rgba(0,0,0,0.95); }
 
-/* ── Dividers / hover states ── */
-.dark .divide-slate-100 > * + * { border-color: #232838; }
-.dark .divide-slate-200 > * + * { border-color: #2a3044; }
+/* ── Dividers ── */
+.dark :where(.divide-slate-100) > * + * { border-color: #232838; }
+.dark :where(.divide-slate-200) > * + * { border-color: #2a3044; }
 
-/* ── Hover backgrounds ── */
-.dark .hover\:bg-slate-50:hover   { background-color: #1c2030; }
-.dark .hover\:bg-slate-100:hover  { background-color: #232838; }
-.dark .hover\:bg-gray-50:hover    { background-color: #1c2030; }
-.dark .hover\:bg-gray-100:hover   { background-color: #232838; }
-.dark .hover\:bg-gray-200:hover   { background-color: #2a3044; }
+/* ── Hover backgrounds ── (0,2,0 — ties Tailwind's `hover:` rule, loses to `dark:hover:`) */
+.dark :where(.hover\:bg-slate-50):hover   { background-color: #1c2030; }
+.dark :where(.hover\:bg-slate-100):hover  { background-color: #232838; }
+.dark :where(.hover\:bg-gray-50):hover    { background-color: #1c2030; }
+.dark :where(.hover\:bg-gray-100):hover   { background-color: #232838; }
+.dark :where(.hover\:bg-gray-200):hover   { background-color: #2a3044; }
 
-/* ── Focus rings ── */
-.dark .focus\:bg-white:focus      { background-color: #1c2030; }
+/* ── Focus ── */
+.dark :where(.focus\:bg-white):focus      { background-color: #1c2030; }
 
 /* ── Inputs ── */
-.dark input[type="text"],
-.dark input[type="number"],
-.dark input[type="date"],
-.dark input[type="email"],
-.dark textarea,
-.dark select {
+.dark :where(
+  input[type="text"],
+  input[type="number"],
+  input[type="date"],
+  input[type="email"],
+  textarea,
+  select
+) {
   background-color: #232838;
   border-color: #2a3044;
   color: #e2e8f0;
 }
-.dark input::placeholder,
-.dark textarea::placeholder { color: #475569; }
+.dark :where(input, textarea)::placeholder { color: #64748b; }
 
-/* ── Headlessui Listbox ── */
-.dark [data-headlessui-state] {
+/* ── Headless UI Listbox ── */
+.dark :where([data-headlessui-state]) {
   background-color: #1c2030;
   border-color: #2a3044;
   color: #e2e8f0;

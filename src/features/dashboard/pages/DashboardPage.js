@@ -5,6 +5,7 @@ import { DashboardSkeleton } from "../../../shared/components/Skeleton";
 import { TASK_STATUS_SHORT_LABELS } from "../../../shared/constants/taskMeta";
 import { requestNavigate, requestOpenTask } from "../../../shared/components/appNavigation";
 import { format, parseISO, isValid, differenceInDays } from "date-fns";
+import { isOverdue } from "../../../shared/utils/dueDate";
 import {
   FaRocket, FaCheckCircle, FaHourglass, FaBolt, FaUserAlt,
   FaHistory, FaFlag, FaTimes,
@@ -52,8 +53,7 @@ export function computeDashboardStats({
     if (byStatus[task.status]) byStatus[task.status].push(task);
     const isDone = task.status === "done";
     if (!isDone) {
-      const due = parseValidDate(task.dueDate);
-      if (due && differenceInDays(due, now) < 0) overdue += 1;
+      if (isOverdue(task.dueDate, task.status, now)) overdue += 1;
       if (me && String(task.assignedTo || "").toLowerCase() === me) myTasks.push(task);
     }
     if (task.epicId) {

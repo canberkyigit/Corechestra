@@ -1,7 +1,7 @@
 import React, { memo, useState, useEffect, useRef } from "react";
-import { isBefore, addDays, parseISO, isValid, format } from "date-fns";
 import { FaChevronDown, FaChevronUp, FaList, FaBan, FaRocket } from "react-icons/fa";
 import { taskKey } from "../../../shared/utils/helpers";
+import { formatDueShort, getDueStatus } from "../../../shared/utils/dueDate";
 import { TASK_TYPE_CHIP_STYLES, TASK_TYPE_OPTIONS } from "../../../shared/constants/taskMeta";
 import { findUser, getInitial, getUserColor } from "../utils/userColors";
 
@@ -16,19 +16,6 @@ const PRIORITY_BORDER_COLOR = {
   medium:   "#facc15",
   low:      "#4ade80",
 };
-
-function getDueDateStatus(dueDateStr) {
-  if (!dueDateStr) return null;
-  try {
-    const date = parseISO(dueDateStr);
-    if (!isValid(date)) return null;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    if (isBefore(date, today)) return "overdue";
-    if (isBefore(date, addDays(today, 3))) return "soon";
-    return "ok";
-  } catch { return null; }
-}
 
 /**
  * Kanban card. Pure presentational component (no store hooks) so React.memo
@@ -80,11 +67,8 @@ function TaskCard({
     .map((id) => labelsById?.get(id))
     .filter(Boolean);
 
-  const dueDateStatus = getDueDateStatus(task.dueDate);
-  let dueDateText = null;
-  if (task.dueDate) {
-    try { dueDateText = format(parseISO(task.dueDate), "MMM d"); } catch { dueDateText = task.dueDate; }
-  }
+  const dueDateStatus = getDueStatus(task.dueDate, task.status);
+  const dueDateText = task.dueDate ? formatDueShort(task.dueDate) : null;
 
   const subtasks = task.subtasks || [];
   const completedSubtasks = subtasks.filter((subtask) => subtask.done).length;
@@ -169,8 +153,8 @@ function TaskCard({
                 : dueDateStatus === "soon" ? "text-orange-500"
                   : "text-slate-400"
             }`}>
-              {dueDateStatus === "overdue" && "⚠"}
-              {dueDateText}
+              {dueDateStatus === "overdue" && <span aria-hidden="true">⚠</span>}
+              <span title={dueDateStatus === "overdue" ? "Overdue" : dueDateStatus === "soon" ? "Due soon" : "Due date"}>{dueDateText}</span>
             </span>
           )}
           {hasStoryPoints && (
