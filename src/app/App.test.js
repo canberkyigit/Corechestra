@@ -96,7 +96,6 @@ jest.mock("../features/dashboard/pages/DashboardPage", () => () => <div>Dashboar
 jest.mock("../features/activity/pages/ActivityPage", () => () => <div>Activity page</div>);
 jest.mock("../features/roadmap/pages/RoadmapPage", () => () => <div>Roadmap page</div>);
 jest.mock("../features/calendar/pages/CalendarPage", () => () => <div>Calendar page</div>);
-jest.mock("../features/reports/pages/ReportsPage", () => () => <div>Reports page</div>);
 jest.mock("../features/profile/pages/ProfilePage", () => () => <div>Profile page</div>);
 jest.mock("../features/admin/pages/AdminPage", () => () => <div>Admin page</div>);
 jest.mock("../features/hr/pages/HRPage", () => () => <div>HR page</div>);
