@@ -1,12 +1,13 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
-import { FaArrowRight, FaTrash, FaPencilAlt, FaSearch, FaPlay } from "react-icons/fa";
+import { FaArrowRight, FaTrash, FaPencilAlt, FaSearch, FaPlay, FaPlus } from "react-icons/fa";
 import TaskRow from "../components/TaskRow";
 import { useApp } from "../../../shared/context/AppContext";
 import { useBoardPermissions } from "../hooks/useBoardPermissions";
 import { useToast } from "../../../shared/context/ToastContext";
 import { useWorkflowGuard } from "../hooks/useWorkflowGuard";
 import { useEscapeKey } from "../hooks/useEscapeKey";
+import { AppButton } from "../../../shared/components/AppPrimitives";
 import { buildStatusOptions } from "../utils/boardColumns";
 import { toFullListIndex } from "../utils/boardDnd";
 import { isInProject } from "../../../shared/utils/helpers";
@@ -236,13 +237,9 @@ export default function BacklogTab({ onTaskClick, onPokerClick, focusSectionId, 
         <h3 className="text-base font-semibold text-slate-600 dark:text-slate-300 mt-4">Backlog is empty</h3>
         <p className="text-sm text-slate-400 dark:text-slate-500 mt-1 max-w-xs">Tasks moved from the sprint or created here will appear</p>
         {!readOnly && sections.length === 0 && (
-          <button
-            type="button"
-            onClick={createBacklogSection}
-            className="mt-4 px-4 py-1.5 rounded bg-blue-600 text-white text-xs font-semibold shadow hover:bg-blue-700 transition-colors"
-          >
-            + New Backlog Section
-          </button>
+          <AppButton variant="primary" size="sm" onClick={createBacklogSection} className="mt-4">
+            <FaPlus className="w-3 h-3" /> New Backlog Section
+          </AppButton>
         )}
       </div>
     );
@@ -263,13 +260,9 @@ export default function BacklogTab({ onTaskClick, onPokerClick, focusSectionId, 
           />
         </div>
         {!readOnly && (
-          <button
-            type="button"
-            onClick={createBacklogSection}
-            className="px-4 py-1.5 rounded bg-blue-600 text-white text-xs font-semibold shadow hover:bg-blue-700 transition-colors"
-          >
-            + New Backlog Section
-          </button>
+          <AppButton variant="primary" size="sm" onClick={createBacklogSection} className="flex-shrink-0">
+            <FaPlus className="w-3 h-3" /> New Backlog Section
+          </AppButton>
         )}
       </div>
 

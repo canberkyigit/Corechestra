@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { FaChevronDown, FaFlask, FaPlus } from "react-icons/fa";
+import { AppButton } from "../../../shared/components/AppPrimitives";
 import { useApp } from "../../../shared/context/AppContext";
 import { useToast } from "../../../shared/context/ToastContext";
 import { usePermissions } from "../../../shared/context/hooks/usePermissions";
@@ -138,9 +139,9 @@ export default function TestsPage() {
                 {suites.length === 0 ? "Create your first test suite to get started." : "Select a suite from the sidebar."}
               </p>
               {suites.length === 0 && !readOnly && (
-                <button type="button" onClick={() => setNewSuiteModal(true)} className="mt-4 flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-xl transition-colors">
+                <AppButton variant="primary" onClick={() => setNewSuiteModal(true)} className="mt-4">
                   <FaPlus className="w-3.5 h-3.5" /> New Test Suite
-                </button>
+                </AppButton>
               )}
             </div>
           )}

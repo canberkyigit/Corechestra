@@ -101,8 +101,11 @@ function KanbanColumn({
           : "bg-slate-200/70 dark:bg-[#1a1f2e] border-slate-300/80 dark:border-[#252b3b]"
       }`}
     >
-      {/* Column Header */}
-      <div className="flex items-center gap-2 px-3 pt-3 pb-2">
+      {/* Column Header — sticks to the top of the board's scroll area so long
+          columns keep their title and count in view. */}
+      <div className={`sticky top-0 z-10 flex items-center gap-2 px-3 pt-3 pb-2 rounded-t-xl backdrop-blur-sm ${
+        unmapped ? "bg-amber-50/95 dark:bg-[#1f1d1a]/95" : "bg-slate-200/95 dark:bg-[#1a1f2e]/95"
+      }`}>
         <span className={`w-2 h-2 rounded-full flex-shrink-0 ${colors.dot}`} />
         <span className={`font-semibold text-xs uppercase tracking-wider truncate flex-1 ${colors.header}`}>
           {title}
