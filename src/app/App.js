@@ -13,6 +13,7 @@ import { ConfirmProvider } from "../shared/context/ConfirmContext";
 import { AuthProvider, useAuth } from "../shared/context/AuthContext";
 import { HRProvider } from "../shared/context/HRContext";
 import { usePermissions } from "../shared/context/hooks/usePermissions";
+import { confirmNavigation } from "../shared/navigation/navigationGuard";
 import { captureException, identifyUser, initializeObservability, trackEvent } from "../shared/services/observability";
 import "./styles/app.css";
 
@@ -218,7 +219,6 @@ function AppInner() {
   const [cmdPaletteOpen,    setCmdPaletteOpen]    = useState(false);
   const [selectedTask,      setSelectedTask]      = useState(null);
   const [sidePanelOpen,     setSidePanelOpen]     = useState(false);
-  const [forcedBoardTab,    setForcedBoardTab]    = useState(null);
 
   useEffect(() => {
     pushRecentItem({
@@ -260,12 +260,19 @@ function AppInner() {
     setTimeout(() => document.documentElement.classList.remove("dark-transitioning"), 300);
   };
 
-  const handleSettingsClick = useCallback(() => {
-    navigate("/board");
-    setForcedBoardTab("settings");
-  }, [navigate]);
+  // Every in-app navigation asks registered guards (e.g. a doc with unsaved
+  // edits) before leaving the current page.
+  const guardedNavigate = useCallback(async (path) => {
+    if (path === `${location.pathname}${location.search}`) return;
+    if (!(await confirmNavigation())) return;
+    navigate(path);
+  }, [location.pathname, location.search, navigate]);
 
-  const handleProfileClick  = useCallback(() => navigate("/profile"), [navigate]);
+  const handleSettingsClick = useCallback(() => {
+    guardedNavigate("/board?tab=settings");
+  }, [guardedNavigate]);
+
+  const handleProfileClick  = useCallback(() => guardedNavigate("/profile"), [guardedNavigate]);
   const handleCreateClick   = useCallback(() => {
     if (!canPerform("task:create")) return;
     setSelectedSprint(sprintOptions[0]);
@@ -295,10 +302,7 @@ function AppInner() {
 
   const boardPage = (
     <LazyPage fullHeight>
-      <BoardPage
-        forcedTab={forcedBoardTab}
-        onForcedTabConsumed={() => setForcedBoardTab(null)}
-      />
+      <BoardPage />
     </LazyPage>
   );
 
@@ -306,7 +310,7 @@ function AppInner() {
     <>
       <Layout
         activePage={activePage}
-        onPageChange={(page) => navigate(`/${page === "board" ? "board" : page}`)}
+        onPageChange={(page) => guardedNavigate(`/${page === "board" ? "board" : page}`)}
         darkMode={darkMode}
         onToggleDark={toggleDark}
         onCreateClick={handleCreateClick}
@@ -325,7 +329,7 @@ function AppInner() {
           <Route path="/reports"   element={renderProtectedPage("reports", <ReportsPage />)} />
           <Route path="/profile"   element={<LazyPage><ProfilePage /></LazyPage>} />
           <Route path="/admin"     element={renderProtectedPage("admin", <AdminPage />)} />
-          <Route path="/projects"  element={renderProtectedPage("projects", <ProjectsPage onNavigate={(p) => navigate(`/${p}`)} />)} />
+          <Route path="/projects"  element={renderProtectedPage("projects", <ProjectsPage onNavigate={(p) => guardedNavigate(`/${p}`)} />)} />
           <Route path="/docs"      element={renderProtectedPage("docs", <DocsPage />, { fullHeight: true })} />
           <Route path="/releases"  element={renderProtectedPage("releases", <ReleasesPage />, { fullHeight: true })} />
           <Route path="/tests"     element={renderProtectedPage("tests", <TestsPage />, { fullHeight: true })} />
@@ -342,7 +346,7 @@ function AppInner() {
             open={cmdPaletteOpen}
             onClose={() => setCmdPaletteOpen(false)}
             onOpenTask={handleOpenTask}
-            onNavigate={(page) => navigate(`/${page}`)}
+            onNavigate={(page) => guardedNavigate(`/${page}`)}
             onCreateTask={handleCreateClick}
             onToggleDark={toggleDark}
           />

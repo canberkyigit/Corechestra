@@ -1,10 +1,10 @@
 import React, { useState } from "react";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ConfirmDialog, Modal } from "./Modal";
 import { ConfirmProvider, useConfirm } from "../context/ConfirmContext";
 
 function pressEscape() {
-  fireEvent.keyDown(document.activeElement || document.body, { key: "Escape" });
+  fireEvent.keyDown(document, { key: "Escape" });
 }
 
 describe("Modal", () => {
@@ -79,8 +79,8 @@ describe("ConfirmDialog", () => {
     expect(button).toBeDisabled();
     fireEvent.change(screen.getByTestId("confirm-dialog-input"), { target: { value: "Apollo" } });
     expect(button).toBeEnabled();
-    await act(async () => { fireEvent.click(button); });
-    expect(onConfirm).toHaveBeenCalledTimes(1);
+    fireEvent.click(button);
+    await waitFor(() => expect(onConfirm).toHaveBeenCalledTimes(1));
   });
 });
 
@@ -107,11 +107,11 @@ describe("useConfirm", () => {
     render(<ConfirmProvider><Harness onResult={onResult} /></ConfirmProvider>);
 
     fireEvent.click(screen.getByRole("button", { name: "idle" }));
-    await act(async () => { fireEvent.click(await screen.findByRole("button", { name: "Remove" })); });
-    expect(onResult).toHaveBeenLastCalledWith(true);
+    fireEvent.click(await screen.findByRole("button", { name: "Remove" }));
+    await waitFor(() => expect(onResult).toHaveBeenLastCalledWith(true));
 
-    fireEvent.click(screen.getByRole("button", { name: "true" }));
-    await act(async () => { fireEvent.click(await screen.findByRole("button", { name: "Cancel" })); });
-    expect(onResult).toHaveBeenLastCalledWith(false);
+    fireEvent.click(await screen.findByRole("button", { name: "true" }));
+    fireEvent.click((await screen.findAllByRole("button", { name: "Cancel" })).at(-1));
+    await waitFor(() => expect(onResult).toHaveBeenLastCalledWith(false));
   });
 });

@@ -18,6 +18,7 @@ export function useWorkspaceActions({
   setTeams,
   setUsers,
   setDeletedUserIds,
+  setArchivedProjects,
   addNotification,
   logAuditEvent,
 }) {
@@ -129,10 +130,21 @@ export function useWorkspaceActions({
     });
   }, [logAuditEvent, setPerProjectBoardSettings, setProjects]);
 
+  /**
+   * Soft delete: the project record moves to `archivedProjects` (restorable
+   * from the Archive page) and its tasks/sprints/backlog stay untouched, so a
+   * mistaken delete never loses work. "Empty archive" makes it permanent.
+   */
   const deleteProject = useCallback((projectId) => {
     const state = useAppStore.getState();
     const project = (state.projects || projects || []).find((item) => item.id === projectId);
     setProjects((prev) => prev.filter((item) => item.id !== projectId));
+    if (project && setArchivedProjects) {
+      setArchivedProjects((prev) => [
+        { ...project, archivedAt: new Date().toISOString(), archivedBy: state.currentUser || null },
+        ...(prev || []).filter((item) => item.id !== projectId),
+      ]);
+    }
     // Don't leave the workspace pointing at a project that no longer exists.
     if (state.currentProjectId === projectId) {
       const fallback = (state.projects || []).find((item) => item.id !== projectId);
@@ -148,7 +160,24 @@ export function useWorkspaceActions({
         scope: "security",
       });
     }
-  }, [addNotification, logAuditEvent, projects, setProjects]);
+  }, [addNotification, logAuditEvent, projects, setArchivedProjects, setProjects]);
+
+  const restoreProject = useCallback((projectId) => {
+    const state = useAppStore.getState();
+    const archived = (state.archivedProjects || []).find((item) => item.id === projectId);
+    if (!archived) return false;
+    const { archivedAt, archivedBy, ...project } = archived;
+    setArchivedProjects((prev) => (prev || []).filter((item) => item.id !== projectId));
+    setProjects((prev) => (prev.some((item) => item.id === projectId) ? prev : [...prev, project]));
+    addNotification({ type: "project_created", text: `Project "${project.name}" restored` });
+    logAuditEvent?.("project_restored", {
+      entityType: "project",
+      entityId: projectId,
+      name: project.name,
+      scope: "workspace",
+    });
+    return true;
+  }, [addNotification, logAuditEvent, setArchivedProjects, setProjects]);
 
   const createTeam = useCallback((data) => {
     const id = `team-${Date.now()}`;
@@ -257,6 +286,7 @@ export function useWorkspaceActions({
     createProject,
     updateProject,
     deleteProject,
+    restoreProject,
     createTeam,
     updateTeam,
     deleteTeam,

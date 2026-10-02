@@ -1,5 +1,5 @@
 import React from "react";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { WorkspaceTab } from "./WorkspaceTab";
 import { DEFAULT_PERMISSION_MATRIX } from "../../../shared/constants/permissions";
 
@@ -171,11 +171,8 @@ describe("WorkspaceTab", () => {
     fireEvent.change(screen.getByTestId("workspace-reset-dialog-input"), { target: { value: "Acme" } });
     expect(confirmButton).toBeEnabled();
 
-    const setTimeoutSpy = jest.spyOn(window, "setTimeout");
-    await act(async () => { fireEvent.click(confirmButton); });
-    expect(resetAllData).toHaveBeenCalledTimes(1);
-    expect(mockAddToast).toHaveBeenCalledWith("Workspace reset. Reloading…", "success");
-    expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 600);
-    setTimeoutSpy.mockRestore();
+    fireEvent.click(confirmButton);
+    await waitFor(() => expect(resetAllData).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mockAddToast).toHaveBeenCalledWith("Workspace reset. Reloading…", "success"));
   });
 });

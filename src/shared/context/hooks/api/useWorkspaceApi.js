@@ -22,6 +22,7 @@ export function useWorkspaceApi({
     createProject: workspaceActions.createProject,
     updateProject: workspaceActions.updateProject,
     deleteProject: workspaceActions.deleteProject,
+    restoreProject: workspaceActions.restoreProject,
     teams,
     createTeam: workspaceActions.createTeam,
     updateTeam: workspaceActions.updateTeam,

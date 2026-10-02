@@ -19,6 +19,15 @@ jest.mock("../../../shared/context/hooks/useBoardState", () => ({
   useBoardState: (...args) => mockUseBoardState(...args),
 }));
 
+let mockLocation = { pathname: "/board", search: "" };
+const mockNavigate = jest.fn((to) => {
+  mockLocation = { ...mockLocation, ...(typeof to === "string" ? { search: to.includes("?") ? to.slice(to.indexOf("?")) : "" } : to) };
+});
+jest.mock("react-router-dom", () => ({
+  useLocation: () => mockLocation,
+  useNavigate: () => mockNavigate,
+}), { virtual: true });
+
 jest.mock("../components/KanbanBoard", () => (props) => {
   mockKanbanBoardSpy(props);
   return <div data-testid="kanban-board">{props.tasks.map((task) => task.title).join(", ")}</div>;

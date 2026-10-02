@@ -48,7 +48,7 @@ export default function DocsPage() {
   const [pendingNewPage, setPendingNewPage] = useState(null); // { parentId }
   const [showGlobalSearch, setShowGlobalSearch] = useState(false);
   const [showAllProjectSpaces, setShowAllProjectSpaces] = useState(false);
-  const { dirtyRef, handleDirtyChange, confirmDiscardChanges } = useUnsavedChangesGuard();
+  const { dirtyRef, handleDirtyChange, confirmDiscardChanges, whenDiscardConfirmed } = useUnsavedChangesGuard();
   const pageTemplates = templateRegistry?.doc?.length ? templateRegistry.doc : DEFAULT_TEMPLATE_REGISTRY.doc;
 
   // Spaces are scoped to the current project; legacy spaces without a
@@ -188,16 +188,16 @@ export default function DocsPage() {
 
   const handleSelectPage = useCallback((id) => {
     if (id === selectedPageId) return;
-    if (!confirmDiscardChanges()) return;
-    setSelectedPageId(id);
-  }, [confirmDiscardChanges, selectedPageId]);
+    whenDiscardConfirmed(() => setSelectedPageId(id));
+  }, [whenDiscardConfirmed, selectedPageId]);
 
   const handleSelectSpace = useCallback((spaceId) => {
     if (spaceId === selectedSpaceId && !selectedPageId) return;
-    if (!confirmDiscardChanges()) return;
-    setSelectedSpaceId(spaceId);
-    setSelectedPageId(null);
-  }, [confirmDiscardChanges, selectedPageId, selectedSpaceId]);
+    whenDiscardConfirmed(() => {
+      setSelectedSpaceId(spaceId);
+      setSelectedPageId(null);
+    });
+  }, [whenDiscardConfirmed, selectedPageId, selectedSpaceId]);
 
   const handleAddChild = useCallback((parentId) => {
     if (!ensureCanEdit()) return;
@@ -244,9 +244,9 @@ export default function DocsPage() {
       updatedAt: now,
     });
     setNewPageForm(null);
-    if (id && confirmDiscardChanges()) setSelectedPageId(id);
+    if (id) whenDiscardConfirmed(() => setSelectedPageId(id));
     addToast(`Page "${title}" created`, "success");
-  }, [docPages, createDocPage, currentUser, addToast, confirmDiscardChanges, ensureCanEdit]);
+  }, [docPages, createDocPage, currentUser, addToast, whenDiscardConfirmed, ensureCanEdit]);
 
   // DnD reordering + nesting. Every change is collected and written in a single
   // batch; position-only changes do not bump `updatedAt`.
@@ -399,8 +399,8 @@ export default function DocsPage() {
           spaces={visibleSpaces}
           docPages={docPages.filter((page) => visibleSpaces.some((space) => space.id === page.spaceId))}
           onSelectPage={(spaceId, pageId) => {
-            if (pageId !== selectedPageId && !confirmDiscardChanges()) return;
-            revealPage(spaceId, pageId);
+            if (pageId === selectedPageId) revealPage(spaceId, pageId);
+            else whenDiscardConfirmed(() => revealPage(spaceId, pageId));
           }}
           onClose={() => setShowGlobalSearch(false)}
         />

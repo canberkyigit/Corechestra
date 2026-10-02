@@ -156,6 +156,7 @@ export function useAppFacade() {
     setTeams,
     setUsers,
     setDeletedUserIds,
+    setArchivedProjects,
     addNotification,
     logAuditEvent,
   });

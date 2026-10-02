@@ -2,7 +2,7 @@ import React, { useState, useMemo } from "react";
 import { ArchiveSkeleton } from "../../../shared/components/Skeleton";
 import {
   FaArchive, FaUndo, FaTrash, FaSearch,
-  FaTrashAlt, FaChevronDown,
+  FaTrashAlt, FaChevronDown, FaLayerGroup,
 } from "react-icons/fa";
 import { useApp } from "../../../shared/context/AppContext";
 import { useToast } from "../../../shared/context/ToastContext";
@@ -17,7 +17,7 @@ const STATUS_COLORS = {
 export default function ArchivePage() {
   const {
     archivedTasks, archivedProjects, archivedEpics, restoreTask, permanentDeleteTask, emptyArchive,
-    projects, currentProjectId, dbReady,
+    projects, currentProjectId, dbReady, restoreProject, activeTasks,
   } = useApp();
   const { addToast } = useToast();
 
@@ -84,7 +84,14 @@ export default function ArchivePage() {
   };
 
   const getProjectName = (projectId) => {
-    return projects.find((p) => p.id === projectId)?.name || projectId || "—";
+    return projects.find((p) => p.id === projectId)?.name
+      || (archivedProjects || []).find((p) => p.id === projectId)?.name
+      || projectId || "—";
+  };
+
+  const handleRestoreProject = (project) => {
+    if (!restoreProject?.(project.id)) return;
+    addToast(`Project "${project.name}" restored with all its tasks`, "success");
   };
 
   const formatDate = (iso) => {
@@ -146,6 +153,52 @@ export default function ArchivePage() {
           )}
         </div>
       </div>
+
+      {/* Deleted projects (soft-deleted, restorable with their tasks) */}
+      {(archivedProjects || []).length > 0 && (
+        <section className="mb-6" aria-labelledby="archived-projects-heading">
+          <h3 id="archived-projects-heading" className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-2">
+            Deleted projects
+          </h3>
+          <div className="space-y-2">
+            {archivedProjects.map((project) => {
+              const taskCount = (activeTasks || []).filter((task) => task.projectId === project.id).length;
+              return (
+                <div
+                  key={project.id}
+                  data-testid={`archived-project-${project.id}`}
+                  className="bg-white dark:bg-[#1c2030] border border-slate-200 dark:border-[#2a3044] rounded-xl p-4 flex flex-wrap items-center gap-4"
+                >
+                  <span
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
+                    style={{ backgroundColor: project.color || "#64748b" }}
+                    aria-hidden="true"
+                  >
+                    {project.key || <FaLayerGroup className="w-3 h-3" />}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-sm text-slate-800 dark:text-slate-200 truncate">{project.name}</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">
+                      Deleted {formatDate(project.archivedAt)}
+                      {project.archivedBy ? ` by ${project.archivedBy}` : ""}
+                      {` · ${taskCount} task${taskCount === 1 ? "" : "s"} kept`}
+                    </div>
+                  </div>
+                  {restoreProject && (
+                    <button
+                      type="button"
+                      onClick={() => handleRestoreProject(project)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/30 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors"
+                    >
+                      <FaUndo className="w-3 h-3" /> Restore project
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* Search & Sort */}
       {totalCount > 0 && (

@@ -15,8 +15,12 @@ import { useWorkflowGuard } from "../hooks/useWorkflowGuard";
 import { useBoardPermissions } from "../hooks/useBoardPermissions";
 import { BOARD_TABS, BOARD_VIEW_MODES } from "../constants/boardPageConfig";
 import { buildStatusOptions } from "../utils/boardColumns";
+import { useSearchParamState } from "../../../shared/hooks/useSearchParamState";
+import { useConfirm } from "../../../shared/context/ConfirmContext";
 
-export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
+const BOARD_TAB_IDS = BOARD_TABS.map((tab) => tab.id);
+
+export default function BoardPage() {
   const {
     activeTasks,
     allTasks,
@@ -40,14 +44,9 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
   const { addToast } = useToast();
   const { canCreateTask, canEditTask, canArchiveTask } = useBoardPermissions();
 
-  const [activeTab, setActiveTab] = useState("active");
-
-  useEffect(() => {
-    if (forcedTab) {
-      setActiveTab(forcedTab);
-      if (onForcedTabConsumed) onForcedTabConsumed();
-    }
-  }, [forcedTab]); // eslint-disable-line react-hooks/exhaustive-deps
+  const confirm = useConfirm();
+  // ?tab=backlog etc. — survives refresh/Back and can be linked.
+  const [activeTab, setActiveTab] = useSearchParamState("tab", "active", { allowed: BOARD_TAB_IDS });
 
   const {
     projectActiveTasks,
@@ -136,13 +135,19 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
     setBulkStatus("");
   }, [addToast, bulkStatus, canEditTask, guardStatusChange, moveTask, projectActiveTasks, selectedIds]);
 
-  const handleBulkDelete = useCallback(() => {
+  const handleBulkDelete = useCallback(async () => {
     if (!canArchiveTask) return;
-    if (!window.confirm(`Move ${selectedIds.size} task(s) to the archive?`)) return;
+    const ok = await confirm({
+      title: `Archive ${selectedIds.size} task${selectedIds.size === 1 ? "" : "s"}?`,
+      description: "Archived tasks leave the board. You can restore them from the Archive page.",
+      confirmLabel: "Archive",
+      tone: "warning",
+    });
+    if (!ok) return;
     selectedIds.forEach((id) => deleteTask(id));
     addToast(`${selectedIds.size} task${selectedIds.size === 1 ? "" : "s"} archived`, "info");
     setSelectedIds(new Set());
-  }, [addToast, canArchiveTask, deleteTask, selectedIds]);
+  }, [addToast, canArchiveTask, confirm, deleteTask, selectedIds]);
 
   // ── Task detail surfaces ────────────────────────────────────────────────────
   const [createModalOpen, setCreateModalOpen] = useState(false);
