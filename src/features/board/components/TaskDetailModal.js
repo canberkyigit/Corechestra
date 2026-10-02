@@ -567,7 +567,7 @@ export default function TaskDetailModal({
                       Read-only
                     </span>
                   ) : (
-                    <AppButton onClick={handleSave}>
+                    <AppButton variant="primary" onClick={handleSave}>
                       {isCreate ? "Create Task" : "Save Changes"}
                     </AppButton>
                   )}

@@ -588,7 +588,7 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
                 <AppButton variant="secondary" size="sm" onClick={handleClose}>
                   Close
                 </AppButton>
-                <AppButton size="sm" onClick={handleSave} disabled={!title.trim() || readOnly}>
+                <AppButton variant="primary" size="sm" onClick={handleSave} disabled={!title.trim() || readOnly}>
                   Save
                 </AppButton>
               </div>
