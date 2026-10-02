@@ -5,8 +5,9 @@ import { taskKey } from "../../../../shared/utils/helpers";
 import { getEntityTypeMeta } from "../../../../shared/constants/entityMeta";
 import CommentSection from "../../../docs/components/CommentSection";
 import { format, parseISO } from "date-fns";
-import { PRIORITY_OPTIONS, STATUS_OPTIONS, TYPE_OPTIONS } from "../../constants/taskOptions";
+import { TASK_PRIORITY_OPTIONS, TASK_STATUS_OPTIONS, TASK_TYPE_OPTIONS } from "../../../../shared/constants/taskMeta";
 import { AppButton } from "../../../../shared/components/AppPrimitives";
+import { getUserColor } from "../../utils/userColors";
 
 export const LINK_RELATIONSHIPS = [
   "relates to", "blocks", "is blocked by", "duplicates", "is duplicated by", "clones", "is cloned by",
@@ -16,13 +17,13 @@ export function FieldLabel({ children }) {
   return <div className="app-kicker mb-1.5">{children}</div>;
 }
 
-export function SelectField({ label, value, options, onChange, renderOption, renderValue }) {
+export function SelectField({ label, value, options, onChange, renderOption, renderValue, disabled = false }) {
   return (
     <div>
       <FieldLabel>{label}</FieldLabel>
-      <Listbox value={value} onChange={onChange}>
+      <Listbox value={value} onChange={onChange} disabled={disabled}>
         <div className="relative">
-          <Listbox.Button className="app-field w-full flex items-center justify-between text-sm hover:bg-slate-100 dark:hover:bg-[#2a3044]">
+          <Listbox.Button className="app-field w-full flex items-center justify-between text-sm hover:bg-slate-100 dark:hover:bg-[#2a3044] disabled:opacity-60 disabled:cursor-not-allowed">
             <span>{renderValue ? renderValue(value) : value}</span>
             <FaChevronDown className="w-3 h-3 text-slate-400" />
           </Listbox.Button>
@@ -32,7 +33,7 @@ export function SelectField({ label, value, options, onChange, renderOption, ren
                 key={opt.value ?? opt}
                 value={opt.value ?? opt}
                 className={({ active, selected }) =>
-                  `flex items-center gap-2 px-3 py-1.5 text-sm cursor-pointer ${active ? "bg-blue-50 dark:bg-blue-900/20 text-blue-700" : "text-slate-700 dark:text-slate-300"} ${selected ? "font-semibold" : ""}`
+                  `flex items-center gap-2 px-3 py-1.5 text-sm cursor-pointer ${active ? "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300" : "text-slate-700 dark:text-slate-300"} ${selected ? "font-semibold" : ""}`
                 }
               >
                 {renderOption ? renderOption(opt) : (opt.label ?? opt)}
@@ -55,12 +56,15 @@ export function ActivityLog({ task }) {
     <div className="space-y-2.5">
       {entries.map((entry) => (
         <div key={entry.id} className="flex gap-2.5 items-start">
-          <div className="w-5 h-5 rounded-full bg-slate-300 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 mt-0.5">
-            {entry.user?.charAt(0) || "?"}
+          <div className="w-5 h-5 rounded-full bg-slate-300 dark:bg-slate-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 mt-0.5">
+            {entry.user?.charAt(0)?.toUpperCase() || "?"}
           </div>
           <div>
-            <span className="text-xs text-slate-700 font-medium">{entry.user}</span>{" "}
-            <span className="text-xs text-slate-500">{entry.action}</span>
+            <span className="text-xs text-slate-700 dark:text-slate-200 font-medium">{entry.user}</span>{" "}
+            <span className="text-xs text-slate-500 dark:text-slate-400">{entry.action}</span>
+            {entry.details?.blockReason && (
+              <span className="text-xs text-red-500 dark:text-red-400"> — {entry.details.blockReason}</span>
+            )}
             <div className="text-xs text-slate-400">
               {entry.timestamp ? (() => { try { return format(parseISO(entry.timestamp), "MMM d, HH:mm"); } catch { return ""; } })() : ""}
             </div>
@@ -72,6 +76,8 @@ export function ActivityLog({ task }) {
 }
 
 export function TaskSidebar({
+  statusOptions = TASK_STATUS_OPTIONS,
+  readOnly = false,
   status,
   setStatus,
   priority,
@@ -99,19 +105,26 @@ export function TaskSidebar({
       <SelectField
         label="Status"
         value={status}
-        options={STATUS_OPTIONS}
+        options={statusOptions}
+        disabled={readOnly}
         onChange={(value) => { setStatus(value); changed(); }}
-        renderValue={(value) => STATUS_OPTIONS.find((option) => option.value === value)?.label || value}
+        renderValue={(value) => statusOptions.find((option) => option.value === value)?.label || value}
         renderOption={(option) => option.label}
       />
+      {status === "blocked" && task?.blockReason && (
+        <div className="-mt-2 text-[11px] text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/40 rounded px-2 py-1">
+          Blocked: {task.blockReason}
+        </div>
+      )}
 
       <SelectField
         label="Priority"
+        disabled={readOnly}
         value={priority}
-        options={PRIORITY_OPTIONS}
+        options={TASK_PRIORITY_OPTIONS}
         onChange={(value) => { setPriority(value); changed(); }}
         renderValue={(value) => {
-          const option = PRIORITY_OPTIONS.find((item) => item.value === value);
+          const option = TASK_PRIORITY_OPTIONS.find((item) => item.value === value);
           return option ? <span className={option.color}>{option.label}</span> : value;
         }}
         renderOption={(option) => <span className={option.color}>{option.label}</span>}
@@ -119,11 +132,12 @@ export function TaskSidebar({
 
       <SelectField
         label="Type"
+        disabled={readOnly}
         value={type}
-        options={TYPE_OPTIONS}
+        options={TASK_TYPE_OPTIONS}
         onChange={(value) => { setType(value); changed(); }}
         renderValue={(value) => {
-          const option = TYPE_OPTIONS.find((item) => item.value === value);
+          const option = TASK_TYPE_OPTIONS.find((item) => item.value === value);
           if (!option) return value;
           const Icon = option.icon;
           return <span className="flex items-center gap-1.5"><Icon className={`w-3.5 h-3.5 ${option.color}`} />{option.label}</span>;
@@ -136,6 +150,7 @@ export function TaskSidebar({
 
       <SelectField
         label="Assignee"
+        disabled={readOnly}
         value={assignedTo}
         options={projectAssignees.map((member) => ({ value: member.value, label: member.label }))}
         onChange={(value) => { setAssignedTo(value); changed(); }}
@@ -147,7 +162,8 @@ export function TaskSidebar({
         <FieldLabel>Due Date</FieldLabel>
         <input
           type="date"
-          className="w-full border border-slate-200 dark:border-[#2a3044] rounded-lg px-2.5 py-1.5 text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-slate-50 dark:bg-[#232838]"
+          className="w-full border border-slate-200 dark:border-[#2a3044] rounded-lg px-2.5 py-1.5 text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-slate-50 dark:bg-[#232838] disabled:opacity-60"
+          disabled={readOnly}
           value={dueDate}
           onChange={(event) => { setDueDate(event.target.value); changed(); }}
         />
@@ -158,7 +174,8 @@ export function TaskSidebar({
         <input
           type="number"
           min="0"
-          className="w-full border border-slate-200 dark:border-[#2a3044] rounded-lg px-2.5 py-1.5 text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-slate-50 dark:bg-[#232838]"
+          className="w-full border border-slate-200 dark:border-[#2a3044] rounded-lg px-2.5 py-1.5 text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-slate-50 dark:bg-[#232838] disabled:opacity-60"
+          disabled={readOnly}
           placeholder="0"
           value={storyPoint}
           onChange={(event) => { setStoryPoint(event.target.value); changed(); }}
@@ -174,9 +191,9 @@ export function TaskSidebar({
                 <span className="truncate">{selectedSprint?.label || "Select sprint"}</span>
                 <FaChevronDown className="w-3 h-3 text-slate-400" />
               </Listbox.Button>
-              <Listbox.Options className="absolute z-50 mt-1 w-full bg-white rounded-lg shadow-lg border border-slate-200 py-1 max-h-40 overflow-auto">
+              <Listbox.Options className="absolute z-50 mt-1 w-full bg-white dark:bg-[#1c2030] rounded-lg shadow-lg border border-slate-200 dark:border-[#2a3044] py-1 max-h-40 overflow-auto">
                 {sprintOptions.map((option) => (
-                  <Listbox.Option key={option.value} value={option} className={({ active }) => `px-3 py-1.5 text-sm cursor-pointer ${active ? "bg-blue-50 text-blue-700" : "text-slate-700"}`}>
+                  <Listbox.Option key={option.value} value={option} className={({ active }) => `px-3 py-1.5 text-sm cursor-pointer ${active ? "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300" : "text-slate-700 dark:text-slate-300"}`}>
                     {option.label}
                   </Listbox.Option>
                 ))}
@@ -218,10 +235,10 @@ export function TaskSubtasksSection({
   changed,
   setSubtasks,
   projectAssignees,
+  users = [],
 }) {
   const priColors = { critical: "#ef4444", high: "#f97316", medium: "#eab308", low: "#22c55e" };
   const priLabels = { critical: "Crit", high: "High", medium: "Med", low: "Low" };
-  const assigneeColors = { alice: "#3b82f6", bob: "#7c3aed", carol: "#10b981", dave: "#f59e0b" };
 
   return (
     <div className="p-5">
@@ -268,7 +285,7 @@ export function TaskSubtasksSection({
                 <option value="unassigned">–</option>
                 {projectAssignees.filter((member) => member.value && member.value !== "unassigned").map((member) => <option key={member.value} value={member.value}>{member.label}</option>)}
               </select>
-              <label htmlFor={`modal-sub-asgn-${subtask.id}`} className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[9px] font-bold cursor-pointer hover:ring-2 hover:ring-blue-300 transition-all" style={{ backgroundColor: assigneeColors[subtask.assignedTo] || "#94a3b8" }} title={subtask.assignedTo && subtask.assignedTo !== "unassigned" ? (projectAssignees.find((member) => member.value === subtask.assignedTo)?.label || subtask.assignedTo) : "Unassigned"}>
+              <label htmlFor={`modal-sub-asgn-${subtask.id}`} className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[9px] font-bold cursor-pointer hover:ring-2 hover:ring-blue-300 transition-all" style={{ backgroundColor: getUserColor(subtask.assignedTo, users) }} title={subtask.assignedTo && subtask.assignedTo !== "unassigned" ? (projectAssignees.find((member) => member.value === subtask.assignedTo)?.label || subtask.assignedTo) : "Unassigned"}>
                 {subtask.assignedTo && subtask.assignedTo !== "unassigned" ? (projectAssignees.find((member) => member.value === subtask.assignedTo)?.label || subtask.assignedTo).charAt(0).toUpperCase() : "–"}
               </label>
             </div>
@@ -289,7 +306,7 @@ export function TaskSubtasksSection({
               placeholder="Subtask title..."
               value={inlineSubTitle}
               onChange={(event) => setInlineSubTitle(event.target.value)}
-              onKeyDown={(event) => { if (event.key === "Enter") addInlineSub(); if (event.key === "Escape") { setInlineSubOpen(false); setInlineSubTitle(""); } }}
+              onKeyDown={(event) => { if (event.key === "Enter") addInlineSub(); if (event.key === "Escape") { event.preventDefault(); setInlineSubOpen(false); setInlineSubTitle(""); } }}
             />
             <AppButton size="sm" onClick={addInlineSub}>Add</AppButton>
             <AppButton size="sm" variant="ghost" onClick={() => { setInlineSubOpen(false); setInlineSubTitle(""); }}>✕</AppButton>
@@ -347,7 +364,7 @@ export function TaskLinksSection({
                 placeholder="Search tasks, docs, releases, or tests..."
                 value={linkSearch}
                 onChange={(event) => setLinkSearch(event.target.value)}
-                onKeyDown={(event) => { if (event.key === "Escape") { setLinkSearchOpen(false); setLinkSearch(""); } }}
+                onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); setLinkSearchOpen(false); setLinkSearch(""); } }}
               />
             </div>
             {linkSearchResults.length > 0 && (

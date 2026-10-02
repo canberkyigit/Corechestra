@@ -1,5 +1,5 @@
 import React from "react";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import TaskDetailModal from "./TaskDetailModal";
 
 const mockUseApp = jest.fn();
@@ -14,17 +14,27 @@ jest.mock("framer-motion", () => ({
 }));
 
 jest.mock("@headlessui/react", () => {
-  const Listbox = ({ children }) => <div>{children}</div>;
+  const ReactLib = require("react");
+  const ChangeContext = ReactLib.createContext(null);
+  const Listbox = ({ children, onChange }) => (
+    <ChangeContext.Provider value={onChange}>
+      <div>{children}</div>
+    </ChangeContext.Provider>
+  );
   Listbox.Button = ({ children, ...props }) => <button {...props}>{children}</button>;
   Listbox.Options = ({ children, ...props }) => <div {...props}>{children}</div>;
-  Listbox.Option = ({ children, className, ...props }) => (
-    <div
-      {...props}
-      className={typeof className === "function" ? className({ active: false, selected: false }) : className}
-    >
-      {typeof children === "function" ? children({ active: false, selected: false }) : children}
-    </div>
-  );
+  Listbox.Option = function MockOption({ children, className, value, ...props }) {
+    const onChange = ReactLib.useContext(ChangeContext);
+    return (
+      <div
+        {...props}
+        onClick={() => onChange?.(value)}
+        className={typeof className === "function" ? className({ active: false, selected: false }) : className}
+      >
+        {typeof children === "function" ? children({ active: false, selected: false }) : children}
+      </div>
+    );
+  };
   return { Listbox };
 });
 
@@ -137,6 +147,23 @@ describe("TaskDetailModal", () => {
     expect(mockAddToast).toHaveBeenCalledWith("Task created", "info");
   });
 
+  it("keeps typed create-mode input when the parent re-renders with a fresh empty task object", () => {
+    const baseProps = {
+      open: true,
+      onClose: jest.fn(),
+      onTaskUpdate: jest.fn(),
+      allTasks: [],
+      isCreate: true,
+      sprintOptions: [{ value: "active", label: "Active Sprint" }],
+      selectedSprint: { value: "active", label: "Active Sprint" },
+      setSelectedSprint: jest.fn(),
+    };
+    const { rerender } = render(<TaskDetailModal {...baseProps} task={{}} />);
+    fireEvent.change(screen.getByPlaceholderText(/Task title/i), { target: { value: "Typed title" } });
+    rerender(<TaskDetailModal {...baseProps} task={{}} />);
+    expect(screen.getByPlaceholderText(/Task title/i)).toHaveValue("Typed title");
+  });
+
   it("saves edits, logs activity and shows a success toast in edit mode", () => {
     const appMock = createAppMock();
     mockUseApp.mockReturnValue(appMock);
@@ -166,8 +193,7 @@ describe("TaskDetailModal", () => {
     expect(screen.getByText(/Discard changes\?/i)).toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();
 
-    const discardBanner = screen.getByText(/Discard changes\?/i).closest("div");
-    fireEvent.click(within(discardBanner).getByRole("button", { name: /^Discard$/i }));
+    fireEvent.click(within(screen.getByTestId("task-discard-confirm")).getByRole("button", { name: /^Discard$/i }));
     expect(onClose).toHaveBeenCalled();
   });
 
@@ -220,5 +246,45 @@ describe("TaskDetailModal", () => {
     expect(screen.getByText("Auth RFC")).toBeInTheDocument();
     expect(screen.getByText("Auth Release")).toBeInTheDocument();
     expect(screen.getByText("Login succeeds")).toBeInTheDocument();
+  });
+  it("closes on Escape and asks before discarding unsaved changes", () => {
+    const { onClose } = renderModal();
+
+    fireEvent.change(screen.getByDisplayValue("Existing task"), { target: { value: "Changed" } });
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.getByText(/Discard changes\?/i)).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("closes on Escape immediately when nothing changed", () => {
+    const { onClose } = renderModal();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("prompts for a blocker reason before saving a move to Blocked", async () => {
+    const { onTaskUpdate } = renderModal();
+
+    fireEvent.click(screen.getByText("Blocked"));
+    fireEvent.click(screen.getByRole("button", { name: /Save Changes/i }));
+
+    const reason = await screen.findByLabelText("Blocker reason");
+    expect(onTaskUpdate).not.toHaveBeenCalled();
+    fireEvent.change(reason, { target: { value: "Vendor outage" } });
+    fireEvent.click(screen.getByRole("button", { name: /Mark as blocked/i }));
+
+    await waitFor(() => expect(onTaskUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      status: "blocked",
+      blockReason: "Vendor outage",
+    })));
+  });
+
+  it("does not offer delete to members without the archive permission", () => {
+    renderModal();
+    expect(screen.queryByTitle("Delete task")).not.toBeInTheDocument();
+
+    mockUseAuth.mockReturnValue({ role: "admin", isAdmin: true });
+    renderModal();
+    expect(screen.getByTitle("Delete task")).toBeInTheDocument();
   });
 });

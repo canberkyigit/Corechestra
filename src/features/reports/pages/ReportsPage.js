@@ -2,7 +2,8 @@ import React, { useState, useMemo, useCallback, useRef } from "react";
 import { useApp } from "../../../shared/context/AppContext";
 import { ReportsSkeleton } from "../../../shared/components/Skeleton";
 import { FaChartBar, FaBolt, FaCheckCircle, FaExclamationTriangle, FaFire, FaTrophy, FaCalendarAlt, FaDownload, FaPrint } from "react-icons/fa";
-import { parseISO, format, isValid, isAfter, isBefore } from "date-fns";
+import { parseISO, format, isValid, isAfter, isBefore, differenceInCalendarDays } from "date-fns";
+import { isInProject } from "../../../shared/utils/helpers";
 
 const STATUS_CONFIG = {
   todo: { label: "To Do", color: "#94a3b8" },
@@ -21,6 +22,91 @@ const PRIORITY_CONFIG = {
 };
 
 const TEAM_COLORS = ["#3b82f6", "#a855f7", "#10b981", "#f59e0b", "#ef4444", "#06b6d4"];
+
+/** Story points as a number (stored values may be strings or empty). */
+export function toPoints(task) {
+  return Number(task?.storyPoint) || 0;
+}
+
+function safeParseDate(value) {
+  if (!value) return null;
+  try {
+    const parsed = parseISO(String(value));
+    return isValid(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function safeFormat(value, pattern) {
+  const parsed = safeParseDate(value);
+  return parsed ? format(parsed, pattern) : null;
+}
+
+export function csvCell(value) {
+  const text = value == null ? "" : String(value);
+  return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+const FALLBACK_SNAPSHOT_WINDOW = 14;
+
+/**
+ * Burndown model from real daily snapshots only (no simulation).
+ * - Sprint length comes from the sprint's start/end dates when valid.
+ * - Snapshots are limited to the sprint window when dates are known.
+ * - Fewer than 2 snapshots → `{ status: "insufficient" }`.
+ */
+export function buildBurndownModel({ tasks = [], sprint = null, snapshots = [] }) {
+  const totalPoints = tasks.reduce((sum, t) => sum + toPoints(t), 0);
+  const remaining = tasks.filter((t) => t.status !== "done").reduce((sum, t) => sum + toPoints(t), 0);
+
+  const start = safeParseDate(sprint?.startDate);
+  const end = safeParseDate(sprint?.endDate);
+  const hasSprintDates = Boolean(start && end && !isBefore(end, start));
+  const sprintDays = hasSprintDates ? Math.max(1, differenceInCalendarDays(end, start)) : null;
+
+  const valid = (snapshots || [])
+    .filter((snap) => snap && safeParseDate(snap.date) && Number.isFinite(Number(snap.remaining)))
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  const inWindow = hasSprintDates
+    ? valid.filter((snap) => {
+        const d = safeParseDate(snap.date);
+        return !isBefore(d, start) && !isAfter(d, end);
+      })
+    : valid.slice(-FALLBACK_SNAPSHOT_WINDOW);
+
+  if (inWindow.length < 2) {
+    return {
+      status: "insufficient",
+      snapshotCount: inWindow.length,
+      totalPoints,
+      remaining,
+      sprintDays,
+      hasSprintDates,
+    };
+  }
+
+  const points = inWindow.map((snap, index) => ({
+    x: hasSprintDates ? differenceInCalendarDays(safeParseDate(snap.date), start) : index,
+    y: Number(snap.remaining) || 0,
+    date: snap.date,
+  }));
+  const xRange = hasSprintDates ? sprintDays : Math.max(1, points.length - 1);
+  const firstTotal = Number(inWindow[0].total);
+  const idealStart = Number.isFinite(firstTotal) && firstTotal > 0 ? firstTotal : Math.max(totalPoints, points[0].y);
+
+  return {
+    status: "ready",
+    points,
+    xRange,
+    idealStart,
+    totalPoints,
+    remaining,
+    sprintDays,
+    hasSprintDates,
+    snapshotCount: inWindow.length,
+  };
+}
 
 function StatCard({ label, value, sub, color, icon: Icon }) {
   return (
@@ -71,46 +157,37 @@ function HorizontalBar({ label, value, max, color, count }) {
   );
 }
 
-/// Burndown chart: uses real daily snapshots if available, falls back to simulated
+/// Burndown chart: real daily snapshots only; honest empty state otherwise.
 function BurndownChart({ tasks, sprint, burndownSnapshots = [] }) {
   const [hoveredPoint, setHoveredPoint] = useState(null);
   const svgRef = useRef(null);
+  const model = useMemo(
+    () => buildBurndownModel({ tasks, sprint, snapshots: burndownSnapshots }),
+    [tasks, sprint, burndownSnapshots]
+  );
 
-  const totalPoints = tasks.reduce((s, t) => s + (Number(t.storyPoint) || 0), 0);
-  const remaining = tasks.filter((t) => t.status !== "done").reduce((s, t) => s + (Number(t.storyPoint) || 0), 0);
-  const sprintDays = 14;
-
-  const chartH = 120;
-  const chartW = 320;
-
-  const days = Array.from({ length: sprintDays + 1 }, (_, i) => i);
-  const idealLine = days.map((d) => totalPoints - (totalPoints / sprintDays) * d);
-
-  const hasSnapshots = burndownSnapshots.length >= 2;
-  let actualPoints = [];
-  let dateLabels = [];
-  if (hasSnapshots) {
-    const sorted = [...burndownSnapshots].sort((a, b) => a.date.localeCompare(b.date)).slice(-sprintDays);
-    actualPoints = sorted.map((s, i) => ({ x: i, y: s.remaining }));
-    dateLabels = sorted.map((s) => s.date);
-  } else {
-    actualPoints = days.map((d) => {
-      if (d === 0) return { x: d, y: totalPoints };
-      if (d >= sprintDays) return { x: d, y: remaining };
-      const ideal = totalPoints - (totalPoints / sprintDays) * d;
-      const noise = (Math.sin(d * 1.7) * totalPoints * 0.06);
-      const val = ideal + noise + (remaining - 0) * (d / sprintDays) * 0.3;
-      return { x: d, y: Math.max(0, Math.round(val)) };
-    });
-    dateLabels = days.map((d) => `Day ${d}`);
+  if (model.status === "insufficient") {
+    return (
+      <div className="flex flex-col items-center justify-center text-center py-10 px-4 rounded-lg border border-dashed border-slate-200 dark:border-[#2a3044]" data-testid="burndown-insufficient">
+        <FaChartBar className="w-6 h-6 text-slate-300 dark:text-slate-600 mb-2" />
+        <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Not enough data for a burndown yet</p>
+        <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 max-w-sm">
+          A snapshot of remaining points is recorded once per day while the app is open
+          ({model.snapshotCount} of 2 needed{model.hasSprintDates ? " within this sprint" : ""}).
+          {!model.hasSprintDates && " Set sprint start and end dates to scale the chart to the real sprint length."}
+        </p>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-3">{model.remaining} of {model.totalPoints} pts remaining</p>
+      </div>
+    );
   }
 
-  const maxVal = Math.max(totalPoints, ...actualPoints.map((p) => p.y), 1);
-  const xRange = hasSnapshots ? (actualPoints.length - 1 || 1) : sprintDays;
-  const toX = (d) => (d / xRange) * chartW;
+  const { points: actualPoints, xRange, idealStart, totalPoints, remaining, sprintDays } = model;
+  const chartH = 120;
+  const chartW = 320;
+  const maxVal = Math.max(idealStart, totalPoints, ...actualPoints.map((p) => p.y), 1);
+  const toX = (d) => (Math.min(Math.max(d, 0), xRange) / xRange) * chartW;
   const toY = (v) => chartH - (v / maxVal) * chartH;
-
-  const idealPath = days.map((d, i) => `${i === 0 ? "M" : "L"}${(d / sprintDays) * chartW},${toY(idealLine[d])}`).join(" ");
+  const idealPath = `M0,${toY(idealStart)} L${chartW},${toY(0)}`;
   const actualPath = actualPoints.map((p, i) => `${i === 0 ? "M" : "L"}${toX(p.x)},${toY(p.y)}`).join(" ");
 
   return (
@@ -124,10 +201,9 @@ function BurndownChart({ tasks, sprint, burndownSnapshots = [] }) {
         <path d={idealPath} fill="none" stroke="#94a3b8" strokeWidth={1.5} strokeDasharray="4,3" />
         <path d={actualPath} fill="none" stroke="#3b82f6" strokeWidth={2} />
         {actualPoints.map((p, i) => (
-          <g key={i}
+          <g key={p.date || i}
             onMouseEnter={() => setHoveredPoint(i)}
             onMouseLeave={() => setHoveredPoint(null)}>
-            {/* Invisible larger hit area */}
             <circle cx={toX(p.x)} cy={toY(p.y)} r={10} fill="transparent" />
             <circle cx={toX(p.x)} cy={toY(p.y)}
               r={hoveredPoint === i ? 5 : 3}
@@ -137,7 +213,6 @@ function BurndownChart({ tasks, sprint, burndownSnapshots = [] }) {
           </g>
         ))}
       </svg>
-      {/* Burndown tooltip */}
       {hoveredPoint !== null && actualPoints[hoveredPoint] && (
         <div
           className="absolute z-50 pointer-events-none px-3 py-2 rounded-lg shadow-lg border text-xs whitespace-nowrap
@@ -147,19 +222,19 @@ function BurndownChart({ tasks, sprint, burndownSnapshots = [] }) {
             top: `${(toY(actualPoints[hoveredPoint].y) / chartH) * 100 - 12}%`,
             transform: "translate(-50%, -100%)",
           }}>
-          <p className="font-semibold text-blue-500">{dateLabels[hoveredPoint]}</p>
+          <p className="font-semibold text-blue-500">{safeFormat(actualPoints[hoveredPoint].date, "MMM d") || actualPoints[hoveredPoint].date}</p>
           <p>Remaining: <span className="font-semibold">{actualPoints[hoveredPoint].y} pts</span></p>
           <p>Total: <span className="font-semibold">{totalPoints} pts</span></p>
         </div>
       )}
-      <div className="flex items-center gap-4 mt-2 text-xs text-slate-500 dark:text-slate-400">
+      <div className="flex items-center gap-4 mt-2 text-xs text-slate-500 dark:text-slate-400 flex-wrap">
         <span className="flex items-center gap-1.5">
           <span className="w-6 border-t-2 border-dashed border-slate-400" />
-          Ideal
+          Ideal{sprintDays ? ` (${sprintDays} days)` : ""}
         </span>
         <span className="flex items-center gap-1.5">
           <span className="w-6 border-t-2 border-blue-500" />
-          {hasSnapshots ? "Actual (real data)" : "Actual (simulated)"}
+          Actual ({actualPoints.length} daily snapshots)
         </span>
         <span className="ml-auto">{remaining} pts remaining</span>
       </div>
@@ -174,11 +249,11 @@ function VelocityChart({ completedPoints, completedSprints = [] }) {
   // Last 5 completed sprints (oldest first) + current sprint
   const history = [...completedSprints].reverse().slice(-5);
   const sprints = [
-    ...history.map((s) => ({ name: s.name, pts: s.completedPoints })),
+    ...history.map((s) => ({ name: s.name, pts: Number(s.completedPoints) || 0 })),
     { name: "Current", pts: completedPoints },
   ];
   const maxPts = Math.max(...sprints.map((s) => s.pts), 1);
-  const historyPts = history.map((s) => s.completedPoints);
+  const historyPts = history.map((s) => Number(s.completedPoints) || 0);
   const avg = historyPts.length > 0
     ? Math.round(historyPts.reduce((a, b) => a + b, 0) / historyPts.length)
     : null;
@@ -236,12 +311,12 @@ function VelocityChart({ completedPoints, completedSprints = [] }) {
 }
 
 export default function ReportsPage() {
-  const { activeTasks, backlogSections, epics, sprint, currentProjectId, burndownSnapshots, completedSprints, users, dbReady } = useApp();
+  const { activeTasks, backlogSections, epics, sprint, currentProjectId, burndownSnapshots, completedSprints = [], users, dbReady } = useApp();
   const [activeTab, setActiveTab] = useState("overview");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo]     = useState("");
 
-  const allProjectTasks = useMemo(() => activeTasks.filter((t) => (t.projectId || "proj-1") === currentProjectId), [activeTasks, currentProjectId]);
+  const allProjectTasks = useMemo(() => (activeTasks || []).filter((t) => isInProject(t, currentProjectId)), [activeTasks, currentProjectId]);
 
   // Apply date range filter on dueDate
   const projectTasks = useMemo(() => {
@@ -257,12 +332,12 @@ export default function ReportsPage() {
       } catch { return false; }
     });
   }, [allProjectTasks, dateFrom, dateTo]);
-  const projectEpics  = useMemo(() => epics.filter((e) => (e.projectId || "proj-1") === currentProjectId), [epics, currentProjectId]);
-  const backlogTasks  = useMemo(() => backlogSections.flatMap((s) => s.tasks), [backlogSections]);
+  const projectEpics  = useMemo(() => (epics || []).filter((e) => isInProject(e, currentProjectId)), [epics, currentProjectId]);
+  const backlogTasks  = useMemo(() => (backlogSections || []).flatMap((s) => s.tasks || []), [backlogSections]);
 
   const doneTasks = useMemo(() => projectTasks.filter((t) => t.status === "done"), [projectTasks]);
-  const completedPoints = useMemo(() => doneTasks.reduce((s, t) => s + (t.storyPoint || 0), 0), [doneTasks]);
-  const totalPoints = useMemo(() => projectTasks.reduce((s, t) => s + (t.storyPoint || 0), 0), [projectTasks]);
+  const completedPoints = useMemo(() => doneTasks.reduce((s, t) => s + toPoints(t), 0), [doneTasks]);
+  const totalPoints = useMemo(() => projectTasks.reduce((s, t) => s + toPoints(t), 0), [projectTasks]);
   const blockedCount = useMemo(() => projectTasks.filter((t) => t.status === "blocked").length, [projectTasks]);
 
   // Status breakdown
@@ -292,7 +367,7 @@ export default function ReportsPage() {
       const a = t.assignedTo || "unassigned";
       if (!map[a]) map[a] = { total: 0, done: 0, points: 0, blocked: 0 };
       map[a].total++;
-      map[a].points += t.storyPoint || 0;
+      map[a].points += toPoints(t);
       if (t.status === "done") map[a].done++;
       if (t.status === "blocked") map[a].blocked++;
     });
@@ -319,15 +394,15 @@ export default function ReportsPage() {
       const priorityLabel = PRIORITY_CONFIG[t.priority]?.label || t.priority || "";
       const epicName = projectEpics.find((e) => e.id === t.epicId)?.title || "";
       return [
-        `"${(t.title || "").replace(/"/g, '""')}"`,
+        t.title || "",
         statusLabel,
         priorityLabel,
         t.assignedTo || "Unassigned",
-        t.storyPoint || 0,
+        toPoints(t),
         t.dueDate || "",
         t.type || "task",
-        `"${epicName.replace(/"/g, '""')}"`,
-      ].join(",");
+        epicName,
+      ].map(csvCell).join(",");
     });
     const csv = [headers.join(","), ...rows].join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -511,7 +586,7 @@ export default function ReportsPage() {
             </div>
             <div className="flex justify-between text-xs text-slate-400 dark:text-slate-500 mt-1.5">
               <span>Start</span>
-              {sprint?.endDate && <span>Ends {format(parseISO(sprint.endDate), "MMM d")}</span>}
+              {safeFormat(sprint?.endDate, "MMM d") && <span>Ends {safeFormat(sprint?.endDate, "MMM d")}</span>}
               <span>End</span>
             </div>
           </div>
@@ -535,7 +610,7 @@ export default function ReportsPage() {
               <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Burndown Chart</h3>
               <span className="text-xs text-slate-400 dark:text-slate-500">{sprint?.name || "Current Sprint"}</span>
             </div>
-            <BurndownChart tasks={projectTasks} sprint={sprint} burndownSnapshots={burndownSnapshots} />
+            <BurndownChart tasks={allProjectTasks} sprint={sprint} burndownSnapshots={burndownSnapshots} />
           </div>
 
           <div className="grid grid-cols-3 gap-4">
@@ -563,7 +638,7 @@ export default function ReportsPage() {
                   <div key={t.id} className="flex items-center gap-3 py-1.5 px-2 rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838]">
                     <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cfg.color }} />
                     <span className="text-sm text-slate-700 dark:text-slate-300 flex-1 truncate">{t.title}</span>
-                    <span className="text-xs text-slate-400 dark:text-slate-500">{t.storyPoint || 0} pts</span>
+                    <span className="text-xs text-slate-400 dark:text-slate-500">{toPoints(t)} pts</span>
                     <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: cfg.color + "22", color: cfg.color }}>
                       {cfg.label}
                     </span>
@@ -654,12 +729,12 @@ export default function ReportsPage() {
             <div className="text-center py-12 text-slate-400 dark:text-slate-500">No epics with tasks assigned yet.</div>
           )}
 
-          {/* All epics with no tasks */}
-          {epics.filter((e) => !epicProgress.find((ep) => ep.id === e.id)).length > 0 && (
+          {/* Current project's epics with no sprint tasks */}
+          {projectEpics.filter((e) => !epicProgress.find((ep) => ep.id === e.id)).length > 0 && (
             <div className="bg-white dark:bg-[#1c2030] rounded-xl border border-slate-200 dark:border-[#2a3044] p-5 shadow-sm">
               <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400 mb-3">Epics without sprint tasks</h3>
               <div className="space-y-2">
-                {epics.filter((e) => !epicProgress.find((ep) => ep.id === e.id)).map((epic) => (
+                {projectEpics.filter((e) => !epicProgress.find((ep) => ep.id === e.id)).map((epic) => (
                   <div key={epic.id} className="flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: epic.color }} />
                     <span className="text-sm text-slate-600 dark:text-slate-400">{epic.title}</span>
@@ -717,7 +792,7 @@ export default function ReportsPage() {
                       <span className="w-20 text-right text-sm text-slate-600 dark:text-slate-300">{s.completedPoints}/{s.totalPoints}</span>
                       <span className="w-20 text-right text-sm font-semibold" style={{ color }}>{s.completionRate}%</span>
                       <span className="w-24 text-right text-xs text-slate-400 dark:text-slate-500">
-                        {s.completedAt ? format(parseISO(s.completedAt), "MMM d, yyyy") : "—"}
+                        {safeFormat(s.completedAt, "MMM d, yyyy") || "—"}
                       </span>
                     </div>
                   );

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { act, renderHook } from "@testing-library/react";
 import { useProjectScopedState } from "./useProjectScopedState";
 

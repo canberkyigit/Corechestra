@@ -15,6 +15,25 @@ describe("useApp", () => {
     mockClearAllDomains.mockResolvedValue(true);
   });
 
+  it("relinkUser re-keys an invited People record to the auth uid and migrates managerId", () => {
+    act(() => {
+      useAppStore.setState({
+        users: [
+          { id: "user-1", email: "a@x.io", username: "a", status: "inactive" },
+          { id: "u-2", email: "b@x.io", username: "b", managerId: "user-1" },
+        ],
+      });
+    });
+    const { result } = renderHook(() => useApp());
+    act(() => {
+      result.current.relinkUser("user-1", "uid-a", { role: "member" });
+    });
+    const { users } = useAppStore.getState();
+    expect(users.find((u) => u.id === "user-1")).toBeUndefined();
+    expect(users.find((u) => u.id === "uid-a")).toMatchObject({ email: "a@x.io", status: "inactive", role: "member" });
+    expect(users.find((u) => u.id === "u-2").managerId).toBe("uid-a");
+  });
+
   it("creates a task in the active sprint and records activity + notification", () => {
     act(() => {
       useAppStore.setState({
@@ -118,6 +137,37 @@ describe("useApp", () => {
     expect(state.perProjectCompletedSprints["proj-1"]).toHaveLength(1);
     expect(state.perProjectCompletedSprints["proj-1"][0].reviewNotes).toBe("Stakeholders approved");
     expect(state.notifications[0].type).toBe("sprint_completed");
+  });
+
+  it("updates persisted sprint capacity with a functional patch", () => {
+    act(() => {
+      useAppStore.setState({
+        currentProjectId: "proj-1",
+        perProjectSprint: {
+          "proj-1": {
+            id: "s1",
+            name: "Sprint 1",
+            teamCapacities: { "u-1": 80, "u-2": 90 },
+          },
+        },
+      });
+    });
+
+    const { result } = renderHook(() => useApp());
+
+    act(() => {
+      result.current.updateSprint((sprint) => ({
+        teamCapacities: {
+          ...(sprint.teamCapacities || {}),
+          "u-1": 50,
+        },
+      }));
+    });
+
+    expect(useAppStore.getState().perProjectSprint["proj-1"]).toMatchObject({
+      id: "s1",
+      teamCapacities: { "u-1": 50, "u-2": 90 },
+    });
   });
 
   it("deletes an epic and unsets epicId on active and backlog tasks", () => {

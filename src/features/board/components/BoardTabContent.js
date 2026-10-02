@@ -1,4 +1,4 @@
-import React, { Suspense, lazy } from "react";
+import React, { Suspense, lazy, useMemo } from "react";
 import PlanningPoker from "./PlanningPoker";
 import SprintModal from "../../projects/components/SprintModal";
 import FuturePlansModal from "../../projects/components/FuturePlansModal";
@@ -23,8 +23,6 @@ export function BoardTabContent({
   filter,
   member,
   search,
-  setProjectTasks,
-  idToGlobalIndex,
   showBadges,
   showPriorityColors,
   showTaskIds,
@@ -45,13 +43,14 @@ export function BoardTabContent({
   setActiveTab,
   createModalOpen,
   setCreateModalOpen,
-  newTaskData,
   createTask,
   selectedSprint,
   setSelectedSprint,
   sprintOptions,
   detailModalOpen,
   setDetailModalOpen,
+  detailInitialDirty,
+  setDetailInitialDirty,
   selectedTask,
   handleTaskUpdate,
   allTasks,
@@ -70,8 +69,16 @@ export function BoardTabContent({
   futurePlansOpen,
   setFuturePlansOpen,
   sidePanelOpen,
-  setActiveTasks,
 }) {
+  // Real team for Planning Poker: active people (minus the "All"/"Unassigned" pseudo options).
+  const pokerTeam = useMemo(
+    () => (teamMembers || [])
+      .filter((option) => option.value && option.value !== "unassigned")
+      .map((option) => option.label),
+    [teamMembers]
+  );
+  const currentPlayer = (teamMembers || []).find((option) => option.value === currentUser)?.label || currentUser || "You";
+
   return (
     <>
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -83,8 +90,6 @@ export function BoardTabContent({
             filterValue={filter.value}
             memberValue={member.value}
             search={search}
-            setProjectTasks={setProjectTasks}
-            idToGlobalIndex={idToGlobalIndex}
             showBadges={showBadges}
             showPriorityColors={showPriorityColors}
             showTaskIds={showTaskIds}
@@ -103,7 +108,12 @@ export function BoardTabContent({
         )}
         {activeTab === "backlog" && (
           <div className="flex-1 overflow-y-auto">
-            <BacklogTab onTaskClick={handleTaskClick} onPokerClick={handlePokerClick} focusSectionId={backlogFocusSectionId} onFocusHandled={() => setBacklogFocusSectionId(null)} />
+            <BacklogTab
+              onTaskClick={handleTaskClick}
+              onPokerClick={handlePokerClick}
+              focusSectionId={backlogFocusSectionId}
+              onFocusHandled={() => setBacklogFocusSectionId(null)}
+            />
           </div>
         )}
         {activeTab === "epics" && <div className="flex-1 overflow-y-auto"><EpicsTab /></div>}
@@ -124,7 +134,7 @@ export function BoardTabContent({
           <TaskDetailModal
             open={createModalOpen}
             onClose={() => setCreateModalOpen(false)}
-            task={newTaskData}
+            task={{}}
             onTaskUpdate={(task) => {
               createTask(task, selectedSprint.value);
               setCreateModalOpen(false);
@@ -144,6 +154,7 @@ export function BoardTabContent({
             open={detailModalOpen}
             onClose={() => setDetailModalOpen(false)}
             task={selectedTask}
+            initialDirty={detailInitialDirty}
             onTaskUpdate={handleTaskUpdate}
             allTasks={allTasks}
             isCreate={false}
@@ -161,8 +172,8 @@ export function BoardTabContent({
         onClose={() => { setPokerOpen(false); setPokerTask(null); }}
         currentTask={pokerTask}
         onEstimationComplete={handleEstimationComplete}
-        teamMembers={teamMembers.filter((memberOption) => memberOption.value && memberOption.value !== "unassigned").map((memberOption) => memberOption.label)}
-        currentPlayer={teamMembers.find((memberOption) => memberOption.value === currentUser)?.label || currentUser || "You"}
+        teamMembers={pokerTeam}
+        currentPlayer={currentPlayer}
       />
 
       <SprintModal open={sprintModalOpen} onClose={() => setSprintModalOpen(false)} mode={sprintModalMode} />
@@ -174,13 +185,11 @@ export function BoardTabContent({
             open={sidePanelOpen}
             task={selectedTask}
             onClose={() => setSidePanelOpen(false)}
-            onTaskUpdate={(updated) => {
-              setActiveTasks((previous) => previous.map((task) => task.id === updated.id ? updated : task));
-              setSelectedTask(updated);
-            }}
-            onOpenModal={(task) => {
+            onTaskUpdate={handleTaskUpdate}
+            onOpenModal={(task, meta) => {
               setSidePanelOpen(false);
               setSelectedTask(task);
+              setDetailInitialDirty(Boolean(meta?.hasChanges));
               setDetailModalOpen(true);
             }}
           />

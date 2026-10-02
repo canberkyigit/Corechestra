@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BOARD_FILTER_TYPE_OPTIONS } from "../constants/taskOptions";
+import { BOARD_FILTER_TYPE_OPTIONS } from "../../../shared/constants/taskMeta";
 
 export function useBoardFilters({
   currentProjectId,

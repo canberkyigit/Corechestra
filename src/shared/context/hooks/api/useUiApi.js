@@ -18,9 +18,7 @@ export function useUiApi({
   recentItems,
   setRecentItems,
   favoriteItems,
-  setFavoriteItems,
   pinnedItems,
-  setPinnedItems,
   notificationPreferences,
   setNotificationPreferences,
   permissionMatrix,
@@ -73,26 +71,6 @@ export function useUiApi({
     });
   }, [setRecentItems]);
 
-  const toggleFavoriteItem = useCallback((item) => {
-    if (!item?.id) return;
-    setFavoriteItems((prev) => {
-      const current = Array.isArray(prev) ? prev : [];
-      return current.some((entry) => entry.id === item.id)
-        ? current.filter((entry) => entry.id !== item.id)
-        : [item, ...current].slice(0, 24);
-    });
-  }, [setFavoriteItems]);
-
-  const togglePinnedItem = useCallback((item) => {
-    if (!item?.id) return;
-    setPinnedItems((prev) => {
-      const current = Array.isArray(prev) ? prev : [];
-      return current.some((entry) => entry.id === item.id)
-        ? current.filter((entry) => entry.id !== item.id)
-        : [item, ...current].slice(0, 24);
-    });
-  }, [setPinnedItems]);
-
   return {
     resetAllData,
     dbReady,
@@ -112,9 +90,7 @@ export function useUiApi({
     recentItems,
     pushRecentItem,
     favoriteItems,
-    toggleFavoriteItem,
     pinnedItems,
-    togglePinnedItem,
     notificationPreferences,
     setNotificationPreferences,
     permissionMatrix,

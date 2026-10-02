@@ -55,26 +55,6 @@ export const TASK_PRIORITY_OPTIONS = [
   { value: "low", label: "Low", color: "text-green-500" },
 ];
 
-export const TASK_PRIORITY_VALUES = TASK_PRIORITY_OPTIONS.map((option) => option.value);
-
-export const TASK_COLUMNS_DATA = [
-  { id: "todo", title: "To Do" },
-  { id: "inprogress", title: "In Progress" },
-  { id: "review", title: "Review" },
-  { id: "awaiting", title: "Awaiting Customer" },
-  { id: "blocked", title: "Blocked" },
-  { id: "done", title: "Done" },
-];
-
-export const TASK_STATUS_STYLES = {
-  done: "bg-green-100 text-green-700 border-green-200",
-  inprogress: "bg-blue-100 text-blue-700 border-blue-200",
-  review: "bg-yellow-100 text-yellow-700 border-yellow-200",
-  blocked: "bg-red-100 text-red-700 border-red-200",
-  awaiting: "bg-purple-100 text-purple-700 border-purple-200",
-  todo: "bg-gray-100 text-gray-600 border-gray-200",
-};
-
 export const TASK_TYPE_MAP = Object.fromEntries(
   TASK_TYPE_OPTIONS.map((option) => [
     option.value,
@@ -86,9 +66,101 @@ export const TASK_TYPE_MAP = Object.fromEntries(
   ])
 );
 
-export const TASK_PRIORITY_STYLES = {
-  critical: "bg-red-100 text-red-700 border-red-200",
-  high: "bg-orange-100 text-orange-700 border-orange-200",
-  medium: "bg-yellow-100 text-yellow-700 border-yellow-200",
-  low: "bg-green-100 text-green-700 border-green-200",
+// ── Derived / presentation maps ────────────────────────────────────────────
+// Every feature should read type/status/priority presentation from here instead
+// of keeping its own copy. Tailwind needs literal class names, so the class maps
+// are spelled out rather than generated.
+
+/** `{ [type]: { icon: ReactIconComponent, color: "text-*" } }` */
+export const TASK_TYPE_ICON_META = Object.fromEntries(
+  TASK_TYPE_OPTIONS.map((option) => [option.value, { icon: option.icon, color: option.color }])
+);
+
+/** `{ [type]: label }` */
+export const TASK_TYPE_LABELS = Object.fromEntries(
+  TASK_TYPE_OPTIONS.map((option) => [option.value, option.label])
+);
+
+/** Hex colour per task type (mirrors the `color` classes above). */
+export const TASK_TYPE_HEX = {
+  task:          "#22c55e",
+  bug:           "#ef4444",
+  feature:       "#06b6d4",
+  defect:        "#f97316",
+  userstory:     "#3b82f6",
+  investigation: "#a855f7",
+  epic:          "#8b5cf6",
+  test:          "#14b8a6",
+  testset:       "#6366f1",
+  testexecution: "#65a30d",
+  precondition:  "#0ea5e9",
+  // legacy aliases
+  story:         "#3b82f6",
+  subtask:       "#06b6d4",
+};
+
+/** Light + dark pill classes per task type. */
+export const TASK_TYPE_BADGE_STYLES = {
+  bug: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+  userstory: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+  investigation: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
+  epic: "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400",
+  feature: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400",
+  task: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+  defect: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
+  test: "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400",
+  testset: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400",
+  testexecution: "bg-lime-100 text-lime-700 dark:bg-lime-900/30 dark:text-lime-400",
+  precondition: "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400",
+};
+
+/** Icon-chip classes (icon colour + tinted background) per task type. */
+export const TASK_TYPE_CHIP_STYLES = {
+  bug:           "text-red-500    bg-red-50    dark:bg-red-900/30",
+  defect:        "text-orange-500 bg-orange-50 dark:bg-orange-900/30",
+  userstory:     "text-blue-500   bg-blue-50   dark:bg-blue-900/30",
+  investigation: "text-purple-500 bg-purple-50 dark:bg-purple-900/30",
+  task:          "text-green-500  bg-green-50  dark:bg-green-900/30",
+  feature:       "text-cyan-500   bg-cyan-50   dark:bg-cyan-900/30",
+  epic:          "text-violet-500 bg-violet-50 dark:bg-violet-900/30",
+  test:          "text-teal-500   bg-teal-50   dark:bg-teal-900/30",
+  testset:       "text-indigo-500 bg-indigo-50 dark:bg-indigo-900/30",
+  testexecution: "text-lime-600   bg-lime-50   dark:bg-lime-900/30",
+  precondition:  "text-sky-500    bg-sky-50    dark:bg-sky-900/30",
+};
+
+/** Compact status labels ("Awaiting" instead of "Awaiting Customer"). */
+export const TASK_STATUS_SHORT_LABELS = {
+  todo: "To Do",
+  inprogress: "In Progress",
+  review: "Review",
+  awaiting: "Awaiting",
+  blocked: "Blocked",
+  done: "Done",
+};
+
+/** Light + dark status pill classes. */
+export const TASK_STATUS_BADGE_STYLES = {
+  todo:       "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300",
+  inprogress: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
+  review:     "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300",
+  awaiting:   "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300",
+  blocked:    "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
+  done:       "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
+};
+
+/** Hex colour per priority (inline styles / charts). */
+export const TASK_PRIORITY_HEX = {
+  critical: "#ef4444",
+  high:     "#f97316",
+  medium:   "#eab308",
+  low:      "#22c55e",
+};
+
+/** Solid dot classes per priority. */
+export const TASK_PRIORITY_DOT_STYLES = {
+  critical: "bg-red-500",
+  high: "bg-orange-500",
+  medium: "bg-yellow-500",
+  low: "bg-green-500",
 };

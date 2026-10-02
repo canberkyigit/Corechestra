@@ -1,32 +1,52 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useApp } from "../../../shared/context/AppContext";
 import { useAuth } from "../../../shared/context/AuthContext";
-import { auth } from "../../../shared/services/firebase";
-import { sendPasswordResetEmail } from "firebase/auth";
+import { usePermissions } from "../../../shared/context/hooks/usePermissions";
+import {
+  ACTION_PERMISSION_META,
+  MODULE_PERMISSION_META,
+} from "../../../shared/constants/permissions";
 import {
   FaUserCircle, FaEdit, FaCheck, FaBell, FaLock, FaShieldAlt,
-  FaSignOutAlt, FaClock, FaEnvelope, FaGoogle,
+  FaSignOutAlt, FaClock, FaEnvelope, FaGoogle, FaKey, FaLifeRing,
 } from "react-icons/fa";
 
 const AVATAR_COLORS = [
   "#6366f1", "#7c3aed", "#059669", "#d97706", "#dc2626", "#0891b2",
 ];
 
-const NOTIF_SETTINGS = [
-  { id: "task_assigned",  label: "Task assigned to me",   desc: "When someone assigns a task to you"     },
-  { id: "task_comment",   label: "Comments on my tasks",  desc: "When someone comments on your tasks"    },
-  { id: "task_mentioned", label: "Mentions",              desc: "When someone @mentions you"             },
-  { id: "sprint_start",   label: "Sprint events",         desc: "Sprint start, complete, and updates"    },
-  { id: "task_overdue",   label: "Due date reminders",    desc: "When your tasks are nearing due date"   },
+// Categories consumed by useNotificationActions (notificationPreferences.inApp[category]).
+export const NOTIF_SETTINGS = [
+  { id: "assignments", label: "Assignments",        desc: "When a task is assigned to you"                    },
+  { id: "mentions",    label: "Mentions",           desc: "When someone @mentions you"                        },
+  { id: "comments",    label: "Comments",           desc: "New comments on tasks and pages"                   },
+  { id: "workflow",    label: "Workflow & approvals", desc: "Approvals and workflow transitions"              },
+  { id: "releases",    label: "Releases",           desc: "Release status changes"                            },
+  { id: "reminders",   label: "Reminders",          desc: "Due date and follow-up reminders"                  },
+  { id: "system",      label: "Workspace updates",  desc: "Status changes, sprints, projects and other events" },
 ];
 
+function buildForm(profile, email, role, defaultName) {
+  return {
+    name:     profile?.name     || defaultName,
+    fullName: profile?.fullName || "",
+    email:    email             || "",
+    role:     role ? role.charAt(0).toUpperCase() + role.slice(1) : "",
+    title:    profile?.title    || "",
+    timezone: profile?.timezone || "",
+    bio:      profile?.bio      || "",
+  };
+}
+
 function Field({ label, field, type = "text", form, setForm, editMode, readOnly = false }) {
+  const id = `profile-${field}`;
   return (
     <div>
-      <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">{label}</label>
+      <label htmlFor={id} className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">{label}</label>
       {editMode && !readOnly ? (
         type === "textarea" ? (
           <textarea
+            id={id}
             value={form[field]}
             onChange={(e) => setForm((p) => ({ ...p, [field]: e.target.value }))}
             rows={3}
@@ -34,6 +54,7 @@ function Field({ label, field, type = "text", form, setForm, editMode, readOnly 
           />
         ) : (
           <input
+            id={id}
             type={type}
             value={form[field]}
             onChange={(e) => setForm((p) => ({ ...p, [field]: e.target.value }))}
@@ -50,8 +71,12 @@ function Field({ label, field, type = "text", form, setForm, editMode, readOnly 
 }
 
 export default function ProfilePage() {
-  const { activeTasks, users, updateUser, globalActivityLog } = useApp();
-  const { user, role, profile, logout, updateProfile } = useAuth();
+  const {
+    activeTasks, users, updateUser, globalActivityLog,
+    notificationPreferences, setNotificationPreferences, workspaceSettings,
+  } = useApp();
+  const { user, role, profile, logout, updateProfile, sendPasswordReset } = useAuth();
+  const { rolePermissions } = usePermissions();
 
   // Current user's app record (synced from Firebase on login)
   const appUser = users.find((u) => u.id === user?.uid || u.email === user?.email);
@@ -67,43 +92,94 @@ export default function ProfilePage() {
   const defaultName = emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
 
   const [editMode,     setEditMode]     = useState(false);
+  const [saving,       setSaving]       = useState(false);
   const [saved,        setSaved]        = useState(false);
-  const [avatarColor,  setAvatarColor]  = useState(appUser?.color || AVATAR_COLORS[0]);
-  const [pwResetSent,  setPwResetSent]  = useState(false);
+  const [saveError,    setSaveError]    = useState("");
+  const [avatarColor,  setAvatarColor]  = useState(profile?.color || appUser?.color || AVATAR_COLORS[0]);
+  const [pwResetState, setPwResetState] = useState("idle"); // idle | sending | sent | error
+  const [pwResetError, setPwResetError] = useState("");
 
-  // Sync avatar color when appUser loads (e.g. on first render before AppContext hydrates)
+  const [form, setForm] = useState(() => buildForm(profile, user?.email, role, defaultName));
+
+  // Keep the read-only view in sync with the live profile (e.g. updated from another tab
+  // or after the profile snapshot arrives); never clobber an edit in progress.
   useEffect(() => {
-    if (appUser?.color) setAvatarColor(appUser.color);
-  }, [appUser?.color]); // eslint-disable-line
+    if (editMode) return;
+    setForm(buildForm(profile, user?.email, role, defaultName));
+    setAvatarColor(profile?.color || appUser?.color || AVATAR_COLORS[0]);
+  }, [profile, user?.email, role, defaultName, appUser?.color, editMode]);
 
-  const [form, setForm] = useState({
-    name:     profile?.name     || defaultName,
-    fullName: profile?.fullName || "",
-    email:    user?.email       || "",
-    role:     role ? role.charAt(0).toUpperCase() + role.slice(1) : "",
-    title:    profile?.title    || "",
-    timezone: profile?.timezone || "",
-    bio:      profile?.bio      || "",
-  });
+  const startEdit = () => {
+    setSaveError("");
+    setEditMode(true);
+  };
 
-  const [notifPrefs, setNotifPrefs] = useState(
-    profile?.notifPrefs ?? Object.fromEntries(NOTIF_SETTINGS.map((n) => [n.id, true]))
-  );
+  const cancelEdit = () => {
+    setForm(buildForm(profile, user?.email, role, defaultName));
+    setAvatarColor(profile?.color || appUser?.color || AVATAR_COLORS[0]);
+    setSaveError("");
+    setEditMode(false);
+  };
 
   const handleSave = async () => {
+    if (saving) return;
     const fields = {
-      name: form.name, fullName: form.fullName,
-      title: form.title, timezone: form.timezone, bio: form.bio,
+      name: form.name.trim() || defaultName,
+      fullName: form.fullName.trim(),
+      title: form.title.trim(),
+      timezone: form.timezone.trim(),
+      bio: form.bio,
       color: avatarColor,
-      notifPrefs,
     };
-    // Persist to Firestore
-    await updateProfile(fields);
-    // Sync to AppContext People list (color + name visible everywhere)
-    if (appUser) updateUser({ ...appUser, ...fields });
-    setSaved(true);
-    setEditMode(false);
-    setTimeout(() => setSaved(false), 2500);
+    setSaving(true);
+    setSaveError("");
+    try {
+      // Personal profile (users/{uid}) — private fields stay here.
+      await updateProfile(fields);
+      // Only identity fields shown elsewhere in the product are mirrored to the shared People list.
+      if (appUser) {
+        const displayName = fields.fullName || fields.name;
+        if (appUser.name !== displayName || appUser.color !== fields.color) {
+          updateUser({ ...appUser, name: displayName, color: fields.color });
+        }
+      }
+      setSaved(true);
+      setEditMode(false);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (err) {
+      console.warn("[ProfilePage] Failed to save profile:", err?.code || err?.message);
+      setSaveError("Could not save your profile. Check your connection and try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const inAppPrefs = notificationPreferences?.inApp || {};
+  const toggleNotif = (id) => {
+    setNotificationPreferences((prev) => ({
+      ...(prev || {}),
+      inApp: {
+        ...(prev?.inApp || {}),
+        [id]: (prev?.inApp?.[id]) === false,
+      },
+    }));
+  };
+
+  const handlePasswordReset = async () => {
+    if (!user?.email || pwResetState === "sending") return;
+    setPwResetState("sending");
+    setPwResetError("");
+    try {
+      await sendPasswordReset(user.email);
+      setPwResetState("sent");
+      setTimeout(() => setPwResetState("idle"), 5000);
+    } catch (err) {
+      console.warn("[ProfilePage] Password reset failed:", err?.code || err?.message);
+      setPwResetError(err?.code === "auth/too-many-requests"
+        ? "Too many requests. Try again later."
+        : "Could not send the reset email. Try again later.");
+      setPwResetState("error");
+    }
   };
 
   // Sprint stats based on current user's username
@@ -112,10 +188,15 @@ export default function ProfilePage() {
   const inProgress    = myTasks.filter((t) => t.status === "inprogress").length;
   const storyPoints   = myTasks.reduce((s, t) => s + (t.storyPoint || 0), 0);
 
+  const allowedModules = MODULE_PERMISSION_META.filter((item) => rolePermissions?.modules?.[item.key]);
+  const allowedActions = ACTION_PERMISSION_META.filter((item) => rolePermissions?.actions?.[item.key]);
+  const isGoogle = user?.providerData?.[0]?.providerId === "google.com";
+  const supportEmail = workspaceSettings?.supportEmail;
+
   const fieldProps = { form, setForm, editMode };
 
   return (
-    <div className="p-6 max-w-4xl mx-auto overflow-y-auto">
+    <div className="h-full p-4 md:p-6 max-w-5xl mx-auto overflow-y-auto">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <FaUserCircle className="w-5 h-5 text-blue-500" />
@@ -131,9 +212,15 @@ export default function ProfilePage() {
         )}
       </div>
 
-      <div className="grid grid-cols-3 gap-6">
+      {saveError && (
+        <div role="alert" className="mb-4 rounded-lg border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-900/10 px-3 py-2 text-sm text-red-600 dark:text-red-400">
+          {saveError}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left column */}
-        <div className="col-span-1 space-y-4">
+        <div className="lg:col-span-1 space-y-4">
 
           {/* Avatar card */}
           <div className="bg-white dark:bg-[#1c2030] rounded-xl border border-slate-200 dark:border-[#2a3044] p-5 shadow-sm text-center">
@@ -149,13 +236,17 @@ export default function ProfilePage() {
               {form.role || "Member"}
             </span>
 
-            {/* Avatar color picker */}
+            {/* Avatar color picker (part of the edit form) */}
+            {editMode && (
             <div className="mt-4">
               <p className="text-xs text-slate-400 dark:text-slate-500 mb-2">Avatar color</p>
               <div className="flex justify-center gap-2">
                 {AVATAR_COLORS.map((c) => (
                   <button
                     key={c}
+                    type="button"
+                    aria-label={`Avatar color ${c}`}
+                    aria-pressed={avatarColor === c}
                     onClick={() => setAvatarColor(c)}
                     className="w-5 h-5 rounded-full border-2 transition-transform hover:scale-110"
                     style={{ backgroundColor: c, borderColor: avatarColor === c ? "#fff" : c, outline: avatarColor === c ? `2px solid ${c}` : "none", outlineOffset: 2 }}
@@ -163,6 +254,7 @@ export default function ProfilePage() {
                 ))}
               </div>
             </div>
+            )}
           </div>
 
           {/* Sprint stats */}
@@ -183,6 +275,30 @@ export default function ProfilePage() {
             </div>
           </div>
 
+          {/* Access */}
+          <div className="bg-white dark:bg-[#1c2030] rounded-xl border border-slate-200 dark:border-[#2a3044] p-5 shadow-sm">
+            <div className="flex items-center gap-2 mb-3">
+              <FaKey className="w-3.5 h-3.5 text-slate-400" />
+              <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Your access</h4>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
+              Role <span className="font-semibold text-slate-700 dark:text-slate-200">{form.role || "Viewer"}</span>. Roles are managed by workspace admins.
+            </p>
+            <div className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold mb-1.5">Modules</div>
+            <div className="flex flex-wrap gap-1 mb-3">
+              {allowedModules.map((item) => (
+                <span key={item.key} className="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-[#232838] text-slate-600 dark:text-slate-300">{item.label}</span>
+              ))}
+            </div>
+            <div className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold mb-1.5">Actions</div>
+            <div className="flex flex-wrap gap-1">
+              {allowedActions.length === 0 && <span className="text-xs text-slate-400 dark:text-slate-500">Read-only</span>}
+              {allowedActions.map((item) => (
+                <span key={item.key} className="text-[11px] px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-300">{item.label}</span>
+              ))}
+            </div>
+          </div>
+
           {/* Sign out */}
           <div className="bg-white dark:bg-[#1c2030] rounded-xl border border-red-100 dark:border-red-900/30 p-4 shadow-sm">
             <button
@@ -196,7 +312,7 @@ export default function ProfilePage() {
         </div>
 
         {/* Right column */}
-        <div className="col-span-2 space-y-5">
+        <div className="lg:col-span-2 space-y-5">
 
           {/* Personal info */}
           <div className="bg-white dark:bg-[#1c2030] rounded-xl border border-slate-200 dark:border-[#2a3044] p-5 shadow-sm">
@@ -207,7 +323,7 @@ export default function ProfilePage() {
               </div>
               {!editMode ? (
                 <button
-                  onClick={() => setEditMode(true)}
+                  onClick={startEdit}
                   className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 font-medium"
                 >
                   <FaEdit className="w-3 h-3" /> Edit
@@ -216,12 +332,14 @@ export default function ProfilePage() {
                 <div className="flex gap-2">
                   <button
                     onClick={handleSave}
-                    className="flex items-center gap-1.5 px-3 py-1 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                    disabled={saving}
+                    className="flex items-center gap-1.5 px-3 py-1 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-60"
                   >
-                    <FaCheck className="w-3 h-3" /> Save
+                    <FaCheck className="w-3 h-3" /> {saving ? "Saving..." : "Save"}
                   </button>
                   <button
-                    onClick={() => setEditMode(false)}
+                    onClick={cancelEdit}
+                    disabled={saving}
                     className="px-3 py-1 text-xs text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors"
                   >
                     Cancel
@@ -230,7 +348,7 @@ export default function ProfilePage() {
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field {...fieldProps} label="Display Name" field="name"     />
               <Field {...fieldProps} label="Full Name"    field="fullName" />
               <Field {...fieldProps} label="Email"        field="email"    type="email" readOnly />
@@ -245,10 +363,13 @@ export default function ProfilePage() {
 
           {/* Notification preferences */}
           <div className="bg-white dark:bg-[#1c2030] rounded-xl border border-slate-200 dark:border-[#2a3044] p-5 shadow-sm">
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center gap-2 mb-1">
               <FaBell className="w-4 h-4 text-slate-400" />
               <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Notification Preferences</h3>
             </div>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mb-3">
+              Controls which events appear in the in-app inbox. Changes apply immediately (same settings as the For You page).
+            </p>
             <div className="space-y-0">
               {NOTIF_SETTINGS.map((n, i) => (
                 <div
@@ -260,12 +381,16 @@ export default function ProfilePage() {
                     <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{n.desc}</p>
                   </div>
                   <button
-                    onClick={() => setNotifPrefs((p) => ({ ...p, [n.id]: !p[n.id] }))}
+                    type="button"
+                    role="switch"
+                    aria-checked={inAppPrefs[n.id] !== false}
+                    aria-label={n.label}
+                    onClick={() => toggleNotif(n.id)}
                     className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors flex-shrink-0 ${
-                      notifPrefs[n.id] ? "bg-blue-500" : "bg-slate-300 dark:bg-slate-600"
+                      inAppPrefs[n.id] !== false ? "bg-blue-500" : "bg-slate-300 dark:bg-slate-600"
                     }`}
                   >
-                    <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${notifPrefs[n.id] ? "translate-x-4" : "translate-x-0.5"}`} />
+                    <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${inAppPrefs[n.id] !== false ? "translate-x-4" : "translate-x-0.5"}`} />
                   </button>
                 </div>
               ))}
@@ -281,14 +406,14 @@ export default function ProfilePage() {
             <div className="space-y-3">
               {/* Auth provider */}
               <div className="flex items-center gap-3 p-3 rounded-lg border border-slate-200 dark:border-[#2a3044]">
-                {user?.providerData?.[0]?.providerId === "google.com"
+                {isGoogle
                   ? <FaGoogle className="w-4 h-4 text-red-400 flex-shrink-0" />
                   : <FaEnvelope className="w-4 h-4 text-slate-400 flex-shrink-0" />
                 }
                 <div>
                   <p className="text-sm font-medium text-slate-700 dark:text-slate-200">Sign-in method</p>
                   <p className="text-xs text-slate-400 dark:text-slate-500">
-                    {user?.providerData?.[0]?.providerId === "google.com" ? "Google" : "Email / Password"}
+                    {isGoogle ? "Google" : "Email / Password"}
                   </p>
                 </div>
               </div>
@@ -305,25 +430,33 @@ export default function ProfilePage() {
                 </div>
               )}
               {/* Change password (only for email/password accounts) */}
-              {user?.providerData?.[0]?.providerId !== "google.com" && (
+              {!isGoogle && (
                 <button
-                  onClick={async () => {
-                    if (!user?.email) return;
-                    await sendPasswordResetEmail(auth, user.email);
-                    setPwResetSent(true);
-                    setTimeout(() => setPwResetSent(false), 5000);
-                  }}
-                  className="w-full flex items-center gap-3 p-3 rounded-lg border border-slate-200 dark:border-[#2a3044] hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors text-left"
+                  onClick={handlePasswordReset}
+                  disabled={pwResetState === "sending"}
+                  className="w-full flex items-center gap-3 p-3 rounded-lg border border-slate-200 dark:border-[#2a3044] hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors text-left disabled:opacity-60"
                 >
                   <FaLock className="w-4 h-4 text-slate-400 flex-shrink-0" />
                   <div>
                     <p className="text-sm font-medium text-slate-700 dark:text-slate-200">Change Password</p>
-                    <p className="text-xs text-slate-400 dark:text-slate-500">
-                      {pwResetSent ? "Reset email sent — check your inbox" : "Send a password reset email"}
+                    <p className={`text-xs ${pwResetState === "error" ? "text-red-500 dark:text-red-400" : "text-slate-400 dark:text-slate-500"}`}>
+                      {pwResetState === "sent" && "Reset email sent — check your inbox"}
+                      {pwResetState === "sending" && "Sending reset email..."}
+                      {pwResetState === "error" && pwResetError}
+                      {pwResetState === "idle" && "Send a password reset email"}
                     </p>
                   </div>
-                  {pwResetSent && <FaCheck className="w-3.5 h-3.5 text-green-500 ml-auto" />}
+                  {pwResetState === "sent" && <FaCheck className="w-3.5 h-3.5 text-green-500 ml-auto" />}
                 </button>
+              )}
+              {supportEmail && (
+                <div className="flex items-center gap-3 p-3 rounded-lg border border-slate-200 dark:border-[#2a3044]">
+                  <FaLifeRing className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-slate-700 dark:text-slate-200">Need help with your account?</p>
+                    <a href={`mailto:${supportEmail}`} className="text-xs text-blue-600 dark:text-blue-400 hover:underline">{supportEmail}</a>
+                  </div>
+                </div>
               )}
             </div>
           </div>

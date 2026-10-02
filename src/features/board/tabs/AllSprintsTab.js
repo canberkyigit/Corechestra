@@ -1,10 +1,13 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   FaRocket, FaCalendarAlt, FaCheckCircle, FaChevronDown, FaChevronRight,
   FaClock, FaArrowRight, FaTasks, FaFlag, FaTrash,
 } from "react-icons/fa";
 import { useApp } from "../../../shared/context/AppContext";
 import { format, parseISO, differenceInDays } from "date-fns";
+import { useBoardPermissions } from "../hooks/useBoardPermissions";
+import { sumStoryPoints } from "../utils/sprintMetrics";
+import { isInProject } from "../../../shared/utils/helpers";
 
 const fmt = (d) => {
   if (!d) return "—";
@@ -145,12 +148,28 @@ function SprintCard({ sprint, taskCount, doneCount, onGoTo, goToLabel, large, on
 }
 
 export default function AllSprintsTab({ onNavigate }) {
-  const { sprint, plannedSprints, completedSprints, activeTasks, deletePlannedSprint } = useApp();
+  const {
+    sprint,
+    plannedSprints: plannedSprintsRaw,
+    completedSprints: completedSprintsRaw,
+    activeTasks,
+    currentProjectId,
+    deletePlannedSprint,
+  } = useApp();
+  const { canEditTask } = useBoardPermissions();
   const [completedOpen, setCompletedOpen] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const plannedSprints = plannedSprintsRaw || [];
+  const completedSprints = completedSprintsRaw || [];
 
-  const activeTaskCount = activeTasks.length;
-  const activeDone = activeTasks.filter((t) => t.status === "done").length;
+  // Active sprint numbers are scoped to the current project only.
+  const projectActiveTasks = useMemo(
+    () => (activeTasks || []).filter((t) => isInProject(t, currentProjectId)),
+    [activeTasks, currentProjectId]
+  );
+  const activeTaskCount = projectActiveTasks.length;
+  const activeDone = projectActiveTasks.filter((t) => t.status === "done").length;
+  const activePoints = sumStoryPoints(projectActiveTasks);
 
   const sortedPlanned = [...plannedSprints].sort(
     (a, b) => new Date(a.startDate) - new Date(b.startDate)
@@ -171,7 +190,7 @@ export default function AllSprintsTab({ onNavigate }) {
         </div>
         {hasActive ? (
           <SprintCard
-            sprint={{ ...sprint, status: "active" }}
+            sprint={{ ...sprint, status: "active", totalPoints: activePoints }}
             taskCount={activeTaskCount}
             doneCount={activeDone}
             goToLabel="Go to Board"
@@ -227,7 +246,7 @@ export default function AllSprintsTab({ onNavigate }) {
                   doneCount={null}
                   goToLabel="Go to Backlog"
                   onGoTo={() => onNavigate("backlog", s.backlogSectionId)}
-                  onDelete={() => setConfirmDeleteId(s.id)}
+                  onDelete={canEditTask ? () => setConfirmDeleteId(s.id) : null}
                 />
               </div>
             ))}

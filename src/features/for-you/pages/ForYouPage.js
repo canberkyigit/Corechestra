@@ -1,54 +1,45 @@
 import React, { useState, useMemo } from "react";
 import { motion } from "framer-motion";
+import { addDays, isValid, parseISO, startOfDay } from "date-fns";
 import { useApp } from "../../../shared/context/AppContext";
+import { usePermissions } from "../../../shared/context/hooks/usePermissions";
 import { ForYouSkeleton } from "../../../shared/components/Skeleton";
+import { requestNavigate, requestOpenTask } from "../../../shared/components/appNavigation";
 import { buildUniversalTimeline } from "../../../shared/utils/universalTimeline";
+import { taskKey } from "../../../shared/utils/helpers";
+import { TASK_STATUS_BADGE_STYLES, TASK_TYPE_ICON_META } from "../../../shared/constants/taskMeta";
 import {
-  FaBell, FaCheckCircle, FaExclamationTriangle, FaComment, FaArrowRight,
-  FaArchive, FaUndo, FaBolt, FaLayerGroup, FaPlay, FaCheck, FaInbox,
-  FaCheckSquare, FaBug, FaPlusSquare, FaExclamationCircle, FaUser,
-  FaClock, FaBookOpen, FaLink,
+  filterNotificationsForUser,
+  getNotificationMeta,
+  resolveNotificationTarget,
+} from "../../../shared/constants/notificationMeta";
+import {
+  FaBell, FaCheck, FaInbox, FaCheckSquare, FaComment, FaClock, FaBookOpen, FaLink,
 } from "react-icons/fa";
 
-const NOTIF_META = {
-  assignment:      { icon: FaArrowRight,          color: "text-blue-500    bg-blue-50    dark:bg-blue-900/20"    },
-  status_done:     { icon: FaCheckCircle,         color: "text-green-500   bg-green-50   dark:bg-green-900/20"   },
-  status_blocked:  { icon: FaExclamationTriangle, color: "text-red-500     bg-red-50     dark:bg-red-900/20"     },
-  status_change:   { icon: FaArrowRight,          color: "text-blue-500    bg-blue-50    dark:bg-blue-900/20"    },
-  comment:         { icon: FaComment,             color: "text-purple-500  bg-purple-50  dark:bg-purple-900/20"  },
-  mention:         { icon: FaComment,             color: "text-purple-500  bg-purple-50  dark:bg-purple-900/20"  },
-  task_created:    { icon: FaCheckCircle,         color: "text-green-500   bg-green-50   dark:bg-green-900/20"   },
-  task_archived:   { icon: FaArchive,             color: "text-amber-500   bg-amber-50   dark:bg-amber-900/20"   },
-  task_restored:   { icon: FaUndo,                color: "text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20" },
-  task_deleted:    { icon: FaExclamationTriangle, color: "text-red-500     bg-red-50     dark:bg-red-900/20"     },
-  sprint_started:  { icon: FaPlay,                color: "text-blue-500    bg-blue-50    dark:bg-blue-900/20"    },
-  sprint_completed:{ icon: FaCheckCircle,         color: "text-green-500   bg-green-50   dark:bg-green-900/20"   },
-  project_created: { icon: FaLayerGroup,          color: "text-purple-500  bg-purple-50  dark:bg-purple-900/20"  },
-  project_deleted: { icon: FaExclamationTriangle, color: "text-red-500     bg-red-50     dark:bg-red-900/20"     },
-  epic_created:    { icon: FaBolt,                color: "text-violet-500  bg-violet-50  dark:bg-violet-900/20"  },
-  epic_deleted:    { icon: FaExclamationTriangle, color: "text-red-500     bg-red-50     dark:bg-red-900/20"     },
-  archive_emptied: { icon: FaArchive,             color: "text-red-500     bg-red-50     dark:bg-red-900/20"     },
-};
+/** Parses "YYYY-MM-DD" (or ISO) as a *local* date; `new Date("YYYY-MM-DD")` is UTC midnight. */
+export function parseLocalDueDate(value) {
+  if (!value) return null;
+  const parsed = parseISO(String(value));
+  return isValid(parsed) ? parsed : null;
+}
 
-const TASK_TYPE_ICONS = {
-  task:          { icon: FaCheckSquare,       color: "text-green-500"  },
-  bug:           { icon: FaBug,               color: "text-red-500"    },
-  feature:       { icon: FaPlusSquare,        color: "text-cyan-500"   },
-  defect:        { icon: FaExclamationCircle, color: "text-orange-500" },
-  userstory:     { icon: FaUser,              color: "text-blue-500"   },
-};
-
-const STATUS_COLORS = {
-  todo:       "bg-slate-100 text-slate-600 dark:bg-slate-700/50 dark:text-slate-300",
-  inprogress: "bg-blue-100  text-blue-700  dark:bg-blue-900/40  dark:text-blue-300",
-  review:     "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300",
-  awaiting:   "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300",
-  blocked:    "bg-red-100   text-red-700   dark:bg-red-900/40   dark:text-red-300",
-  done:       "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
-};
+/** Tasks due today (local) through the next 7 days, soonest first. */
+export function selectDueSoonTasks(tasks, now = new Date(), limit = 5) {
+  const start = startOfDay(now);
+  const end = addDays(start, 8); // exclusive: through the end of day +7
+  return (tasks || [])
+    .map((task) => ({ task, due: parseLocalDueDate(task.dueDate) }))
+    .filter(({ due }) => due && due >= start && due < end)
+    .sort((left, right) => left.due - right.due)
+    .slice(0, limit)
+    .map(({ task }) => task);
+}
 
 function relativeTime(isoStr) {
-  const diff = Date.now() - new Date(isoStr).getTime();
+  const time = new Date(isoStr).getTime();
+  if (!isoStr || Number.isNaN(time)) return "";
+  const diff = Date.now() - time;
   const mins = Math.floor(diff / 60000);
   if (mins < 1) return "Just now";
   if (mins < 60) return `${mins}m ago`;
@@ -63,9 +54,10 @@ export default function ForYouPage() {
   const {
     notifications, markNotifRead, markAllNotifsRead,
     activeTasks, backlogSections, currentUser, dbReady,
-    docPages, releases, testRuns, globalActivityLog,
+    docPages, releases, testRuns, globalActivityLog, archivedTasks,
     notificationPreferences, setNotificationPreferences,
   } = useApp();
+  const { canAccessPage } = usePermissions();
   const [filter, setFilter] = useState("all");
 
   const allBacklogTasks = useMemo(
@@ -73,34 +65,49 @@ export default function ForYouPage() {
     [backlogSections]
   );
 
-  const visibleNotifs = useMemo(() => {
-    if (filter === "unread") return notifications.filter((n) => !n.read);
-    return notifications;
-  }, [notifications, filter]);
+  const myNotifications = useMemo(
+    () => filterNotificationsForUser(notifications, currentUser),
+    [notifications, currentUser]
+  );
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const visibleNotifs = useMemo(() => {
+    if (filter === "unread") return myNotifications.filter((n) => !n.read);
+    return myNotifications;
+  }, [myNotifications, filter]);
+
+  const unreadCount = myNotifications.filter((n) => !n.read).length;
+  const allTasks = useMemo(() => [...(activeTasks || []), ...allBacklogTasks], [activeTasks, allBacklogTasks]);
+
+  const handleNotificationClick = (notification) => {
+    markNotifRead(notification.id);
+    const target = resolveNotificationTarget(notification, { tasks: allTasks, archivedTasks, canAccessPage });
+    if (target?.kind === "task") requestOpenTask(target.task);
+    else if (target?.kind === "route") requestNavigate(target.route);
+  };
+
+  const handleTimelineClick = (entry) => {
+    if (entry.entityType === "task") {
+      const task = allTasks.find((candidate) => String(candidate.id) === String(entry.entityId));
+      if (task) requestOpenTask(task);
+      return;
+    }
+    if (entry.entityType === "doc" && entry.entityId) requestNavigate(`docs?page=${encodeURIComponent(entry.entityId)}`);
+    else if (entry.entityType === "release") requestNavigate("releases");
+    else if (entry.entityType === "test-run") requestNavigate("tests");
+  };
 
   const assignedTasks = useMemo(() => {
     const name = (currentUser || "").toLowerCase();
-    return [...(activeTasks || []), ...allBacklogTasks].filter(
-      (t) => t.assignedTo && t.assignedTo.toLowerCase() === name && t.status !== "done"
+    if (!name) return [];
+    return allTasks.filter(
+      (t) => t.assignedTo && String(t.assignedTo).toLowerCase() === name && t.status !== "done"
     );
-  }, [activeTasks, allBacklogTasks, currentUser]);
+  }, [allTasks, currentUser]);
 
   const blockedTasks = assignedTasks.filter((t) => t.status === "blocked");
   const inProgressTasks = assignedTasks.filter((t) => t.status === "inprogress");
 
-  const dueSoonTasks = useMemo(() => {
-    const now = new Date();
-    const sevenDaysFromNow = new Date();
-    sevenDaysFromNow.setDate(now.getDate() + 7);
-    return assignedTasks
-      .filter((task) => task.dueDate)
-      .map((task) => ({ ...task, dueDateObj: new Date(task.dueDate) }))
-      .filter((task) => task.dueDateObj >= now && task.dueDateObj <= sevenDaysFromNow)
-      .sort((left, right) => left.dueDateObj - right.dueDateObj)
-      .slice(0, 5);
-  }, [assignedTasks]);
+  const dueSoonTasks = useMemo(() => selectDueSoonTasks(assignedTasks), [assignedTasks]);
 
   const universalTimeline = useMemo(() => buildUniversalTimeline({
     currentUser,
@@ -141,7 +148,7 @@ export default function ForYouPage() {
           </div>
           {unreadCount > 0 && (
             <button
-              onClick={markAllNotifsRead}
+              onClick={() => markAllNotifsRead(myNotifications.filter((n) => !n.read).map((n) => n.id))}
               className="flex items-center gap-1.5 text-xs text-blue-500 hover:text-blue-400 font-medium px-3 py-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
             >
               <FaCheck className="w-3 h-3" />
@@ -191,45 +198,49 @@ export default function ForYouPage() {
             </h2>
             <div className="space-y-2">
               {blockedTasks.map((task) => {
-                const TypeIcon = (TASK_TYPE_ICONS[task.type] || TASK_TYPE_ICONS.task).icon;
-                const typeColor = (TASK_TYPE_ICONS[task.type] || TASK_TYPE_ICONS.task).color;
+                const TypeIcon = (TASK_TYPE_ICON_META[task.type] || TASK_TYPE_ICON_META.task).icon;
+                const typeColor = (TASK_TYPE_ICON_META[task.type] || TASK_TYPE_ICON_META.task).color;
                 return (
-                  <motion.div
+                  <motion.button
+                    type="button"
                     key={task.id}
                     initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="flex items-center gap-3 p-3.5 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30"
+                    onClick={() => requestOpenTask(task)}
+                    className="w-full text-left flex items-center gap-3 p-3.5 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 hover:border-red-200 dark:hover:border-red-800/50 transition-colors"
                   >
                     <TypeIcon className={`w-4 h-4 flex-shrink-0 ${typeColor}`} />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">{task.title}</p>
-                      <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">cy-{task.id}</p>
+                      <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 font-mono">{taskKey(task.id)}</p>
                     </div>
-                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${STATUS_COLORS.blocked}`}>
+                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${TASK_STATUS_BADGE_STYLES.blocked}`}>
                       Blocked
                     </span>
-                  </motion.div>
+                  </motion.button>
                 );
               })}
               {inProgressTasks.map((task) => {
-                const TypeIcon = (TASK_TYPE_ICONS[task.type] || TASK_TYPE_ICONS.task).icon;
-                const typeColor = (TASK_TYPE_ICONS[task.type] || TASK_TYPE_ICONS.task).color;
+                const TypeIcon = (TASK_TYPE_ICON_META[task.type] || TASK_TYPE_ICON_META.task).icon;
+                const typeColor = (TASK_TYPE_ICON_META[task.type] || TASK_TYPE_ICON_META.task).color;
                 return (
-                  <motion.div
+                  <motion.button
+                    type="button"
                     key={task.id}
                     initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="flex items-center gap-3 p-3.5 rounded-xl bg-white dark:bg-[#1c2030] border border-slate-100 dark:border-[#252b3b]"
+                    onClick={() => requestOpenTask(task)}
+                    className="w-full text-left flex items-center gap-3 p-3.5 rounded-xl bg-white dark:bg-[#1c2030] border border-slate-100 dark:border-[#252b3b] hover:border-blue-200 dark:hover:border-blue-800/50 transition-colors"
                   >
                     <TypeIcon className={`w-4 h-4 flex-shrink-0 ${typeColor}`} />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">{task.title}</p>
-                      <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">cy-{task.id}</p>
+                      <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 font-mono">{taskKey(task.id)}</p>
                     </div>
-                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${STATUS_COLORS.inprogress}`}>
+                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${TASK_STATUS_BADGE_STYLES.inprogress}`}>
                       In Progress
                     </span>
-                  </motion.div>
+                  </motion.button>
                 );
               })}
             </div>
@@ -253,13 +264,18 @@ export default function ForYouPage() {
               ) : (
                 <div className="space-y-2">
                   {dueSoonTasks.map((task) => (
-                    <div key={task.id} className="flex items-center gap-3 rounded-xl bg-slate-50 dark:bg-[#232838] px-3 py-2">
+                    <button
+                      type="button"
+                      key={task.id}
+                      onClick={() => requestOpenTask(task)}
+                      className="w-full text-left flex items-center gap-3 rounded-xl bg-slate-50 dark:bg-[#232838] px-3 py-2 hover:bg-slate-100 dark:hover:bg-[#2a3044] transition-colors"
+                    >
                       <FaCheckSquare className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">{task.title}</p>
-                        <p className="text-xs text-slate-400 dark:text-slate-500">{task.dueDate}</p>
+                        <p className="text-xs text-slate-400 dark:text-slate-500">{taskKey(task.id)} · due {task.dueDate}</p>
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}
@@ -280,10 +296,15 @@ export default function ForYouPage() {
               ) : (
                 <div className="space-y-2">
                   {mentionItems.map((entry) => (
-                    <div key={entry.id} className="rounded-xl bg-slate-50 dark:bg-[#232838] px-3 py-2">
+                    <button
+                      type="button"
+                      key={entry.id}
+                      onClick={() => handleTimelineClick(entry)}
+                      className="w-full text-left rounded-xl bg-slate-50 dark:bg-[#232838] px-3 py-2 hover:bg-slate-100 dark:hover:bg-[#2a3044] transition-colors"
+                    >
                       <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{entry.title}</p>
                       <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 line-clamp-2">{entry.subtitle}</p>
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}
@@ -334,14 +355,14 @@ export default function ForYouPage() {
           ) : (
             <div className="space-y-1.5">
               {visibleNotifs.map((n) => {
-                const meta = NOTIF_META[n.type] || NOTIF_META.status_change;
+                const meta = getNotificationMeta(n.type);
                 const NIcon = meta.icon;
                 return (
                   <motion.button
                     key={n.id}
                     initial={{ opacity: 0, y: 4 }}
                     animate={{ opacity: 1, y: 0 }}
-                    onClick={() => markNotifRead(n.id)}
+                    onClick={() => handleNotificationClick(n)}
                     className={`w-full flex items-start gap-3 p-4 rounded-xl border transition-colors text-left group ${
                       !n.read
                         ? "bg-blue-50/60 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900/30 hover:bg-blue-50 dark:hover:bg-blue-900/20"
@@ -383,9 +404,11 @@ export default function ForYouPage() {
           ) : (
             <div className="space-y-2">
               {recentTimeline.map((entry) => (
-                <div
+                <button
+                  type="button"
                   key={entry.id}
-                  className="flex items-start gap-3 rounded-2xl border border-slate-200 dark:border-[#252b3b] bg-white dark:bg-[#1c2030] px-4 py-3"
+                  onClick={() => handleTimelineClick(entry)}
+                  className="w-full text-left flex items-start gap-3 rounded-2xl border border-slate-200 dark:border-[#252b3b] bg-white dark:bg-[#1c2030] px-4 py-3 hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors"
                 >
                   <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-[#232838] flex items-center justify-center flex-shrink-0">
                     {entry.category === "comment" ? (
@@ -401,7 +424,7 @@ export default function ForYouPage() {
                     <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 truncate">{entry.subtitle}</p>
                   </div>
                   <span className="text-[11px] text-slate-400 dark:text-slate-500 flex-shrink-0">{relativeTime(entry.timestamp)}</span>
-                </div>
+                </button>
               ))}
             </div>
           )}

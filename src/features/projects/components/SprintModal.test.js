@@ -26,11 +26,11 @@ describe("SprintModal", () => {
       updateSprint: jest.fn(),
     });
 
-    const { container } = render(<SprintModal open onClose={onClose} mode="start" />);
+    render(<SprintModal open onClose={onClose} mode="start" />);
 
     fireEvent.change(screen.getByPlaceholderText(/Sprint 87/i), { target: { value: "Sprint 42" } });
-    fireEvent.change(container.querySelector('input[name="startDate"]'), { target: { value: "2026-04-01" } });
-    fireEvent.change(container.querySelector('input[name="endDate"]'), { target: { value: "2026-04-14" } });
+    fireEvent.change(screen.getByLabelText("Start Date"), { target: { value: "2026-04-01" } });
+    fireEvent.change(screen.getByLabelText("End Date"), { target: { value: "2026-04-14" } });
     fireEvent.click(screen.getByRole("button", { name: /Start Sprint/i }));
 
     await waitFor(() => {

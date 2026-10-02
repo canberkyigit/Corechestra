@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import { useApp } from "../../../shared/context/AppContext";
 import { useAuth } from "../../../shared/context/AuthContext";
 import {
@@ -12,6 +12,7 @@ import { PeopleTab, dedupUsers } from "../tabs/PeopleTab";
 import { WorkspaceTab } from "../tabs/WorkspaceTab";
 import { AppButton, AppEmptyState } from "../../../shared/components/AppPrimitives";
 import { usePermissions } from "../../../shared/context/hooks/usePermissions";
+import { requiresConfirmation } from "../../../shared/constants/permissions";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -56,6 +57,14 @@ function DeleteConfirm({ label, onConfirm, onCancel }) {
 function SectionCard({ children, className = "" }) {
   return (
     <div className={`app-surface ${className}`}>
+      {children}
+    </div>
+  );
+}
+
+function ReadOnlyNotice({ children }) {
+  return (
+    <div className="rounded-xl border border-slate-200 dark:border-[#2a3044] bg-slate-50 dark:bg-[#1a1f2e] px-4 py-2.5 text-xs text-slate-500 dark:text-slate-400">
       {children}
     </div>
   );
@@ -121,7 +130,7 @@ function ProjectForm({ initial, onSave, onCancel }) {
   );
 }
 
-function ProjectCard({ project, teams, onEdit, onDelete, isOnly }) {
+function ProjectCard({ project, teams, onEdit, onDelete, isOnly, canManage = true, confirmDelete = true }) {
   const { users } = useApp();
   const [del, setDel] = useState(false);
   const assigned = teams.filter((t) => (t.projectIds||[]).includes(project.id));
@@ -140,13 +149,15 @@ function ProjectCard({ project, teams, onEdit, onDelete, isOnly }) {
             {project.description && <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{project.description}</p>}
           </div>
         </div>
-        <div className="flex items-center gap-1">
-          <button onClick={onEdit} className="p-1.5 rounded-lg text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"><FaEdit className="w-3.5 h-3.5" /></button>
-          {!del
-            ? <button onClick={() => setDel(true)} disabled={isOnly} title={isOnly ? "Cannot delete the last project" : ""} className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"><FaTrash className="w-3.5 h-3.5" /></button>
-            : <DeleteConfirm label="Delete?" onConfirm={onDelete} onCancel={() => setDel(false)} />
-          }
-        </div>
+        {canManage && (
+          <div className="flex items-center gap-1">
+            <button onClick={onEdit} title="Edit project" className="p-1.5 rounded-lg text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"><FaEdit className="w-3.5 h-3.5" /></button>
+            {!del
+              ? <button onClick={() => (confirmDelete ? setDel(true) : onDelete())} disabled={isOnly} title={isOnly ? "Cannot delete the last project" : "Delete project"} className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"><FaTrash className="w-3.5 h-3.5" /></button>
+              : <DeleteConfirm label="Delete?" onConfirm={onDelete} onCancel={() => setDel(false)} />
+            }
+          </div>
+        )}
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
@@ -158,7 +169,7 @@ function ProjectCard({ project, teams, onEdit, onDelete, isOnly }) {
         <div>
           <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">Members ({members.size})</p>
           <div className="flex gap-1.5 flex-wrap">
-            {[...members].map((m) => { const u = users?.find((x) => x.username === m); const color = u?.color || "#94a3b8"; const label = u?.name || m; return <div key={m} className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold" style={{ backgroundColor: color }} title={label}>{label[0].toUpperCase()}</div>; })}
+            {[...members].map((m) => { const u = users?.find((x) => x.username === m); const color = u?.color || "#94a3b8"; const label = u?.name || m; return <div key={m} className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold" style={{ backgroundColor: color }} title={label}>{(label?.[0] || "?").toUpperCase()}</div>; })}
             {members.size === 0 && <p className="text-xs text-slate-400">No members</p>}
           </div>
         </div>
@@ -198,7 +209,7 @@ function TeamForm({ initial, projects, onSave, onCancel }) {
           {(users || []).filter((u) => u.status === "active").map((u) => (
             <button key={u.username} onClick={() => toggle(members, setMembers, u.username)}
               className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-all ${members.includes(u.username) ? "border-blue-400 bg-blue-50 dark:bg-blue-900/20 text-blue-600" : "border-slate-200 dark:border-[#2a3044] text-slate-600 dark:text-slate-400"}`}>
-              <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold" style={{ backgroundColor: u.color }}>{u.name[0]}</div>
+              <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold" style={{ backgroundColor: u.color }}>{u.name?.[0] || "?"}</div>
               {u.name} {members.includes(u.username) && <FaCheck className="w-2.5 h-2.5" />}
             </button>
           ))}
@@ -227,7 +238,7 @@ function TeamForm({ initial, projects, onSave, onCancel }) {
   );
 }
 
-function TeamCard({ team, projects, users, onEdit, onDelete, onUpdateTeam }) {
+function TeamCard({ team, projects, users, onEdit, onDelete, onUpdateTeam, canManage = true, confirmDelete = true }) {
   const [del,         setDel]         = useState(false);
   const [addingUser,  setAddingUser]  = useState(false);
   const [userSearch,  setUserSearch]  = useState("");
@@ -244,7 +255,7 @@ function TeamCard({ team, projects, users, onEdit, onDelete, onUpdateTeam }) {
     const q = userSearch.toLowerCase();
     return (users || []).filter(
       (u) => !members.includes(u.username) &&
-      (!q || u.name.toLowerCase().includes(q) || u.username.toLowerCase().includes(q))
+      (!q || (u.name || "").toLowerCase().includes(q) || (u.username || "").toLowerCase().includes(q))
     );
   }, [users, members, userSearch, addingUser]);
 
@@ -262,17 +273,19 @@ function TeamCard({ team, projects, users, onEdit, onDelete, onUpdateTeam }) {
     <SectionCard className="p-5">
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-sm shadow-sm" style={{ backgroundColor: team.color }}>{team.name[0]}</div>
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-sm shadow-sm" style={{ backgroundColor: team.color }}>{team.name?.[0] || "T"}</div>
           <div>
             <h3 className="font-semibold text-slate-800 dark:text-slate-200">{team.name}</h3>
             {team.description && <p className="text-xs text-slate-400 mt-0.5">{team.description}</p>}
           </div>
         </div>
-        <div className="flex items-center gap-1">
-          <button onClick={onEdit} className="p-1.5 rounded-lg text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"><FaEdit className="w-3.5 h-3.5" /></button>
-          {!del ? <button onClick={() => setDel(true)} className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"><FaTrash className="w-3.5 h-3.5" /></button>
-                : <DeleteConfirm label="Delete?" onConfirm={onDelete} onCancel={() => setDel(false)} />}
-        </div>
+        {canManage && (
+          <div className="flex items-center gap-1">
+            <button onClick={onEdit} title="Edit team" className="p-1.5 rounded-lg text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"><FaEdit className="w-3.5 h-3.5" /></button>
+            {!del ? <button onClick={() => (confirmDelete ? setDel(true) : onDelete())} title="Delete team" className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"><FaTrash className="w-3.5 h-3.5" /></button>
+                  : <DeleteConfirm label="Delete?" onConfirm={onDelete} onCancel={() => setDel(false)} />}
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -292,20 +305,22 @@ function TeamCard({ team, projects, users, onEdit, onDelete, onUpdateTeam }) {
                     {(u.label || u.name || "?")[0].toUpperCase()}
                   </div>
                   <span className="text-xs text-slate-600 dark:text-slate-300 capitalize">{u.label || u.name}</span>
-                  <button
-                    onClick={() => removeMember(m)}
-                    className="opacity-0 group-hover:opacity-100 ml-0.5 text-slate-300 hover:text-red-400 transition-all leading-none"
-                    title="Remove from team"
-                  >
-                    <FaTimes className="w-2.5 h-2.5" />
-                  </button>
+                  {canManage && (
+                    <button
+                      onClick={() => removeMember(m)}
+                      className="opacity-0 group-hover:opacity-100 ml-0.5 text-slate-300 hover:text-red-400 transition-all leading-none"
+                      title="Remove from team"
+                    >
+                      <FaTimes className="w-2.5 h-2.5" />
+                    </button>
+                  )}
                 </div>
               ) : null;
             })}
             {!members.length && <p className="text-xs text-slate-400 italic">No members</p>}
 
             {/* Add member button + dropdown */}
-            <div className="relative">
+            {canManage && <div className="relative">
               <button
                 onClick={() => { setAddingUser((p) => !p); setUserSearch(""); }}
                 className="flex items-center gap-1 px-2 py-1 rounded-lg border border-dashed border-slate-300 dark:border-[#2a3044] text-slate-400 hover:border-blue-400 hover:text-blue-500 text-xs transition-colors"
@@ -337,7 +352,7 @@ function TeamCard({ team, projects, users, onEdit, onDelete, onUpdateTeam }) {
                         >
                           <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
                             style={{ backgroundColor: u.color || "#3b82f6" }}>
-                            {u.name[0].toUpperCase()}
+                            {(u.name?.[0] || "?").toUpperCase()}
                           </div>
                           <div className="flex-1 text-left min-w-0">
                             <div className="text-xs font-medium truncate">{u.name}</div>
@@ -349,7 +364,7 @@ function TeamCard({ team, projects, users, onEdit, onDelete, onUpdateTeam }) {
                   </div>
                 </>
               )}
-            </div>
+            </div>}
           </div>
         </div>
 
@@ -367,7 +382,7 @@ function TeamCard({ team, projects, users, onEdit, onDelete, onUpdateTeam }) {
 
 // ─── User Management ──────────────────────────────────────────────────────────
 
-function UserForm({ initial, onSave, onCancel }) {
+function UserForm({ initial, onSave, onCancel, canEditRole = true, busy = false, roleHint = "" }) {
   const [name,  setName]  = useState(initial?.name  || "");
   const [email, setEmail] = useState(initial?.email || "");
   const [user,  setUser]  = useState(initial?.username || "");
@@ -394,14 +409,20 @@ function UserForm({ initial, onSave, onCancel }) {
         </div>
         <div>
           <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Role</label>
-          <div className="flex gap-2">
+          <div className="flex gap-2" role="radiogroup" aria-label="Role">
             {ROLES.map((r) => (
-              <button key={r.value} onClick={() => setRole(r.value)}
-                className={`flex-1 px-2 py-1.5 rounded-lg border text-xs font-medium transition-all ${role === r.value ? "border-blue-400 bg-blue-50 dark:bg-blue-900/20 text-blue-600" : "border-slate-200 dark:border-[#2a3044] text-slate-500 dark:text-slate-400"}`}>
+              <button key={r.value} type="button" onClick={() => setRole(r.value)} disabled={!canEditRole}
+                role="radio" aria-checked={role === r.value} title={r.desc}
+                className={`flex-1 px-2 py-1.5 rounded-lg border text-xs font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed ${role === r.value ? "border-blue-400 bg-blue-50 dark:bg-blue-900/20 text-blue-600" : "border-slate-200 dark:border-[#2a3044] text-slate-500 dark:text-slate-400"}`}>
                 {r.label}
               </button>
             ))}
           </div>
+          {(roleHint || !canEditRole) && (
+            <p className="text-[10px] text-slate-400 mt-1">
+              {canEditRole ? roleHint : "You cannot change this role."}
+            </p>
+          )}
         </div>
       </div>
       <div>
@@ -414,9 +435,9 @@ function UserForm({ initial, onSave, onCancel }) {
         </div>
       </div>
       <div className="flex gap-2 pt-1">
-        <AppButton onClick={() => { if(!name.trim()||!email.trim()) return; onSave({ name:name.trim(), email:email.trim(), username:user||name.toLowerCase().replace(/\s/g,""), role, color, status:"active" }); }}
-          disabled={!name.trim() || !email.trim()}>
-          <FaCheck className="w-3 h-3" /> {initial?.id ? "Save Changes" : "Invite User"}
+        <AppButton onClick={() => { if(busy||!name.trim()||!email.trim()) return; onSave({ name:name.trim(), email:email.trim(), username:user||name.toLowerCase().replace(/\s/g,""), role, color }); }}
+          disabled={busy || !name.trim() || !email.trim()}>
+          <FaCheck className="w-3 h-3" /> {busy ? "Saving..." : initial?.id ? "Save Changes" : "Invite User"}
         </AppButton>
         <AppButton variant="secondary" onClick={onCancel}>Cancel</AppButton>
       </div>
@@ -429,41 +450,17 @@ export default function AdminPage() {
     teams, createTeam, updateTeam, deleteTeam,
     projects, createProject, updateProject, deleteProject,
     users, deletedUserIds, createUser, updateUser, deleteUser,
-    setActiveTasks, setBacklogSections,
+    workspaceSettings,
   } = useApp();
 
   const { user: authUser } = useAuth();
-  const { canPerform } = usePermissions();
+  const { canPerform, sensitiveActionPolicy } = usePermissions();
   const [activeTab, setActiveTab] = useState("people");
-
-  // On mount: clean up all seed data remnants
-  useEffect(() => {
-    const SEED_NAMES = new Set(["alice", "bob", "carol", "dave"]);
-
-    // Unassign tasks still assigned to seed usernames
-    const clearSeed = (tasks) => tasks.map((t) =>
-      SEED_NAMES.has(t.assignedTo) ? { ...t, assignedTo: "unassigned" } : t
-    );
-    setActiveTasks((prev) => clearSeed(prev));
-    setBacklogSections((prev) => prev.map((s) => ({ ...s, tasks: clearSeed(s.tasks) })));
-
-    // Remove seed users + duplicates from AppContext (one-time cleanup persisted to Firestore)
-    const clean = dedupUsers(users, deletedUserIds);
-    users.forEach((u) => {
-      if (u.email?.endsWith("@corechestra.io") || clean.findIndex((c) => c.id === u.id) === -1) {
-        deleteUser(u.id);
-      }
-    });
-
-    // Remove seed usernames from all teams
-    teams.forEach((team) => {
-      const cleaned = (team.memberNames || []).filter((n) => !SEED_NAMES.has(n));
-      if (cleaned.length !== (team.memberNames || []).length) {
-        updateTeam({ ...team, memberNames: cleaned });
-      }
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const canManageProjects = canPerform("project:manage");
+  const canManageTeams = canPerform("team:manage");
+  const confirmDestructive = requiresConfirmation(sensitiveActionPolicy, "destructive");
+  // NOTE: legacy demo-data clean-up is an explicit action in the People tab
+  // (no silent data mutation on mount).
 
   // Teams
   const [showTeamForm, setShowTeamForm] = useState(false);
@@ -471,7 +468,10 @@ export default function AdminPage() {
   // Projects
   const [showProjForm, setShowProjForm] = useState(false);
   const [editingProj,  setEditingProj]  = useState(null);
-  const activeUsers  = dedupUsers(users, deletedUserIds).filter((u) => u.status === "active").length;
+  const activeUsers  = useMemo(
+    () => dedupUsers(users, deletedUserIds).filter((u) => u.status === "active").length,
+    [users, deletedUserIds]
+  );
 
   const TABS = [
     { id: "people",   label: "People",          icon: FaUserFriends },
@@ -490,7 +490,9 @@ export default function AdminPage() {
           <FaShieldAlt className="w-5 h-5 text-blue-500" />
           <div>
             <h2 className="text-2xl font-bold tracking-tight text-slate-800 dark:text-slate-100">Admin</h2>
-            <p className="text-sm app-subtle-copy mt-1">Manage projects, teams, members and configuration</p>
+            <p className="text-sm app-subtle-copy mt-1">
+              {workspaceSettings?.displayName ? `${workspaceSettings.displayName} · ` : ""}Manage projects, teams, members and configuration
+            </p>
           </div>
         </div>
       </div>
@@ -541,6 +543,7 @@ export default function AdminPage() {
           DeleteConfirm={DeleteConfirm}
           UserForm={UserForm}
           roles={ROLES}
+          currentUid={authUser?.uid}
         />
       )}
 
@@ -560,14 +563,16 @@ export default function AdminPage() {
       {/* Projects */}
       {activeTab === "projects" && (
         <div className="space-y-4">
-          {showProjForm && !editingProj && <ProjectForm onSave={(d) => { createProject(d); setShowProjForm(false); }} onCancel={() => setShowProjForm(false)} />}
-          {editingProj && <ProjectForm initial={editingProj} onSave={(d) => { updateProject({...editingProj,...d}); setEditingProj(null); }} onCancel={() => setEditingProj(null)} />}
+          {!canManageProjects && <ReadOnlyNotice>You can view projects but not create, edit or delete them (requires “Manage projects”).</ReadOnlyNotice>}
+          {canManageProjects && showProjForm && !editingProj && <ProjectForm onSave={(d) => { createProject(d); setShowProjForm(false); }} onCancel={() => setShowProjForm(false)} />}
+          {canManageProjects && editingProj && <ProjectForm initial={editingProj} onSave={(d) => { updateProject({...editingProj,...d}); setEditingProj(null); }} onCancel={() => setEditingProj(null)} />}
           {projects.map((p) => (
             <ProjectCard key={p.id} project={p} teams={teams} isOnly={projects.length===1}
+              canManage={canManageProjects} confirmDelete={confirmDestructive}
               onEdit={() => { setEditingProj(p); setShowProjForm(false); }}
               onDelete={() => deleteProject(p.id)} />
           ))}
-          {!showProjForm && !editingProj && (
+          {canManageProjects && !showProjForm && !editingProj && (
             <button onClick={() => setShowProjForm(true)}
               className="app-surface-muted flex items-center gap-2 px-4 py-3 border-2 border-dashed border-slate-200 dark:border-[#2a3044] text-slate-500 dark:text-slate-400 rounded-xl hover:border-blue-300 hover:text-blue-500 text-sm font-medium w-full justify-center transition-colors">
               <FaPlus className="w-3.5 h-3.5" /> Create New Project
@@ -579,10 +584,12 @@ export default function AdminPage() {
       {/* Teams */}
       {activeTab === "teams" && (
         <div className="space-y-4">
-          {showTeamForm && !editingTeam && <TeamForm projects={projects} onSave={(d) => { createTeam(d); setShowTeamForm(false); }} onCancel={() => setShowTeamForm(false)} />}
-          {editingTeam && <TeamForm initial={editingTeam} projects={projects} onSave={(d) => { updateTeam({...editingTeam,...d}); setEditingTeam(null); }} onCancel={() => setEditingTeam(null)} />}
+          {!canManageTeams && <ReadOnlyNotice>You can view teams but not change them (requires “Manage teams”).</ReadOnlyNotice>}
+          {canManageTeams && showTeamForm && !editingTeam && <TeamForm projects={projects} onSave={(d) => { createTeam(d); setShowTeamForm(false); }} onCancel={() => setShowTeamForm(false)} />}
+          {canManageTeams && editingTeam && <TeamForm initial={editingTeam} projects={projects} onSave={(d) => { updateTeam({...editingTeam,...d}); setEditingTeam(null); }} onCancel={() => setEditingTeam(null)} />}
           {teams.map((t) => (
             <TeamCard key={t.id} team={t} projects={projects} users={users}
+              canManage={canManageTeams} confirmDelete={confirmDestructive}
               onEdit={() => { setEditingTeam(t); setShowTeamForm(false); }}
               onDelete={() => deleteTeam(t.id)}
               onUpdateTeam={(updated) => updateTeam(updated)} />
@@ -595,7 +602,7 @@ export default function AdminPage() {
               className="shadow-none"
             />
           )}
-          {!showTeamForm && !editingTeam && (
+          {canManageTeams && !showTeamForm && !editingTeam && (
             <button onClick={() => setShowTeamForm(true)}
               className="app-surface-muted flex items-center gap-2 px-4 py-3 border-2 border-dashed border-slate-200 dark:border-[#2a3044] text-slate-500 dark:text-slate-400 rounded-xl hover:border-blue-300 hover:text-blue-500 text-sm font-medium w-full justify-center transition-colors">
               <FaPlus className="w-3.5 h-3.5" /> Create New Team

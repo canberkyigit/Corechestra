@@ -2,15 +2,16 @@ import React, { useState, useEffect } from "react";
 import { Listbox } from "@headlessui/react";
 import { FaTimes, FaChevronDown, FaArrowLeft } from "react-icons/fa";
 import {
-  TYPE_OPTIONS, SUBTASK_STATUS_OPTIONS as STATUS_OPTIONS, PRIORITY_OPTIONS,
-} from "../constants/taskOptions";
+  TASK_PRIORITY_OPTIONS, TASK_SUBTASK_STATUS_OPTIONS, TASK_TYPE_OPTIONS,
+} from "../../../shared/constants/taskMeta";
 import { useApp } from "../../../shared/context/AppContext";
+import { useEscapeKey } from "../hooks/useEscapeKey";
 
-function MiniSelect({ value, options, onChange, renderValue, renderOption }) {
+function MiniSelect({ value, options, onChange, renderValue, renderOption, disabled = false }) {
   return (
-    <Listbox value={value} onChange={onChange}>
+    <Listbox value={value} onChange={onChange} disabled={disabled}>
       <div className="relative">
-        <Listbox.Button className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs border border-slate-200 dark:border-[#2a3044] bg-slate-50 dark:bg-[#232838] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#2a3044] transition-colors focus:outline-none w-full">
+        <Listbox.Button className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs border border-slate-200 dark:border-[#2a3044] bg-slate-50 dark:bg-[#232838] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#2a3044] transition-colors focus:outline-none w-full disabled:opacity-60 disabled:cursor-not-allowed">
           <span className="flex-1 text-left">{renderValue(value)}</span>
           <FaChevronDown className="w-2.5 h-2.5 text-slate-400 flex-shrink-0" />
         </Listbox.Button>
@@ -20,7 +21,7 @@ function MiniSelect({ value, options, onChange, renderValue, renderOption }) {
               key={opt.value ?? opt}
               value={opt.value ?? opt}
               className={({ active }) =>
-                `flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer ${active ? "bg-blue-50 dark:bg-blue-900/20 text-blue-700" : "text-slate-700 dark:text-slate-300"}`
+                `flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer ${active ? "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300" : "text-slate-700 dark:text-slate-300"}`
               }
             >
               {renderOption ? renderOption(opt) : (opt.label ?? opt)}
@@ -36,8 +37,9 @@ function FieldLabel({ children }) {
   return <div className="text-xs font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">{children}</div>;
 }
 
-export default function SubtaskDetailPanel({ subtask, parentTask, open, onClose, onSave, panelWidth = 480 }) {
+export default function SubtaskDetailPanel({ subtask, parentTask, open, onClose, onSave, readOnly = false }) {
   const { teamMembers } = useApp();
+  const assigneeOptions = (teamMembers || []).filter((member) => member.value !== "").map((member) => ({ value: member.value, label: member.label }));
   const [title,       setTitle]       = useState("");
   const [description, setDescription] = useState("");
   const [status,      setStatus]      = useState("todo");
@@ -51,7 +53,8 @@ export default function SubtaskDetailPanel({ subtask, parentTask, open, onClose,
     if (!subtask) return;
     setTitle(subtask.title || "");
     setDescription(subtask.description || "");
-    setStatus(subtask.status || (subtask.done ? "done" : "todo"));
+    // `done` (checkbox) wins over a stale status so the two never disagree.
+    setStatus(subtask.done ? "done" : (subtask.status && subtask.status !== "done" ? subtask.status : "todo"));
     setPriority((subtask.priority || "medium").toLowerCase());
     setAssignedTo(subtask.assignedTo || "unassigned");
     setStoryPoint(subtask.storyPoint ?? "");
@@ -59,11 +62,14 @@ export default function SubtaskDetailPanel({ subtask, parentTask, open, onClose,
     setHasChanges(false);
   }, [subtask]);
 
+  useEscapeKey(() => onClose?.(), Boolean(open && subtask));
+
   if (!open || !subtask) return null;
 
   const changed = () => setHasChanges(true);
 
   const handleSave = () => {
+    if (readOnly) return;
     onSave({
       ...subtask,
       title,
@@ -78,8 +84,8 @@ export default function SubtaskDetailPanel({ subtask, parentTask, open, onClose,
     setHasChanges(false);
   };
 
-  const currentStatus  = STATUS_OPTIONS.find((o) => o.value === status) || STATUS_OPTIONS[0];
-  const currentType    = TYPE_OPTIONS.find((t) => t.value === type) || TYPE_OPTIONS[0];
+  const currentStatus  = TASK_SUBTASK_STATUS_OPTIONS.find((o) => o.value === status) || TASK_SUBTASK_STATUS_OPTIONS[0];
+  const currentType    = TASK_TYPE_OPTIONS.find((t) => t.value === type) || TASK_TYPE_OPTIONS[0];
   const TypeIcon       = currentType.icon;
 
   return (
@@ -122,7 +128,8 @@ export default function SubtaskDetailPanel({ subtask, parentTask, open, onClose,
         </span>
         <MiniSelect
           value={status}
-          options={STATUS_OPTIONS}
+          options={TASK_SUBTASK_STATUS_OPTIONS}
+          disabled={readOnly}
           onChange={(v) => { setStatus(v); changed(); }}
           renderValue={() => <span className="text-slate-500 dark:text-slate-400">Change status</span>}
           renderOption={(opt) => opt.label}
@@ -138,6 +145,7 @@ export default function SubtaskDetailPanel({ subtask, parentTask, open, onClose,
             className="w-full text-sm font-semibold text-slate-800 dark:text-slate-200 bg-transparent border border-slate-200 dark:border-[#2a3044] rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-400"
             value={title}
             onChange={(e) => { setTitle(e.target.value); changed(); }}
+            disabled={readOnly}
             placeholder="Subtask title…"
           />
         </div>
@@ -148,9 +156,10 @@ export default function SubtaskDetailPanel({ subtask, parentTask, open, onClose,
             <FieldLabel>Priority</FieldLabel>
             <MiniSelect
               value={priority}
-              options={PRIORITY_OPTIONS}
+              options={TASK_PRIORITY_OPTIONS}
+              disabled={readOnly}
               onChange={(v) => { setPriority(v); changed(); }}
-              renderValue={(v) => { const o = PRIORITY_OPTIONS.find((p) => p.value === v); return o ? <span className={o.color}>{o.label}</span> : v; }}
+              renderValue={(v) => { const o = TASK_PRIORITY_OPTIONS.find((p) => p.value === v); return o ? <span className={o.color}>{o.label}</span> : v; }}
               renderOption={(opt) => <span className={opt.color}>{opt.label}</span>}
             />
           </div>
@@ -158,9 +167,10 @@ export default function SubtaskDetailPanel({ subtask, parentTask, open, onClose,
             <FieldLabel>Assignee</FieldLabel>
             <MiniSelect
               value={assignedTo}
-              options={teamMembers.filter(m => m.value !== "").map(m => ({ value: m.value, label: m.label }))}
+              options={assigneeOptions}
+              disabled={readOnly}
               onChange={(v) => { setAssignedTo(v); changed(); }}
-              renderValue={(v) => <span className="capitalize">{v}</span>}
+              renderValue={(v) => <span>{assigneeOptions.find((option) => option.value === v)?.label || (v === "unassigned" ? "Unassigned" : v)}</span>}
               renderOption={(opt) => <span className="capitalize">{opt.label}</span>}
             />
           </div>
@@ -168,10 +178,11 @@ export default function SubtaskDetailPanel({ subtask, parentTask, open, onClose,
             <FieldLabel>Type</FieldLabel>
             <MiniSelect
               value={type}
-              options={TYPE_OPTIONS}
+              options={TASK_TYPE_OPTIONS}
+              disabled={readOnly}
               onChange={(v) => { setType(v); changed(); }}
               renderValue={(v) => {
-                const o = TYPE_OPTIONS.find((t) => t.value === v);
+                const o = TASK_TYPE_OPTIONS.find((t) => t.value === v);
                 if (!o) return v;
                 const I = o.icon;
                 return <span className="flex items-center gap-1"><I className={`w-3 h-3 ${o.color}`} />{o.label}</span>;
@@ -186,6 +197,7 @@ export default function SubtaskDetailPanel({ subtask, parentTask, open, onClose,
               min="0"
               className="w-full border border-slate-200 dark:border-[#2a3044] rounded-lg px-2.5 py-1.5 text-xs text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-[#232838] focus:outline-none focus:ring-2 focus:ring-blue-400"
               placeholder="–"
+              disabled={readOnly}
               value={storyPoint}
               onChange={(e) => { setStoryPoint(e.target.value); changed(); }}
             />
@@ -199,6 +211,7 @@ export default function SubtaskDetailPanel({ subtask, parentTask, open, onClose,
             className="w-full border border-slate-200 dark:border-[#2a3044] rounded-lg px-3 py-2 text-xs text-slate-700 dark:text-slate-300 bg-white dark:bg-[#232838] resize-none focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-slate-400"
             rows={5}
             placeholder="Add a description…"
+            disabled={readOnly}
             value={description}
             onChange={(e) => { setDescription(e.target.value); changed(); }}
           />
@@ -206,7 +219,7 @@ export default function SubtaskDetailPanel({ subtask, parentTask, open, onClose,
       </div>
 
       {/* Footer */}
-      {hasChanges && (
+      {hasChanges && !readOnly && (
         <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-slate-100 dark:border-[#232838] flex-shrink-0">
           <button
             onClick={() => { onClose(); }}

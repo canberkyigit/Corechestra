@@ -2,39 +2,13 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import { taskKey } from "../utils/helpers";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  FaSearch, FaTimes, FaCheckSquare, FaBug, FaPlusSquare, FaExclamationCircle,
-  FaUser, FaRocket, FaFlag, FaPlay, FaRegDotCircle, FaColumns,
+  FaSearch, FaTimes, FaPlusSquare, FaRocket, FaColumns,
   FaTachometerAlt, FaChartBar, FaCalendarAlt, FaShieldAlt, FaLayerGroup, FaStream, FaMoon, FaBook,
+  FaTag, FaFlask, FaArchive, FaBell, FaBuilding, FaHistory,
 } from "react-icons/fa";
 import { useApp } from "../context/AppContext";
-
-const TYPE_ICONS = {
-  task:          { icon: FaCheckSquare,       color: "text-green-500"  },
-  bug:           { icon: FaBug,               color: "text-red-500"    },
-  feature:       { icon: FaPlusSquare,        color: "text-cyan-500"   },
-  defect:        { icon: FaExclamationCircle, color: "text-orange-500" },
-  userstory:     { icon: FaUser,              color: "text-blue-500"   },
-  investigation: { icon: FaSearch,            color: "text-purple-500" },
-  epic:          { icon: FaRocket,            color: "text-violet-500" },
-  test:          { icon: FaSearch,            color: "text-teal-500"   },
-  testset:       { icon: FaFlag,              color: "text-indigo-500" },
-  testexecution: { icon: FaPlay,              color: "text-lime-600"   },
-  precondition:  { icon: FaRegDotCircle,      color: "text-sky-500"    },
-};
-
-const STATUS_COLORS = {
-  todo:       "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300",
-  inprogress: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
-  review:     "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300",
-  awaiting:   "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300",
-  blocked:    "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
-  done:       "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
-};
-
-const STATUS_LABELS = {
-  todo: "To Do", inprogress: "In Progress", review: "Review",
-  awaiting: "Awaiting", blocked: "Blocked", done: "Done",
-};
+import { TASK_STATUS_BADGE_STYLES, TASK_STATUS_SHORT_LABELS, TASK_TYPE_ICON_META } from "../constants/taskMeta";
+import { usePermissions } from "../context/hooks/usePermissions";
 
 const PAGES = [
   { id: "dashboard", label: "Dashboard",  icon: FaTachometerAlt },
@@ -44,12 +18,22 @@ const PAGES = [
   { id: "calendar",  label: "Calendar",   icon: FaCalendarAlt   },
   { id: "projects",  label: "Projects",   icon: FaLayerGroup    },
   { id: "docs",      label: "Documentation", icon: FaBook       },
-  { id: "admin",     label: "Admin",      icon: FaShieldAlt     },
+  { id: "releases",  label: "Releases",   icon: FaTag           },
+  { id: "tests",     label: "Tests",      icon: FaFlask         },
+  { id: "for-you",   label: "For You",    icon: FaBell          },
   { id: "activity",  label: "Activity",   icon: FaStream        },
+  { id: "archive",   label: "Archive",    icon: FaArchive       },
+  { id: "admin",     label: "Admin",      icon: FaShieldAlt     },
+  { id: "hr",        label: "Human Resources", icon: FaBuilding },
 ];
 
+function routePageId(route) {
+  return String(route || "").replace(/^\//, "").split(/[?#]/)[0] || "board";
+}
+
 export default function CommandPalette({ open, onClose, onOpenTask, onNavigate, onCreateTask, onToggleDark }) {
-  const { activeTasks, backlogSections, epics, docPages, releases, testSuites, recentItems, darkMode } = useApp();
+  const { activeTasks, backlogSections, epics, docPages, releases, testSuites, recentItems, darkMode, currentProjectId } = useApp();
+  const { canAccessPage, canPerform } = usePermissions();
   const [query, setQuery]       = useState("");
   const [cursor, setCursor]     = useState(0);
   const inputRef                = useRef(null);
@@ -64,77 +48,107 @@ export default function CommandPalette({ open, onClose, onOpenTask, onNavigate, 
     (backlogSections || []).flatMap((s) => s.tasks || []),
   [backlogSections]);
 
+  const canOpen = (pageId) => (typeof canAccessPage === "function" ? canAccessPage(pageId) : true);
+  const canCreate = typeof canPerform === "function" ? canPerform("task:create") : true;
+  const visiblePages = PAGES.filter((page) => canOpen(page.id));
+  const allTasks = useMemo(() => [...(activeTasks || []), ...allBacklogTasks], [activeTasks, allBacklogTasks]);
+
   const results = useMemo(() => {
     if (!query.trim()) return [];
     const q = query.toLowerCase().trim();
 
-    const taskHits = [...(activeTasks || []), ...allBacklogTasks]
-      .filter((t) => t.title?.toLowerCase().includes(q) || `cy-${t.id}`.includes(q) || t.description?.toLowerCase().includes(q))
+    const taskHits = allTasks
+      .filter((t) => t.title?.toLowerCase().includes(q) || taskKey(t.id).toLowerCase().includes(q) || t.description?.toLowerCase().includes(q))
       .slice(0, 8)
       .map((t) => ({ kind: "task", id: t.id, title: t.title, status: t.status, type: t.type || "task", item: t }));
 
-    const epicHits = (epics || [])
+    const epicHits = (canOpen("roadmap") ? (epics || []) : [])
       .filter((e) => e.title?.toLowerCase().includes(q) || e.description?.toLowerCase().includes(q))
       .slice(0, 3)
       .map((e) => ({ kind: "epic", id: e.id, title: e.title, color: e.color, item: e }));
 
-    const docHits = (docPages || [])
+    const docHits = (canOpen("docs") ? (docPages || []) : [])
       .filter((page) => page.title?.toLowerCase().includes(q))
       .slice(0, 4)
       .map((page) => ({ kind: "doc", id: page.id, title: page.title, item: page }));
 
-    const releaseHits = (releases || [])
+    const releaseHits = (canOpen("releases") ? (releases || []) : [])
+      .filter((release) => !release.projectId || !currentProjectId || release.projectId === currentProjectId)
       .filter((release) => `${release.version || ""} ${(release.name || "")}`.toLowerCase().includes(q))
       .slice(0, 4)
       .map((release) => ({ kind: "release", id: release.id, title: release.name || release.version, item: release }));
 
-    const suiteHits = (testSuites || [])
+    const suiteHits = (canOpen("tests") ? (testSuites || []) : [])
       .filter((suite) => suite.name?.toLowerCase().includes(q))
       .slice(0, 4)
       .map((suite) => ({ kind: "test-suite", id: suite.id, title: suite.name, item: suite }));
 
-    const pageHits = PAGES
-      .filter((p) => p.label.toLowerCase().includes(q))
+    const pageHits = visiblePages
+      .filter((p) => p.label.toLowerCase().includes(q) || p.id.includes(q))
       .map((p) => ({ kind: "page", id: p.id, title: p.label, icon: p.icon }));
 
     const actionHits = [
-      { kind: "action", id: "create-task", title: "Create task", icon: FaPlusSquare, run: onCreateTask },
+      ...(canCreate && onCreateTask ? [{ kind: "action", id: "create-task", title: "Create task", icon: FaPlusSquare, run: onCreateTask }] : []),
       { kind: "action", id: "toggle-dark", title: darkMode ? "Switch to light mode" : "Switch to dark mode", icon: FaMoon, run: onToggleDark },
     ].filter((action) => action.title.toLowerCase().includes(q));
 
     return [...actionHits, ...taskHits, ...docHits, ...releaseHits, ...suiteHits, ...epicHits, ...pageHits];
-  }, [query, activeTasks, allBacklogTasks, epics, docPages, releases, testSuites, onCreateTask, darkMode, onToggleDark]);
+  }, [query, allTasks, epics, docPages, releases, testSuites, onCreateTask, darkMode, onToggleDark, canCreate, visiblePages, currentProjectId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Empty query: recent items + permitted pages, all keyboard-selectable.
+  const quickItems = useMemo(() => {
+    const recents = (recentItems || [])
+      .filter((item) => {
+        if (item?.type === "page") return item.route && canOpen(routePageId(item.route));
+        if (item?.type === "task") return allTasks.some((task) => String(task.id) === String(item.entityId));
+        return false;
+      })
+      .slice(0, 4)
+      .map((item) => ({ kind: "recent", id: item.id, title: item.title, item }));
+    const pages = visiblePages.map((p) => ({ kind: "page", id: p.id, title: p.label, icon: p.icon }));
+    return [...recents, ...pages];
+  }, [recentItems, allTasks, visiblePages]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const navItems = query.trim() ? results : quickItems;
 
   // Keyboard navigation
   useEffect(() => {
     if (!open) return;
     const handler = (e) => {
       if (e.key === "Escape") { onClose(); return; }
-      if (e.key === "ArrowDown") { e.preventDefault(); setCursor((c) => Math.min(c + 1, results.length - 1)); }
+      if (e.key === "ArrowDown") { e.preventDefault(); setCursor((c) => Math.min(c + 1, navItems.length - 1)); }
       if (e.key === "ArrowUp")   { e.preventDefault(); setCursor((c) => Math.max(c - 1, 0)); }
-      if (e.key === "Enter" && results[cursor]) { e.preventDefault(); handleSelect(results[cursor]); }
+      if (e.key === "Enter" && navItems[cursor]) { e.preventDefault(); handleSelect(navItems[cursor]); }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [open, cursor, results]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, cursor, navItems]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Scroll cursor into view
   useEffect(() => {
-    const el = listRef.current?.children[cursor];
-    el?.scrollIntoView({ block: "nearest" });
+    const el = listRef.current?.querySelectorAll("button")[cursor];
+    el?.scrollIntoView?.({ block: "nearest" });
   }, [cursor]);
 
-  // Reset cursor on new results
-  useEffect(() => { setCursor(0); }, [results]);
+  // Reset cursor when the query changes
+  useEffect(() => { setCursor(0); }, [query]);
 
   const handleSelect = (result) => {
     if (result.kind === "action") { result.run?.(); }
     if (result.kind === "task") { onOpenTask(result.item); }
     if (result.kind === "epic") { onNavigate("roadmap"); }
-    if (result.kind === "doc") { onNavigate("docs"); }
+    if (result.kind === "doc") { onNavigate(`docs?page=${encodeURIComponent(result.id)}`); }
     if (result.kind === "release") { onNavigate("releases"); }
     if (result.kind === "test-suite") { onNavigate("tests"); }
     if (result.kind === "page") { onNavigate(result.id); }
+    if (result.kind === "recent") {
+      const { item } = result;
+      if (item.type === "page" && item.route) onNavigate(item.route.replace(/^\//, ""));
+      else if (item.type === "task" && item.entityId) {
+        const task = allTasks.find((entry) => String(entry.id) === String(item.entityId));
+        if (task) onOpenTask(task);
+      }
+    }
     onClose();
   };
 
@@ -194,7 +208,7 @@ export default function CommandPalette({ open, onClose, onOpenTask, onNavigate, 
               {results.map((r, i) => {
                 const isFocused = i === cursor;
                 if (r.kind === "task") {
-                  const typeInfo = TYPE_ICONS[r.type] || TYPE_ICONS.task;
+                  const typeInfo = TASK_TYPE_ICON_META[r.type] || TASK_TYPE_ICON_META.task;
                   const TypeIcon = typeInfo.icon;
                   return (
                     <button
@@ -207,8 +221,8 @@ export default function CommandPalette({ open, onClose, onOpenTask, onNavigate, 
                       <span className="text-xs font-mono text-slate-400 flex-shrink-0">{taskKey(r.id)}</span>
                       <span className="text-sm text-slate-700 dark:text-slate-200 flex-1 truncate">{highlight(r.title)}</span>
                       {r.status && (
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 ${STATUS_COLORS[r.status] || STATUS_COLORS.todo}`}>
-                          {STATUS_LABELS[r.status] || r.status}
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 ${TASK_STATUS_BADGE_STYLES[r.status] || TASK_STATUS_BADGE_STYLES.todo}`}>
+                          {TASK_STATUS_SHORT_LABELS[r.status] || r.status}
                         </span>
                       )}
                     </button>
@@ -282,42 +296,25 @@ export default function CommandPalette({ open, onClose, onOpenTask, onNavigate, 
             </div>
           )
         ) : (
-          <div className="py-6 px-4 space-y-1">
-            <p className="text-xs text-slate-400 dark:text-slate-500 mb-2 px-1">Quick navigation</p>
-            {recentItems?.length > 0 && (
-              <>
-                <p className="text-xs text-slate-400 dark:text-slate-500 mb-1 mt-3 px-1">Recent</p>
-                {recentItems.slice(0, 4).map((item) => (
-                  <button
-                    key={item.id}
-                    className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors hover:bg-slate-50 dark:hover:bg-[#232838]"
-                    onClick={() => {
-                      if (item.type === "page" && item.route) onNavigate(item.route.replace(/^\//, ""));
-                      else if (item.type === "task" && item.entityId) {
-                        const task = [...(activeTasks || []), ...allBacklogTasks].find((entry) => String(entry.id) === String(item.entityId));
-                        if (task) onOpenTask(task);
-                      }
-                      onClose();
-                    }}
-                  >
-                    <FaSearch className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                    <span className="text-sm text-slate-700 dark:text-slate-200 truncate">{item.title}</span>
-                  </button>
-                ))}
-              </>
-            )}
-            {PAGES.map((p, i) => {
-              const Icon = p.icon;
+          <div ref={listRef} className="py-4 px-4 space-y-1 max-h-80 overflow-y-auto">
+            {quickItems.map((entry, i) => {
+              const isFocused = cursor === i;
+              const isFirstRecent = entry.kind === "recent" && i === 0;
+              const isFirstPage = entry.kind === "page" && (i === 0 || quickItems[i - 1].kind !== "page");
+              const Icon = entry.kind === "recent" ? FaHistory : entry.icon;
               return (
-                <button
-                  key={p.id}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ${cursor === i ? "bg-blue-50 dark:bg-blue-900/20" : "hover:bg-slate-50 dark:hover:bg-[#232838]"}`}
-                  onClick={() => { onNavigate(p.id); onClose(); }}
-                  onMouseEnter={() => setCursor(i)}
-                >
-                  <Icon className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                  <span className="text-sm text-slate-700 dark:text-slate-200">{p.label}</span>
-                </button>
+                <React.Fragment key={`${entry.kind}-${entry.id}`}>
+                  {isFirstRecent && <p className="text-xs text-slate-400 dark:text-slate-500 mb-1 px-1">Recent</p>}
+                  {isFirstPage && <p className={`text-xs text-slate-400 dark:text-slate-500 mb-1 px-1 ${i > 0 ? "mt-3" : ""}`}>Quick navigation</p>}
+                  <button
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ${isFocused ? "bg-blue-50 dark:bg-blue-900/20" : "hover:bg-slate-50 dark:hover:bg-[#232838]"}`}
+                    onClick={() => handleSelect(entry)}
+                    onMouseEnter={() => setCursor(i)}
+                  >
+                    <Icon className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                    <span className={`text-sm text-slate-700 dark:text-slate-200 truncate ${entry.kind === "recent" && entry.item?.type === "page" ? "capitalize" : ""}`}>{entry.title}</span>
+                  </button>
+                </React.Fragment>
               );
             })}
           </div>

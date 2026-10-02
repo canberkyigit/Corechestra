@@ -1,5 +1,9 @@
 # CLAUDE.md
 
+> Canonical project instructions are maintained in `AGENTS.md`. Follow `AGENTS.md` whenever this historical file is incomplete or conflicts with the current architecture.
+
+> **Full pre-scanned codebase knowledge base:** `.claude/skills/corechestra-codebase/SKILL.md` (index) + `references/*.md` (per-area deep dives: state/persistence, useApp API, app shell, board, docs/tests/releases/reports, HR/admin, other pages, infra/testing). Read the relevant reference instead of re-scanning the repo. Paths/details below in this file are partly outdated (real layout is `src/features/*` + `src/shared/*`, Zustand store).
+
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Commands

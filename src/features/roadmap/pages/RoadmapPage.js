@@ -1,5 +1,7 @@
 import React, { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { useApp } from "../../../shared/context/AppContext";
+import { usePermissions } from "../../../shared/context/hooks/usePermissions";
+import { RoadmapSkeleton } from "../../../shared/components/Skeleton";
 import { useHorizontalWheelScroll } from "../../../shared/hooks/useHorizontalWheelScroll";
 import {
   parseISO, format, isValid, differenceInDays,
@@ -9,6 +11,7 @@ import {
   FaRocket, FaChevronLeft, FaChevronRight,
   FaSearchPlus, FaSearchMinus, FaCalendarAlt, FaEdit,
 } from "react-icons/fa";
+import { isInProject } from "../../../shared/utils/helpers";
 
 // ─── Zoom levels: label → px per day ─────────────────────────────────────────
 const ZOOM_LEVELS = [
@@ -39,9 +42,31 @@ function getDateRange(epics, sprint) {
   };
 }
 
+/**
+ * Clips a bar (offset/span in days relative to the view start) to the visible
+ * window. Bars that start before the window keep their real end date instead
+ * of being drawn with their full span from x=0. Returns null when invisible.
+ */
+export function computeBarGeometry(offsetDays, spanDays, totalDays, cellW) {
+  const visibleStart = Math.max(0, offsetDays);
+  const visibleEnd = Math.min(totalDays, offsetDays + spanDays);
+  if (visibleEnd <= visibleStart) return null;
+  return {
+    left: visibleStart * cellW,
+    width: Math.max(cellW, (visibleEnd - visibleStart) * cellW - 3),
+    clippedStart: offsetDays < 0,
+    clippedEnd: offsetDays + spanDays > totalDays,
+  };
+}
+
 // ─── Gantt bar (draggable) ────────────────────────────────────────────────────
-function GanttBar({ epic, rangeStart, totalDays, allTasks, onDragDates, cellW }) {
+// While dragging, the bar moves via local state only; the store is written
+// once on mouseup (previously every mousemove step called updateEpic).
+function GanttBar({ epic, rangeStart, totalDays, progress, onDragDates, cellW, canEdit }) {
   const dragRef = useRef(null);
+  const [dragDelta, setDragDelta] = useState(0);
+  const onDragDatesRef = useRef(onDragDates);
+  onDragDatesRef.current = onDragDates;
 
   let start = null, end = null, valid = false;
   try {
@@ -56,42 +81,53 @@ function GanttBar({ epic, rangeStart, totalDays, allTasks, onDragDates, cellW })
   const spanDays   = valid ? Math.max(1, differenceInDays(end, start) + 1) : 1;
 
   const handleMouseDown = useCallback((e) => {
+    if (!canEdit || e.button !== 0) return;
     e.preventDefault();
     const startX = e.clientX;
     const origOffset = offsetDays;
     const origSpan   = spanDays;
+    let latestDelta = 0;
 
     const onMove = (ev) => {
       const daysDelta = Math.round((ev.clientX - startX) / cellW);
-      if (daysDelta === 0) return;
-      const newStart = addDays(rangeStart, origOffset + daysDelta);
-      const newEnd   = addDays(newStart, origSpan - 1);
-      onDragDates(epic.id, format(newStart, "yyyy-MM-dd"), format(newEnd, "yyyy-MM-dd"));
+      if (daysDelta === latestDelta) return;
+      latestDelta = daysDelta;
+      setDragDelta(daysDelta);
     };
     const onUp = () => {
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
+      setDragDelta(0);
+      if (latestDelta === 0) return;
+      const newStart = addDays(rangeStart, origOffset + latestDelta);
+      const newEnd   = addDays(newStart, origSpan - 1);
+      onDragDatesRef.current?.(epic.id, format(newStart, "yyyy-MM-dd"), format(newEnd, "yyyy-MM-dd"));
     };
     document.addEventListener("mousemove", onMove);
     document.addEventListener("mouseup", onUp);
-  }, [epic.id, offsetDays, spanDays, rangeStart, onDragDates, cellW]);
+  }, [canEdit, epic.id, offsetDays, spanDays, rangeStart, cellW]);
 
   if (!valid) return null;
-  if (offsetDays > totalDays || offsetDays + spanDays < 0) return null;
+  const geometry = computeBarGeometry(offsetDays + dragDelta, spanDays, totalDays, cellW);
+  if (!geometry) return null;
 
-  const epicTasks  = allTasks.filter((t) => t.epicId === epic.id);
-  const done       = epicTasks.filter((t) => t.status === "done").length;
-  const pct        = epicTasks.length > 0 ? Math.round((done / epicTasks.length) * 100) : 0;
-  const leftPx     = Math.max(0, offsetDays) * cellW;
-  const widthPx    = Math.max(cellW, Math.min(spanDays, totalDays - offsetDays) * cellW - 3);
+  const { total = 0, done = 0 } = progress || {};
+  const pct        = total > 0 ? Math.round((done / total) * 100) : 0;
+  const leftPx     = geometry.left;
+  const widthPx    = geometry.width;
+  const shownStart = addDays(start, dragDelta);
+  const shownEnd   = addDays(end, dragDelta);
 
   return (
     <div
       ref={dragRef}
       onMouseDown={handleMouseDown}
-      className="absolute top-1/2 -translate-y-1/2 h-7 rounded-full flex items-center px-2.5 cursor-grab active:cursor-grabbing hover:brightness-110 transition-all shadow group select-none z-10"
+      data-testid={`roadmap-bar-${epic.id}`}
+      className={`absolute top-1/2 -translate-y-1/2 h-7 flex items-center px-2.5 hover:brightness-110 shadow group select-none z-10 ${
+        geometry.clippedStart ? "rounded-r-full" : geometry.clippedEnd ? "rounded-l-full" : "rounded-full"
+      } ${canEdit ? "cursor-grab active:cursor-grabbing" : "cursor-default"} ${dragDelta ? "ring-2 ring-white/70" : "transition-all"}`}
       style={{ left: leftPx, width: widthPx, backgroundColor: epic.color + "dd", minWidth: 32 }}
-      title={`${epic.title}: ${format(start, "MMM d")} – ${format(end, "MMM d")} · ${pct}% done · drag to reschedule`}
+      title={`${epic.title}: ${format(shownStart, "MMM d")} – ${format(shownEnd, "MMM d")} · ${pct}% done${canEdit ? " · drag to reschedule" : ""}`}
     >
       {/* Progress fill */}
       <div className="absolute inset-0 rounded-full opacity-25" style={{ width: `${pct}%`, backgroundColor: "white" }} />
@@ -106,7 +142,9 @@ function GanttBar({ epic, rangeStart, totalDays, allTasks, onDragDates, cellW })
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function RoadmapPage() {
-  const { epics, updateEpic, activeTasks, sprint, currentProjectId } = useApp();
+  const { epics, updateEpic, allTasks: projectTaskIndex, sprint, currentProjectId, dbReady } = useApp();
+  const { canPerform } = usePermissions();
+  const canEdit = canPerform("task:edit");
 
   const [zoomIdx,    setZoomIdx]    = useState(1);           // default: Week
   const [viewOffset, setViewOffset] = useState(0);           // months offset
@@ -117,13 +155,22 @@ export default function RoadmapPage() {
   const scrollRef = useRef(null);
 
   const projectEpics = useMemo(
-    () => epics.filter((e) => (e.projectId || "proj-1") === currentProjectId),
+    () => epics.filter((e) => isInProject(e, currentProjectId)),
     [epics, currentProjectId]
   );
-  const allTasks = useMemo(
-    () => activeTasks.filter((t) => (t.projectId || "proj-1") === currentProjectId),
-    [activeTasks, currentProjectId]
-  );
+  // Epic progress counts active-sprint AND backlog tasks of the current project.
+  const epicProgress = useMemo(() => {
+    const map = {};
+    (projectTaskIndex || []).forEach((t) => {
+      if (!t.epicId) return;
+      const entry = map[t.epicId] || { total: 0, done: 0 };
+      entry.total += 1;
+      if (t.status === "done") entry.done += 1;
+      map[t.epicId] = entry;
+    });
+    return map;
+  }, [projectTaskIndex]);
+  const editDatesInvalid = Boolean(editStart && editEnd && editEnd < editStart);
 
   const { start: rangeStart } = useMemo(
     () => getDateRange(projectEpics, sprint),
@@ -139,15 +186,17 @@ export default function RoadmapPage() {
     catch { return []; }
   }, [viewStart, viewEnd]);
 
-  // Auto-scroll to today on first render
+  // Auto-scroll to today once data is ready
+  const didAutoScrollRef = useRef(false);
   useEffect(() => {
-    if (!scrollRef.current) return;
+    if (!dbReady || didAutoScrollRef.current || !scrollRef.current) return;
+    didAutoScrollRef.current = true;
     const todayOffset = differenceInDays(new Date(), viewStart);
     if (todayOffset > 0 && todayOffset < totalDays) {
       scrollRef.current.scrollLeft = Math.max(0, todayOffset * cellW - 200);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [dbReady]);
 
   const scrollToToday = () => {
     const todayOffset = differenceInDays(new Date(), viewStart);
@@ -157,19 +206,25 @@ export default function RoadmapPage() {
   };
 
   const handleEditSave = () => {
-    if (!editId) return;
+    if (!editId || editDatesInvalid || !canEdit) return;
     const epic = projectEpics.find((e) => e.id === editId);
     if (epic) updateEpic({ ...epic, startDate: editStart, endDate: editEnd });
     setEditId(null);
   };
 
+  // Read the freshest epic at commit time so a drag never overwrites
+  // concurrent edits made while the mouse was down.
+  const epicsRef = useRef(epics);
+  epicsRef.current = epics;
   const handleDragDates = useCallback((epicId, newStart, newEnd) => {
-    const epic = epics.find((e) => e.id === epicId);
+    const epic = (epicsRef.current || []).find((e) => e.id === epicId);
     if (epic) updateEpic({ ...epic, startDate: newStart, endDate: newEnd });
-  }, [epics, updateEpic]);
+  }, [updateEpic]);
 
   const totalGridWidth = totalDays * cellW;
   useHorizontalWheelScroll(scrollRef, [cellW, viewStart.getTime(), totalDays]);
+
+  if (!dbReady) return <RoadmapSkeleton />;
 
   return (
     <div className="flex flex-col h-full min-h-0 bg-white dark:bg-[#141720]">
@@ -178,7 +233,9 @@ export default function RoadmapPage() {
       <div className="flex-shrink-0 px-5 py-3 flex items-center gap-3 border-b border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#1c2030]">
         <div>
           <h2 className="font-bold text-slate-800 dark:text-slate-200 text-base leading-tight">Timeline / Roadmap</h2>
-          <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Epic-level Gantt · drag bars to reschedule</p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+            Epic-level Gantt · {canEdit ? "drag bars to reschedule" : "read-only for your role"}
+          </p>
         </div>
 
         <div className="ml-auto flex items-center gap-1.5 flex-wrap">
@@ -254,8 +311,7 @@ export default function RoadmapPage() {
           </div>
           {/* Epic label rows */}
           {projectEpics.map((epic) => {
-            const epicTasks = allTasks.filter((t) => t.epicId === epic.id);
-            const done      = epicTasks.filter((t) => t.status === "done").length;
+            const { total: epicTotal = 0, done = 0 } = epicProgress[epic.id] || {};
             return (
               <div
                 key={epic.id}
@@ -265,8 +321,9 @@ export default function RoadmapPage() {
                 <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: epic.color }} />
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">{epic.title}</div>
-                  <div className="text-[11px] text-slate-400 dark:text-slate-500">{done}/{epicTasks.length} tasks</div>
+                  <div className="text-[11px] text-slate-400 dark:text-slate-500">{done}/{epicTotal} tasks</div>
                 </div>
+                {canEdit && (
                 <button
                   className="flex-shrink-0 p-1 rounded hover:bg-slate-100 dark:hover:bg-[#232838] text-slate-300 dark:text-slate-600 hover:text-blue-500 dark:hover:text-blue-400 transition-colors"
                   onClick={() => { setEditId(epic.id); setEditStart(epic.startDate || ""); setEditEnd(epic.endDate || ""); }}
@@ -274,6 +331,7 @@ export default function RoadmapPage() {
                 >
                   <FaEdit className="w-3 h-3" />
                 </button>
+                )}
               </div>
             );
           })}
@@ -390,9 +448,10 @@ export default function RoadmapPage() {
                     epic={epic}
                     rangeStart={viewStart}
                     totalDays={totalDays}
-                    allTasks={allTasks}
+                    progress={epicProgress[epic.id]}
                     onDragDates={handleDragDates}
                     cellW={cellW}
+                    canEdit={canEdit}
                   />
                 </div>
               ))
@@ -419,11 +478,14 @@ export default function RoadmapPage() {
                     const s = parseISO(sprint.startDate);
                     const e = parseISO(sprint.endDate);
                     if (!isValid(s) || !isValid(e)) return null;
-                    const left  = Math.max(0, differenceInDays(s, viewStart)) * cellW;
-                    const width = Math.max(cellW, Math.min(
-                      differenceInDays(e, s) + 1,
-                      totalDays - Math.max(0, differenceInDays(s, viewStart))
-                    ) * cellW - 3);
+                    const geometry = computeBarGeometry(
+                      differenceInDays(s, viewStart),
+                      Math.max(1, differenceInDays(e, s) + 1),
+                      totalDays,
+                      cellW
+                    );
+                    if (!geometry) return null;
+                    const { left, width } = geometry;
                     return (
                       <div
                         className="absolute top-1/2 -translate-y-1/2 h-5 rounded-full bg-blue-400/40 border border-blue-400/60 flex items-center px-2"
@@ -466,12 +528,17 @@ export default function RoadmapPage() {
                 className="w-full border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#141720] text-slate-700 dark:text-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                 value={editEnd}
                 onChange={(e) => setEditEnd(e.target.value)}
+                min={editStart || undefined}
               />
+              {editDatesInvalid && (
+                <p className="mt-1 text-xs text-red-500">End date must be on or after the start date.</p>
+              )}
             </div>
             <div className="flex gap-2 pt-1">
               <button
-                className="flex-1 px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                className="flex-1 px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 onClick={handleEditSave}
+                disabled={editDatesInvalid}
               >
                 Save
               </button>

@@ -6,24 +6,40 @@ import { BoardBulkActionBar } from "../components/BoardBulkActionBar";
 import { BoardTabContent } from "../components/BoardTabContent";
 import { useApp } from "../../../shared/context/AppContext";
 import { useAuth } from "../../../shared/context/AuthContext";
+import { useToast } from "../../../shared/context/ToastContext";
 import { BoardSkeleton } from "../../../shared/components/Skeleton";
 import { useBoardState } from "../../../shared/context/hooks/useBoardState";
+import { stripTransientTaskFields } from "../../../shared/context/hooks/actions/useBoardActions";
 import { useBoardFilters } from "../hooks/useBoardFilters";
-import { BOARD_STATUS_OPTIONS, BOARD_TABS, BOARD_VIEW_MODES } from "../constants/boardPageConfig";
+import { useWorkflowGuard } from "../hooks/useWorkflowGuard";
+import { useBoardPermissions } from "../hooks/useBoardPermissions";
+import { BOARD_TABS, BOARD_VIEW_MODES } from "../constants/boardPageConfig";
+import { buildStatusOptions } from "../utils/boardColumns";
 
 export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
   const {
-    activeTasks, setActiveTasks,
-    allTasks, idToGlobalIndex,
-    boardSettings, createTask, savePokerResult,
+    activeTasks,
+    allTasks,
+    boardSettings,
+    createTask,
+    updateTask,
+    moveTask,
+    deleteTask,
+    savePokerResult,
     columns,
     updateBoardSettings,
     currentProjectId,
-    perProjectBoardFilters, setPerProjectBoardFilters,
-    teamMembers, currentUser, dbReady,
+    perProjectBoardFilters,
+    setPerProjectBoardFilters,
+    teamMembers,
+    currentUser,
+    dbReady,
+    backlogSections,
   } = useApp();
+  const { isAdmin } = useAuth();
+  const { addToast } = useToast();
+  const { canCreateTask, canEditTask, canArchiveTask } = useBoardPermissions();
 
-  // Only show members who are in this project (via memberUsernames or task assignment)
   const [activeTab, setActiveTab] = useState("active");
 
   useEffect(() => {
@@ -31,7 +47,7 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
       setActiveTab(forcedTab);
       if (onForcedTabConsumed) onForcedTabConsumed();
     }
-  }, [forcedTab]); // eslint-disable-line
+  }, [forcedTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const {
     projectActiveTasks,
@@ -73,11 +89,14 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
     search,
   });
 
-  // Bulk selection
+  // ── Bulk selection (list / table views) ─────────────────────────────────────
   const [bulkMode, setBulkMode] = useState(false);
-  const [swimlaneMode, setSwimlaneMode] = useState(false);
-  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [swimlaneMode, setSwimlaneMode] = useState("none");
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [bulkStatus, setBulkStatus] = useState("");
+  const { guardStatusChange, dialog: workflowDialog } = useWorkflowGuard();
+
+  useEffect(() => { setSelectedIds(new Set()); }, [currentProjectId]);
 
   const toggleSelect = useCallback((id) => {
     setSelectedIds((prev) => {
@@ -88,33 +107,49 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
   }, []);
 
   const selectAll = useCallback(() => {
-    if (selectedIds.size === filteredTasks.length) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(filteredTasks.map((t) => t.id)));
-    }
-  }, [selectedIds]); // eslint-disable-line
+    setSelectedIds((prev) => (
+      prev.size === filteredTasks.length && filteredTasks.length > 0
+        ? new Set()
+        : new Set(filteredTasks.map((task) => task.id))
+    ));
+  }, [filteredTasks]);
 
-  const handleBulkStatusChange = useCallback(() => {
-    if (!bulkStatus) return;
-    setActiveTasks((prev) =>
-      prev.map((t) => selectedIds.has(t.id) ? { ...t, status: bulkStatus } : t)
-    );
+  const statusOptions = useMemo(() => buildStatusOptions(columns), [columns]);
+
+  const handleBulkStatusChange = useCallback(async () => {
+    if (!canEditTask || !bulkStatus || selectedIds.size === 0) return;
+    const selectedTasks = projectActiveTasks.filter((task) => selectedIds.has(task.id) && task.status !== bulkStatus);
+    if (selectedTasks.length > 0) {
+      // One prompt (e.g. blocker reason) covers the whole selection.
+      const verdict = await guardStatusChange(selectedTasks[0], bulkStatus);
+      if (!verdict.ok) return;
+      let failed = 0;
+      selectedTasks.forEach((task) => {
+        const result = moveTask(task.id, { status: bulkStatus, blockReason: verdict.patch.blockReason });
+        if (result && result.ok === false) failed += 1;
+      });
+      if (failed > 0) {
+        addToast(`${failed} task${failed === 1 ? "" : "s"} could not be moved because of workflow rules`, "error");
+      }
+    }
     setSelectedIds(new Set());
     setBulkStatus("");
-  }, [bulkStatus, selectedIds, setActiveTasks]);
+  }, [addToast, bulkStatus, canEditTask, guardStatusChange, moveTask, projectActiveTasks, selectedIds]);
 
   const handleBulkDelete = useCallback(() => {
-    if (!window.confirm(`Delete ${selectedIds.size} task(s)?`)) return;
-    setActiveTasks((prev) => prev.filter((t) => !selectedIds.has(t.id)));
+    if (!canArchiveTask) return;
+    if (!window.confirm(`Move ${selectedIds.size} task(s) to the archive?`)) return;
+    selectedIds.forEach((id) => deleteTask(id));
+    addToast(`${selectedIds.size} task${selectedIds.size === 1 ? "" : "s"} archived`, "info");
     setSelectedIds(new Set());
-  }, [selectedIds, setActiveTasks]);
+  }, [addToast, canArchiveTask, deleteTask, selectedIds]);
 
+  // ── Task detail surfaces ────────────────────────────────────────────────────
   const [createModalOpen, setCreateModalOpen] = useState(false);
-  const [newTaskData] = useState({});
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [sidePanelOpen, setSidePanelOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
+  const [detailInitialDirty, setDetailInitialDirty] = useState(false);
 
   const [pokerOpen, setPokerOpen] = useState(false);
   const [pokerTask, setPokerTask] = useState(null);
@@ -124,17 +159,15 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
   const [futurePlansOpen, setFuturePlansOpen] = useState(false);
   const [backlogFocusSectionId, setBacklogFocusSectionId] = useState(null);
 
-  const { backlogSections } = useApp();
-  const { isAdmin } = useAuth();
   const sprintOptions = useMemo(() => [
     { value: "active", label: "Active Sprint" },
-    ...backlogSections.map((b) => ({ value: `backlog-${b.id}`, label: b.title })),
+    ...(backlogSections || []).map((section) => ({ value: `backlog-${section.id}`, label: section.title })),
   ], [backlogSections]);
   const [selectedSprint, setSelectedSprint] = useState(sprintOptions[0]);
 
-  const handleTaskClick = (task) => {
-    const enriched = { ...task, index: idToGlobalIndex[task.id] };
-    setSelectedTask(enriched);
+  const handleTaskClick = useCallback((task) => {
+    setSelectedTask(stripTransientTaskFields(task));
+    setDetailInitialDirty(false);
     if (boardSettings.taskViewMode === "panel") {
       setSidePanelOpen(true);
       setDetailModalOpen(false);
@@ -142,42 +175,43 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
       setDetailModalOpen(true);
       setSidePanelOpen(false);
     }
-  };
+  }, [boardSettings.taskViewMode]);
 
-  const handleTaskUpdate = (updatedTask) => {
-    setActiveTasks((prev) => prev.map((t) => (t.id === updatedTask.id ? updatedTask : t)));
-    setSelectedTask(updatedTask);
-  };
+  // Edits from the modal / side panel go through updateTask so backlog tasks
+  // persist too and status / assignment notifications + workflow rules apply.
+  const handleTaskUpdate = useCallback((updatedTask) => {
+    const result = updateTask(updatedTask);
+    if (result && result.ok === false) {
+      if (result.message) addToast(result.message, "error");
+      return result;
+    }
+    setSelectedTask(result?.task || stripTransientTaskFields(updatedTask));
+    return result;
+  }, [addToast, updateTask]);
 
+  // Keep the open task in sync with remote / drag-and-drop changes.
   useEffect(() => {
     if (!selectedTask || (!sidePanelOpen && !detailModalOpen)) return;
-    const updated = activeTasks.find((t) => t.id === selectedTask.id);
-    if (updated && updated !== selectedTask) {
-      setSelectedTask({ ...updated, index: idToGlobalIndex[updated.id] });
-    }
-  }, [activeTasks]); // eslint-disable-line
+    const updated = (allTasks || []).find((task) => task.id === selectedTask.id)
+      || (activeTasks || []).find((task) => task.id === selectedTask.id);
+    if (updated && updated !== selectedTask) setSelectedTask(updated);
+  }, [allTasks, activeTasks]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handlePokerClick = (task) => { setPokerTask(task); setPokerOpen(true); };
+  const handlePokerClick = useCallback((task) => { setPokerTask(task); setPokerOpen(true); }, []);
   const handleEstimationComplete = (data) => {
     savePokerResult({ ...data, taskTitle: pokerTask?.title });
-    setPokerOpen(false); setPokerTask(null);
+    setPokerOpen(false);
+    setPokerTask(null);
   };
 
   const { showBadges, showPriorityColors, showTaskIds, showSubtaskButtons } = boardSettings;
 
-  const setProjectTasks = (updaterOrArray) => {
-    setActiveTasks((fullPrev) => {
-      const projIds = new Set(projectActiveTasks.map((t) => t.id));
-      const others  = fullPrev.filter((t) => !projIds.has(t.id));
-      const updated = typeof updaterOrArray === "function"
-        ? updaterOrArray(projectActiveTasks)
-        : updaterOrArray;
-      return [...others, ...updated];
-    });
-  };
-
   const openSprintModal = (mode) => { setSprintModalMode(mode); setSprintModalOpen(true); };
-  const handleCreateTask = () => { setSelectedSprint(sprintOptions[0]); setCreateModalOpen(true); };
+  const handleCreateTask = useCallback(() => {
+    if (!canCreateTask) return;
+    setSelectedSprint(sprintOptions[0]);
+    setCreateModalOpen(true);
+  }, [canCreateTask, sprintOptions]);
 
   if (!dbReady) return <BoardSkeleton />;
   return (
@@ -193,46 +227,45 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
         onOpenFuturePlans={() => setFuturePlansOpen(true)}
       />
 
-      <BoardTopBar tabs={BOARD_TABS} activeTab={activeTab} onTabChange={setActiveTab} onCreateTask={handleCreateTask} />
+      <BoardTopBar tabs={BOARD_TABS} activeTab={activeTab} onTabChange={setActiveTab} onCreateTask={canCreateTask ? handleCreateTask : null} />
 
       {activeTab === "active" && (
-        <>
-          <BoardActiveFiltersBar
-            filter={filter}
-            setFilter={setFilter}
-            member={member}
-            setMember={setMember}
-            projectMembers={projectMembers}
-            showBadges={showBadges}
-            showPriorityColors={showPriorityColors}
-            showTaskIds={showTaskIds}
-            showSubtaskButtons={showSubtaskButtons}
-            updateBoardSettings={updateBoardSettings}
-            viewMode={viewMode}
-            swimlaneMode={swimlaneMode}
-            setSwimlaneMode={setSwimlaneMode}
-            bulkMode={bulkMode}
-            setBulkMode={setBulkMode}
-            setSelectedIds={setSelectedIds}
-            search={search}
-            setSearch={setSearch}
-            viewModes={BOARD_VIEW_MODES}
-            setViewMode={setViewMode}
-            activeFilterCount={activeFilterCount}
-            hasActiveFilters={hasActiveFilters}
-            onClearFilters={clearFilters}
-          />
-        </>
+        <BoardActiveFiltersBar
+          filter={filter}
+          setFilter={setFilter}
+          member={member}
+          setMember={setMember}
+          projectMembers={projectMembers}
+          showBadges={showBadges}
+          showPriorityColors={showPriorityColors}
+          showTaskIds={showTaskIds}
+          showSubtaskButtons={showSubtaskButtons}
+          updateBoardSettings={updateBoardSettings}
+          viewMode={viewMode}
+          swimlaneMode={swimlaneMode}
+          setSwimlaneMode={setSwimlaneMode}
+          bulkMode={bulkMode}
+          setBulkMode={setBulkMode}
+          canBulkEdit={canEditTask || canArchiveTask}
+          setSelectedIds={setSelectedIds}
+          search={search}
+          setSearch={setSearch}
+          viewModes={BOARD_VIEW_MODES}
+          setViewMode={setViewMode}
+          activeFilterCount={activeFilterCount}
+          hasActiveFilters={hasActiveFilters}
+          onClearFilters={clearFilters}
+        />
       )}
 
-      {activeTab === "active" && bulkMode && (
+      {activeTab === "active" && bulkMode && viewMode !== "kanban" && (
         <BoardBulkActionBar
           selectedCount={selectedIds.size}
           bulkStatus={bulkStatus}
           setBulkStatus={setBulkStatus}
-          statusOptions={BOARD_STATUS_OPTIONS}
-          onApply={handleBulkStatusChange}
-          onDelete={handleBulkDelete}
+          statusOptions={statusOptions}
+          onApply={canEditTask ? handleBulkStatusChange : null}
+          onDelete={canArchiveTask ? handleBulkDelete : null}
           onClear={() => setSelectedIds(new Set())}
         />
       )}
@@ -245,8 +278,6 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
         filter={filter}
         member={member}
         search={search}
-        setProjectTasks={setProjectTasks}
-        idToGlobalIndex={idToGlobalIndex}
         showBadges={showBadges}
         showPriorityColors={showPriorityColors}
         showTaskIds={showTaskIds}
@@ -258,7 +289,7 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
         toggleSelect={toggleSelect}
         bulkMode={bulkMode}
         selectAll={selectAll}
-        handleCreateTask={handleCreateTask}
+        handleCreateTask={canCreateTask ? handleCreateTask : null}
         hasActiveFilters={hasActiveFilters}
         clearFilters={clearFilters}
         handlePokerClick={handlePokerClick}
@@ -267,13 +298,14 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
         setActiveTab={setActiveTab}
         createModalOpen={createModalOpen}
         setCreateModalOpen={setCreateModalOpen}
-        newTaskData={newTaskData}
         createTask={createTask}
         selectedSprint={selectedSprint}
         setSelectedSprint={setSelectedSprint}
         sprintOptions={sprintOptions}
         detailModalOpen={detailModalOpen}
         setDetailModalOpen={setDetailModalOpen}
+        detailInitialDirty={detailInitialDirty}
+        setDetailInitialDirty={setDetailInitialDirty}
         selectedTask={selectedTask}
         handleTaskUpdate={handleTaskUpdate}
         allTasks={allTasks}
@@ -292,8 +324,8 @@ export default function BoardPage({ forcedTab, onForcedTabConsumed }) {
         futurePlansOpen={futurePlansOpen}
         setFuturePlansOpen={setFuturePlansOpen}
         sidePanelOpen={sidePanelOpen}
-        setActiveTasks={setActiveTasks}
       />
+      {workflowDialog}
     </div>
   );
 }

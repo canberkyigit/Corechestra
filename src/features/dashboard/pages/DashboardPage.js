@@ -1,8 +1,9 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { useNavigate } from "react-router-dom";
 import { useApp } from "../../../shared/context/AppContext";
 import { DashboardSkeleton } from "../../../shared/components/Skeleton";
+import { TASK_STATUS_SHORT_LABELS } from "../../../shared/constants/taskMeta";
+import { requestNavigate, requestOpenTask } from "../../../shared/components/appNavigation";
 import { format, parseISO, isValid, differenceInDays } from "date-fns";
 import {
   FaRocket, FaCheckCircle, FaHourglass, FaBolt, FaUserAlt,
@@ -11,11 +12,72 @@ import {
 import { usePermissions } from "../../../shared/context/hooks/usePermissions";
 import { WorkspaceSetupChecklist } from "../../../shared/components/WorkspaceSetupChecklist";
 import { buildWorkspaceSetupState } from "../../../shared/utils/workspaceSetup";
+import { isInProject } from "../../../shared/utils/helpers";
 
-const STATUS_LABELS = {
-  todo: "To Do", inprogress: "In Progress", review: "Review",
-  awaiting: "Awaiting", blocked: "Blocked", done: "Done",
-};
+const STATUS_KEYS = ["todo", "inprogress", "review", "awaiting", "blocked", "done"];
+
+function parseValidDate(value) {
+  if (!value) return null;
+  try {
+    const date = parseISO(String(value));
+    return isValid(date) ? date : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * All dashboard aggregates in a single pass over the project's tasks.
+ * Exported for tests.
+ */
+export function computeDashboardStats({
+  activeTasks = [],
+  epics = [],
+  backlogSections = [],
+  globalActivityLog = [],
+  currentProjectId,
+  currentUser,
+  now = new Date(),
+}) {
+  const me = String(currentUser || "").toLowerCase();
+  const projectTasks = [];
+  const byStatus = Object.fromEntries(STATUS_KEYS.map((key) => [key, []]));
+  const myTasks = [];
+  const epicProgress = {};
+  let overdue = 0;
+
+  (activeTasks || []).forEach((task) => {
+    if (!isInProject(task, currentProjectId)) return;
+    projectTasks.push(task);
+    if (byStatus[task.status]) byStatus[task.status].push(task);
+    const isDone = task.status === "done";
+    if (!isDone) {
+      const due = parseValidDate(task.dueDate);
+      if (due && differenceInDays(due, now) < 0) overdue += 1;
+      if (me && String(task.assignedTo || "").toLowerCase() === me) myTasks.push(task);
+    }
+    if (task.epicId) {
+      const entry = epicProgress[task.epicId] || { total: 0, done: 0 };
+      entry.total += 1;
+      if (isDone) entry.done += 1;
+      epicProgress[task.epicId] = entry;
+    }
+  });
+
+  return {
+    projectTasks,
+    byStatus,
+    statusCounts: Object.fromEntries(STATUS_KEYS.map((key) => [key, byStatus[key].length])),
+    overdueTasks: overdue,
+    myTasks,
+    epicProgress,
+    projectEpics: (epics || []).filter((epic) => isInProject(epic, currentProjectId)),
+    backlogCount: (backlogSections || []).reduce((sum, section) => sum + (section.tasks || []).length, 0),
+    recentActivity: (globalActivityLog || [])
+      .filter((entry) => !entry.projectId || entry.projectId === currentProjectId)
+      .slice(0, 20),
+  };
+}
 
 function StatCard({ label, value, sub, color = "blue", icon: Icon, onClick }) {
   const colorMap = {
@@ -61,7 +123,7 @@ function SprintProgressBar({ done, total }) {
   );
 }
 
-function TaskDrillModal({ title, tasks, onClose }) {
+function TaskDrillModal({ title, tasks, onClose, onOpenTask }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
       <div
@@ -78,7 +140,12 @@ function TaskDrillModal({ title, tasks, onClose }) {
           {tasks.length === 0 ? (
             <p className="text-center text-slate-400 dark:text-slate-500 py-8">No tasks</p>
           ) : tasks.map((t) => (
-            <div key={t.id} className="flex items-start gap-3 p-3 rounded-lg bg-slate-50 dark:bg-[#141720] border border-slate-100 dark:border-[#232838]">
+            <button
+              type="button"
+              key={t.id}
+              onClick={() => onOpenTask?.(t)}
+              className="w-full text-left flex items-start gap-3 p-3 rounded-lg bg-slate-50 dark:bg-[#141720] border border-slate-100 dark:border-[#232838] hover:border-blue-300 dark:hover:border-blue-700 transition-colors"
+            >
               <div className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${
                 t.priority === "critical" ? "bg-red-500" :
                 t.priority === "high" ? "bg-orange-400" :
@@ -87,10 +154,10 @@ function TaskDrillModal({ title, tasks, onClose }) {
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">{t.title}</div>
                 <div className="text-xs text-slate-400 dark:text-slate-500 capitalize mt-0.5">
-                  {STATUS_LABELS[t.status] || t.status} · {t.assignedTo || "unassigned"}
+                  {TASK_STATUS_SHORT_LABELS[t.status] || t.status} · {t.assignedTo || "unassigned"}
                 </div>
               </div>
-            </div>
+            </button>
           ))}
         </div>
       </div>
@@ -99,7 +166,6 @@ function TaskDrillModal({ title, tasks, onClose }) {
 }
 
 export default function DashboardPage() {
-  const navigate = useNavigate();
   const {
     activeTasks, sprint, epics, globalActivityLog, backlogSections, currentProjectId, currentUser, dbReady,
     projects, users, teams, spaces, templateRegistry, permissionMatrix, workspaceSettings,
@@ -107,34 +173,23 @@ export default function DashboardPage() {
   const { canPerform } = usePermissions();
   const [drillModal, setDrillModal] = useState(null);
 
-  const projectTasks = activeTasks.filter((t) => (t.projectId || "proj-1") === currentProjectId);
-  const projectEpics  = epics.filter((e) => (e.projectId || "proj-1") === currentProjectId);
+  const stats = useMemo(() => computeDashboardStats({
+    activeTasks, epics, backlogSections, globalActivityLog, currentProjectId, currentUser,
+  }), [activeTasks, epics, backlogSections, globalActivityLog, currentProjectId, currentUser]);
+  const {
+    projectTasks, byStatus, statusCounts, overdueTasks, myTasks, epicProgress, projectEpics, backlogCount, recentActivity,
+  } = stats;
 
   const totalTasks = projectTasks.length;
-  const doneTasks = projectTasks.filter((t) => t.status === "done").length;
-  const inProgressTasks = projectTasks.filter((t) => t.status === "inprogress").length;
-  const blockedTasks = projectTasks.filter((t) => t.status === "blocked").length;
-  const overdueTasks = projectTasks.filter((t) => {
-    if (!t.dueDate || t.status === "done") return false;
-    try {
-      const d = parseISO(t.dueDate);
-      return isValid(d) && differenceInDays(d, new Date()) < 0;
-    } catch { return false; }
-  }).length;
+  const doneTasks = statusCounts.done;
+  const inProgressTasks = statusCounts.inprogress;
+  const blockedTasks = statusCounts.blocked;
 
-  const myTasks = projectTasks.filter(
-    (t) => t.assignedTo === currentUser && t.status !== "done"
-  );
+  // Guard against missing/invalid sprint dates (format() throws on Invalid Date).
+  const sprintEnd = useMemo(() => parseValidDate(sprint?.endDate), [sprint?.endDate]);
+  const sprintDaysLeft = sprintEnd ? Math.max(0, differenceInDays(sprintEnd, new Date())) : null;
 
-  const sprintDaysLeft = sprint?.endDate
-    ? Math.max(0, differenceInDays(parseISO(sprint.endDate), new Date()))
-    : null;
-
-  const recentActivity = (globalActivityLog || [])
-    .filter((e) => !e.projectId || e.projectId === currentProjectId)
-    .slice(0, 20);
-
-  const workspaceSetup = buildWorkspaceSetupState({
+  const workspaceSetup = useMemo(() => buildWorkspaceSetupState({
     projects,
     users,
     teams,
@@ -142,16 +197,13 @@ export default function DashboardPage() {
     templateRegistry,
     permissionMatrix,
     workspaceSettings,
-  });
-
-  const backlogCount = backlogSections.reduce((sum, s) => sum + s.tasks.length, 0);
-
-  const statusCounts = ["todo", "inprogress", "review", "awaiting", "blocked", "done"].reduce((acc, s) => {
-    acc[s] = projectTasks.filter((t) => t.status === s).length;
-    return acc;
-  }, {});
+  }), [projects, users, teams, spaces, templateRegistry, permissionMatrix, workspaceSettings]);
 
   const openDrill = (title, tasks) => setDrillModal({ title, tasks });
+  const openTask = (task) => {
+    setDrillModal(null);
+    requestOpenTask(task);
+  };
 
   if (!dbReady) return <DashboardSkeleton />;
   return (
@@ -161,7 +213,7 @@ export default function DashboardPage() {
           <WorkspaceSetupChecklist
             setup={workspaceSetup}
             compact
-            onOpenWorkspace={canPerform("workspace:manage") ? () => navigate("/admin") : undefined}
+            onOpenWorkspace={canPerform("workspace:manage") ? () => requestNavigate("admin") : undefined}
           />
         </div>
       )}
@@ -187,11 +239,15 @@ export default function DashboardPage() {
                   {sprintDaysLeft}
                 </div>
               )}
-              <div className={`text-xs ${sprintDaysLeft !== null && sprintDaysLeft <= 2 ? "text-red-200 font-semibold" : "opacity-75"}`}>days remaining</div>
-              {sprint.endDate && (
+              {sprintDaysLeft !== null && (
+                <div className={`text-xs ${sprintDaysLeft <= 2 ? "text-red-200 font-semibold" : "opacity-75"}`}>days remaining</div>
+              )}
+              {sprintEnd ? (
                 <div className="text-xs opacity-60 mt-1">
-                  Ends {format(parseISO(sprint.endDate), "MMM d, yyyy")}
+                  Ends {format(sprintEnd, "MMM d, yyyy")}
                 </div>
+              ) : (
+                <div className="text-xs opacity-60 mt-1">No end date set</div>
               )}
             </div>
           </div>
@@ -205,9 +261,9 @@ export default function DashboardPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
         {[
           { label: "Total Tasks", value: totalTasks, icon: FaFlag, color: "blue", tasks: projectTasks, title: "All Tasks" },
-          { label: "Completed", value: doneTasks, sub: `${totalTasks > 0 ? Math.round((doneTasks/totalTasks)*100) : 0}% done`, icon: FaCheckCircle, color: "green", tasks: projectTasks.filter((t) => t.status === "done"), title: "Completed Tasks" },
-          { label: "In Progress", value: inProgressTasks, icon: FaHourglass, color: "yellow", tasks: projectTasks.filter((t) => t.status === "inprogress"), title: "In Progress Tasks" },
-          { label: "Blocked", value: blockedTasks, sub: overdueTasks > 0 ? `${overdueTasks} overdue` : undefined, icon: FaBolt, color: "red", tasks: projectTasks.filter((t) => t.status === "blocked"), title: "Blocked Tasks" },
+          { label: "Completed", value: doneTasks, sub: `${totalTasks > 0 ? Math.round((doneTasks/totalTasks)*100) : 0}% done`, icon: FaCheckCircle, color: "green", tasks: byStatus.done, title: "Completed Tasks" },
+          { label: "In Progress", value: inProgressTasks, icon: FaHourglass, color: "yellow", tasks: byStatus.inprogress, title: "In Progress Tasks" },
+          { label: "Blocked", value: blockedTasks, sub: overdueTasks > 0 ? `${overdueTasks} overdue` : undefined, icon: FaBolt, color: "red", tasks: byStatus.blocked, title: "Blocked Tasks" },
         ].map((card, i) => (
           <motion.div
             key={card.label}
@@ -268,7 +324,12 @@ export default function DashboardPage() {
           ) : (
             <div className="space-y-2">
               {myTasks.slice(0, 8).map((task) => (
-                <div key={task.id} className="flex items-start gap-2 p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors">
+                <button
+                  type="button"
+                  key={task.id}
+                  onClick={() => openTask(task)}
+                  className="w-full text-left flex items-start gap-2 p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors"
+                >
                   <div className={`mt-0.5 w-2 h-2 rounded-full flex-shrink-0 ${
                     task.priority === "critical" ? "bg-red-500" :
                     task.priority === "high" ? "bg-orange-400" :
@@ -276,9 +337,9 @@ export default function DashboardPage() {
                   }`} />
                   <div className="min-w-0 flex-1">
                     <div className="text-sm text-slate-700 dark:text-slate-200 font-medium truncate">{task.title}</div>
-                    <div className="text-xs text-slate-400 dark:text-slate-500 capitalize">{task.status}</div>
+                    <div className="text-xs text-slate-400 dark:text-slate-500">{TASK_STATUS_SHORT_LABELS[task.status] || task.status}</div>
                   </div>
-                </div>
+                </button>
               ))}
               {myTasks.length > 8 && (
                 <div className="text-xs text-slate-400 dark:text-slate-500 text-center pt-1">+{myTasks.length - 8} more</div>
@@ -333,9 +394,8 @@ export default function DashboardPage() {
           </h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {projectEpics.map((epic) => {
-              const epicTasks = projectTasks.filter((t) => t.epicId === epic.id);
-              const epicDone = epicTasks.filter((t) => t.status === "done").length;
-              const pct = epicTasks.length > 0 ? Math.round((epicDone / epicTasks.length) * 100) : 0;
+              const { total: epicTotal = 0, done: epicDone = 0 } = epicProgress[epic.id] || {};
+              const pct = epicTotal > 0 ? Math.round((epicDone / epicTotal) * 100) : 0;
               return (
                 <div key={epic.id} className="rounded-lg border border-slate-200 dark:border-[#2a3044] p-3">
                   <div className="flex items-center gap-2 mb-2">
@@ -348,7 +408,7 @@ export default function DashboardPage() {
                       style={{ width: `${pct}%`, backgroundColor: epic.color }}
                     />
                   </div>
-                  <div className="text-xs text-slate-400 dark:text-slate-500">{epicDone}/{epicTasks.length} tasks · {pct}%</div>
+                  <div className="text-xs text-slate-400 dark:text-slate-500">{epicDone}/{epicTotal} tasks · {pct}%</div>
                 </div>
               );
             })}
@@ -362,6 +422,7 @@ export default function DashboardPage() {
           title={drillModal.title}
           tasks={drillModal.tasks}
           onClose={() => setDrillModal(null)}
+          onOpenTask={openTask}
         />
       )}
     </div>

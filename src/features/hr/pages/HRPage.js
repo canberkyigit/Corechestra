@@ -48,12 +48,12 @@ export default function HRPage() {
           {activeTab === "overview" && <OverviewTab userName={userName} setActiveTab={setActiveTab} />}
           {activeTab === "people" && <PeopleTab employees={users || []} currentUserId={user?.uid} />}
           {activeTab === "orgchart" && <OrgChartTab users={users || []} currentUserId={user?.uid} />}
-          {activeTab === "profile" && <MyProfileTab userName={userName} userEmail={userEmail} />}
-          {activeTab === "contract" && <ContractTab userName={userName} />}
+          {activeTab === "profile" && <MyProfileTab userName={userName} userEmail={userEmail} setActiveTab={setActiveTab} />}
+          {activeTab === "contract" && <ContractTab userName={userName} setActiveTab={setActiveTab} />}
           {activeTab === "timetracking" && <TimeTrackingTab />}
           {activeTab === "timeoff" && <TimeOffTab />}
           {activeTab === "documents" && <DocumentsTab />}
-          {activeTab === "finance" && <FinanceTab />}
+          {activeTab === "finance" && <FinanceTab userName={userName} setActiveTab={setActiveTab} />}
           {activeTab === "interview" && <InterviewTab />}
         </div>
       </div>

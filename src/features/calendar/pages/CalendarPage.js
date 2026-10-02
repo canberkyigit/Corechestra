@@ -1,10 +1,11 @@
 import React, { Suspense, lazy, useState, useMemo } from "react";
 import { useApp } from "../../../shared/context/AppContext";
 import { CalendarSkeleton } from "../../../shared/components/Skeleton";
+import { TASK_PRIORITY_HEX, TASK_TYPE_HEX, TASK_TYPE_LABELS } from "../../../shared/constants/taskMeta";
 import {
   format, startOfMonth, endOfMonth, startOfWeek, endOfWeek,
   addDays, isSameMonth, isToday, parseISO, isValid, addMonths, subMonths,
-  isPast, differenceInDays, isSameDay, addWeeks, isTomorrow,
+  isPast, differenceInDays, differenceInCalendarDays, isSameDay, addWeeks, subWeeks,
   startOfDay, isBefore,
 } from "date-fns";
 import {
@@ -12,14 +13,69 @@ import {
   FaExclamationTriangle, FaCheckCircle, FaUser,
   FaThLarge, FaListUl,
 } from "react-icons/fa";
+import { isInProject } from "../../../shared/utils/helpers";
 const TaskSidePanel = lazy(() => import("../../board/components/TaskSidePanel"));
 
-const PRIORITY_COLORS = {
-  critical: "#ef4444",
-  high:     "#f97316",
-  medium:   "#eab308",
-  low:      "#22c55e",
-};
+function safeParse(value) {
+  if (!value) return null;
+  try {
+    const d = parseISO(value);
+    return isValid(d) ? d : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Buckets tasks for the agenda view. Done tasks whose due date has passed go
+ * to "Completed" instead of leaking into "This Week". Exported for tests.
+ */
+export function buildAgendaGroups(tasks, now = new Date()) {
+  const todayStart = startOfDay(now);
+  const tomorrowStart = addDays(todayStart, 1);
+  const thisWeekEnd = endOfWeek(now, { weekStartsOn: 1 });
+  const nextWeekEnd = endOfWeek(addWeeks(now, 1), { weekStartsOn: 1 });
+
+  const buckets = {
+    overdue:   { label: "Overdue", tasks: [], accent: "red" },
+    today:     { label: `Today — ${format(now, "MMM d")}`, tasks: [], accent: "blue" },
+    tomorrow:  { label: `Tomorrow — ${format(tomorrowStart, "MMM d")}`, tasks: [], accent: "blue" },
+    thisWeek:  { label: "This Week", tasks: [], accent: "slate" },
+    nextWeek:  { label: "Next Week", tasks: [], accent: "slate" },
+    later:     { label: "Later", tasks: [], accent: "slate" },
+    completed: { label: "Completed (past due date)", tasks: [], accent: "slate" },
+  };
+
+  (tasks || []).forEach((t) => {
+    const d = safeParse(t.dueDate);
+    if (!d) return;
+    const dStart = startOfDay(d);
+    const isPastDay = isBefore(dStart, todayStart);
+
+    if (isPastDay) {
+      (t.status === "done" ? buckets.completed : buckets.overdue).tasks.push(t);
+    } else if (isSameDay(dStart, todayStart)) {
+      buckets.today.tasks.push(t);
+    } else if (isSameDay(dStart, tomorrowStart)) {
+      buckets.tomorrow.tasks.push(t);
+    } else if (!isBefore(thisWeekEnd, dStart)) {
+      buckets.thisWeek.tasks.push(t);
+    } else if (!isBefore(nextWeekEnd, dStart)) {
+      buckets.nextWeek.tasks.push(t);
+    } else {
+      buckets.later.tasks.push(t);
+    }
+  });
+
+  Object.values(buckets).forEach((b) =>
+    b.tasks.sort((a, b2) => safeParse(a.dueDate) - safeParse(b2.dueDate))
+  );
+  buckets.completed.tasks.reverse(); // most recent first
+
+  return Object.entries(buckets)
+    .filter(([, b]) => b.tasks.length > 0)
+    .map(([key, b]) => ({ key, ...b }));
+}
 
 const STATUS_CONFIG = {
   todo:       { label: "To Do",       color: "#94a3b8" },
@@ -43,7 +99,7 @@ function getDueDateStatus(dueDate, status) {
 }
 
 function TaskPill({ task, onClick }) {
-  const pColor = PRIORITY_COLORS[task.priority?.toLowerCase()] || "#3b82f6";
+  const pColor = TASK_PRIORITY_HEX[task.priority?.toLowerCase()] || "#3b82f6";
   const dueSt = getDueDateStatus(task.dueDate, task.status);
   const isOverdue = dueSt === "overdue";
 
@@ -68,25 +124,37 @@ function TaskPill({ task, onClick }) {
 export default function CalendarPage() {
   const { activeTasks, backlogSections, currentProjectId, updateTask, dbReady } = useApp();
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [selectedDay, setSelectedDay] = useState(null);
-  const [selectedTask, setSelectedTask] = useState(null);
+  const [selectedTaskSnapshot, setSelectedTask] = useState(null);
   const [calendarView, setCalendarView] = useState("month"); // "month" | "week" | "agenda"
 
   const allTasks = useMemo(() => [
-    ...activeTasks,
-    ...backlogSections.flatMap((s) => s.tasks),
-  ].filter((t) => t.dueDate && (t.projectId || "proj-1") === currentProjectId),
+    ...(activeTasks || []),
+    ...(backlogSections || []).flatMap((s) => s.tasks || []),
+  ].filter((t) => t.dueDate && isInProject(t, currentProjectId)),
   [activeTasks, backlogSections, currentProjectId]);
 
-  const getTasksForDay = (day) => {
-    const dayStr = format(day, "yyyy-MM-dd");
-    return allTasks.filter((t) => {
-      try {
-        const d = parseISO(t.dueDate);
-        return isValid(d) && format(d, "yyyy-MM-dd") === dayStr;
-      } catch { return false; }
+  // Keep the open side panel in sync with store updates (remote edits).
+  const selectedTask = useMemo(() => {
+    if (!selectedTaskSnapshot) return null;
+    const live = [...(activeTasks || []), ...(backlogSections || []).flatMap((s) => s.tasks || [])]
+      .find((t) => String(t.id) === String(selectedTaskSnapshot.id));
+    return live || selectedTaskSnapshot;
+  }, [activeTasks, backlogSections, selectedTaskSnapshot]);
+
+  const tasksByDay = useMemo(() => {
+    const map = new Map();
+    allTasks.forEach((t) => {
+      const d = safeParse(t.dueDate);
+      if (!d) return;
+      const key = format(d, "yyyy-MM-dd");
+      map.set(key, [...(map.get(key) || []), t]);
     });
-  };
+    return map;
+  }, [allTasks]);
+
+  const getTasksForDay = (day) => tasksByDay.get(format(day, "yyyy-MM-dd")) || [];
 
   // Calendar grid
   const monthStart = startOfMonth(currentMonth);
@@ -107,24 +175,57 @@ export default function CalendarPage() {
 
   const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-  // Month stats
+  const weekDaysOfCurrentWeek = useMemo(
+    () => Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i)),
+    [currentWeekStart]
+  );
+  const isWeekView = calendarView === "week";
+
+  // Stats for the visible range (month, or week in week view)
   const monthTasks = useMemo(() => allTasks.filter((t) => {
-    try { const d = parseISO(t.dueDate); return isValid(d) && isSameMonth(d, currentMonth); } catch { return false; }
-  }), [allTasks, currentMonth]);
+    const d = safeParse(t.dueDate);
+    if (!d) return false;
+    if (isWeekView) return !isBefore(d, currentWeekStart) && isBefore(d, addDays(currentWeekStart, 7));
+    return isSameMonth(d, currentMonth);
+  }), [allTasks, currentMonth, currentWeekStart, isWeekView]);
 
   const overdueCount = monthTasks.filter((t) => {
-    try { return isPast(parseISO(t.dueDate)) && t.status !== "done"; } catch { return false; }
+    const d = safeParse(t.dueDate);
+    return d && t.status !== "done" && isPast(addDays(startOfDay(d), 1));
   }).length;
+
+  const goPrev = () => {
+    if (isWeekView) setCurrentWeekStart((w) => subWeeks(w, 1));
+    else setCurrentMonth((m) => subMonths(m, 1));
+  };
+  const goNext = () => {
+    if (isWeekView) setCurrentWeekStart((w) => addWeeks(w, 1));
+    else setCurrentMonth((m) => addMonths(m, 1));
+  };
+  const goToday = () => {
+    const now = new Date();
+    setCurrentMonth(now);
+    setCurrentWeekStart(startOfWeek(now, { weekStartsOn: 1 }));
+  };
+  const switchView = (view) => {
+    if (view === "week" && calendarView !== "week") {
+      const now = new Date();
+      setCurrentWeekStart(startOfWeek(isSameMonth(now, currentMonth) ? now : startOfMonth(currentMonth), { weekStartsOn: 1 }));
+    }
+    if (view === "month" && calendarView === "week") setCurrentMonth(addDays(currentWeekStart, 3));
+    setCalendarView(view);
+  };
+  const rangeLabel = isWeekView
+    ? `${format(currentWeekStart, "MMM d")} – ${format(addDays(currentWeekStart, 6), isSameMonth(currentWeekStart, addDays(currentWeekStart, 6)) ? "d, yyyy" : "MMM d, yyyy")}`
+    : format(currentMonth, "MMMM yyyy");
 
   // Upcoming tasks (next 7 days)
   const upcomingTasks = useMemo(() => allTasks.filter((t) => {
-    try {
-      const d = parseISO(t.dueDate);
-      if (!isValid(d)) return false;
-      const diff = differenceInDays(d, new Date());
-      return diff >= 0 && diff <= 7 && t.status !== "done";
-    } catch { return false; }
-  }).sort((a, b) => parseISO(a.dueDate) - parseISO(b.dueDate)), [allTasks]);
+    const d = safeParse(t.dueDate);
+    if (!d) return false;
+    const diff = differenceInCalendarDays(d, new Date());
+    return diff >= 0 && diff <= 7 && t.status !== "done";
+  }).sort((a, b) => safeParse(a.dueDate) - safeParse(b.dueDate)), [allTasks]);
 
   // Selected day tasks
   const selectedDayTasks = selectedDay ? getTasksForDay(selectedDay) : [];
@@ -135,54 +236,10 @@ export default function CalendarPage() {
   };
 
   // Agenda view: group tasks by date bucket
-  const agendaGroups = useMemo(() => {
-    if (calendarView !== "agenda") return [];
-    const now = new Date();
-    const todayStart = startOfDay(now);
-    const tomorrowStart = addDays(todayStart, 1);
-    const thisWeekEnd = endOfWeek(now, { weekStartsOn: 1 });
-    const nextWeekEnd = endOfWeek(addWeeks(now, 1), { weekStartsOn: 1 });
-
-    const buckets = {
-      overdue:  { label: "Overdue", tasks: [], accent: "red" },
-      today:    { label: `Today — ${format(now, "MMM d")}`, tasks: [], accent: "blue" },
-      tomorrow: { label: `Tomorrow — ${format(tomorrowStart, "MMM d")}`, tasks: [], accent: "blue" },
-      thisWeek: { label: "This Week", tasks: [], accent: "slate" },
-      nextWeek: { label: "Next Week", tasks: [], accent: "slate" },
-      later:    { label: "Later", tasks: [], accent: "slate" },
-    };
-
-    allTasks.forEach((t) => {
-      try {
-        const d = parseISO(t.dueDate);
-        if (!isValid(d)) return;
-        const dStart = startOfDay(d);
-
-        if (t.status !== "done" && isBefore(dStart, todayStart)) {
-          buckets.overdue.tasks.push(t);
-        } else if (isToday(d)) {
-          buckets.today.tasks.push(t);
-        } else if (isTomorrow(d)) {
-          buckets.tomorrow.tasks.push(t);
-        } else if (isBefore(dStart, thisWeekEnd) || isSameDay(dStart, thisWeekEnd)) {
-          buckets.thisWeek.tasks.push(t);
-        } else if (isBefore(dStart, nextWeekEnd) || isSameDay(dStart, nextWeekEnd)) {
-          buckets.nextWeek.tasks.push(t);
-        } else {
-          buckets.later.tasks.push(t);
-        }
-      } catch { /* skip invalid dates */ }
-    });
-
-    // Sort each bucket by due date
-    Object.values(buckets).forEach((b) =>
-      b.tasks.sort((a, b2) => parseISO(a.dueDate) - parseISO(b2.dueDate))
-    );
-
-    return Object.entries(buckets)
-      .filter(([, b]) => b.tasks.length > 0)
-      .map(([key, b]) => ({ key, ...b }));
-  }, [calendarView, allTasks]);
+  const agendaGroups = useMemo(
+    () => (calendarView === "agenda" ? buildAgendaGroups(allTasks) : []),
+    [calendarView, allTasks]
+  );
 
   const panelContent = selectedTask
     ? null // TaskSidePanel rendered separately below
@@ -207,7 +264,7 @@ export default function CalendarPage() {
           ) : (
             <div className="space-y-2">
               {selectedDayTasks.map((task) => {
-                const pColor = PRIORITY_COLORS[task.priority?.toLowerCase()] || "#3b82f6";
+                const pColor = TASK_PRIORITY_HEX[task.priority?.toLowerCase()] || "#3b82f6";
                 const sCfg = STATUS_CONFIG[task.status] || STATUS_CONFIG.todo;
                 const dueSt = getDueDateStatus(task.dueDate, task.status);
                 return (
@@ -256,8 +313,8 @@ export default function CalendarPage() {
               <p className="text-sm">No upcoming deadlines!</p>
             </div>
           ) : upcomingTasks.map((task) => {
-            const pColor = PRIORITY_COLORS[task.priority?.toLowerCase()] || "#3b82f6";
-            const diff = differenceInDays(parseISO(task.dueDate), new Date());
+            const pColor = TASK_PRIORITY_HEX[task.priority?.toLowerCase()] || "#3b82f6";
+            const diff = differenceInCalendarDays(parseISO(task.dueDate), new Date());
             return (
               <button
                 key={task.id}
@@ -281,13 +338,7 @@ export default function CalendarPage() {
       </div>
     );
 
-  const TYPE_COLORS = {
-    story:   "#3b82f6",
-    bug:     "#ef4444",
-    task:    "#8b5cf6",
-    epic:    "#f97316",
-    subtask: "#06b6d4",
-  };
+  if (!dbReady) return <CalendarSkeleton />;
 
   if (allTasks.length === 0) {
     return (
@@ -314,7 +365,6 @@ export default function CalendarPage() {
     );
   }
 
-  if (!dbReady) return <CalendarSkeleton />;
   return (
     <div className="p-4 h-full flex flex-col max-w-7xl mx-auto">
       {/* Header */}
@@ -328,7 +378,7 @@ export default function CalendarPage() {
           {/* View toggle */}
           <div className="flex items-center rounded-xl border border-slate-300/90 dark:border-[#2a3044] bg-white dark:bg-[#1c2030] shadow-sm overflow-hidden">
             <button
-              onClick={() => setCalendarView("month")}
+              onClick={() => switchView("month")}
               className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium transition-colors ${
                 calendarView === "month"
                   ? "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400"
@@ -338,7 +388,7 @@ export default function CalendarPage() {
               <FaThLarge className="w-3 h-3" /> Month
             </button>
             <button
-              onClick={() => setCalendarView("week")}
+              onClick={() => switchView("week")}
               className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium border-l border-r border-slate-300/90 dark:border-[#2a3044] transition-colors ${
                 calendarView === "week"
                   ? "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400"
@@ -348,7 +398,7 @@ export default function CalendarPage() {
               <FaCalendarAlt className="w-3 h-3" /> Week
             </button>
             <button
-              onClick={() => setCalendarView("agenda")}
+              onClick={() => switchView("agenda")}
               className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium transition-colors ${
                 calendarView === "agenda"
                   ? "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400"
@@ -365,7 +415,7 @@ export default function CalendarPage() {
           {monthTasks.length > 0 && (
             <>
               <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400">
-                <span className="font-bold">{monthTasks.length}</span> due this month
+                <span className="font-bold">{monthTasks.length}</span> due this {isWeekView ? "week" : "month"}
               </span>
               {overdueCount > 0 && (
                 <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400">
@@ -385,22 +435,24 @@ export default function CalendarPage() {
             <div className="flex items-center gap-1 ml-2">
               <button
                 className="p-1.5 border border-slate-300/90 dark:border-[#2a3044] bg-white dark:bg-[#1c2030] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] text-slate-600 dark:text-slate-400 transition-colors shadow-sm"
-                onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
+                onClick={goPrev}
+                aria-label={isWeekView ? "Previous week" : "Previous month"}
               >
                 <FaChevronLeft className="w-3 h-3" />
               </button>
-              <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 px-2 min-w-[120px] text-center">
-                {format(currentMonth, "MMMM yyyy")}
+              <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 px-2 min-w-[120px] text-center" data-testid="calendar-range-label">
+                {rangeLabel}
               </span>
               <button
                 className="p-1.5 border border-slate-300/90 dark:border-[#2a3044] bg-white dark:bg-[#1c2030] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] text-slate-600 dark:text-slate-400 transition-colors shadow-sm"
-                onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
+                onClick={goNext}
+                aria-label={isWeekView ? "Next week" : "Next month"}
               >
                 <FaChevronRight className="w-3 h-3" />
               </button>
               <button
                 className="px-2.5 py-1.5 text-xs text-slate-700 dark:text-slate-400 border border-slate-300/90 dark:border-[#2a3044] bg-white dark:bg-[#1c2030] rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors ml-1 shadow-sm"
-                onClick={() => setCurrentMonth(new Date())}
+                onClick={goToday}
               >
                 Today
               </button>
@@ -441,9 +493,10 @@ export default function CalendarPage() {
                     {/* Task rows */}
                     <div className="divide-y divide-slate-50 dark:divide-[#1e2235]">
                       {group.tasks.map((task) => {
-                        const pColor = PRIORITY_COLORS[task.priority?.toLowerCase()] || "#3b82f6";
+                        const pColor = TASK_PRIORITY_HEX[task.priority?.toLowerCase()] || "#3b82f6";
                         const sCfg = STATUS_CONFIG[task.status] || STATUS_CONFIG.todo;
-                        const typeColor = TYPE_COLORS[task.type?.toLowerCase()] || "#6b7280";
+                        const typeColor = TASK_TYPE_HEX[task.type?.toLowerCase()] || "#6b7280";
+                        const typeLabel = TASK_TYPE_LABELS[task.type?.toLowerCase()] || task.type;
                         return (
                           <button
                             key={task.id}
@@ -476,7 +529,7 @@ export default function CalendarPage() {
                                 className="text-[10px] font-semibold px-1.5 py-0.5 rounded capitalize flex-shrink-0"
                                 style={{ backgroundColor: typeColor + "18", color: typeColor }}
                               >
-                                {task.type}
+                                {typeLabel}
                               </span>
                             )}
 
@@ -517,11 +570,11 @@ export default function CalendarPage() {
 
             {/* Weeks */}
             <div className="flex-1 flex flex-col overflow-hidden">
-              {(calendarView === "week" ? [weeks.find((w) => w.some((d) => isToday(d))) || weeks[0]] : weeks).map((week, wi) => (
+              {(isWeekView ? [weekDaysOfCurrentWeek] : weeks).map((week, wi) => (
                 <div key={wi} className="grid grid-cols-7 flex-1 border-b border-slate-200 dark:border-[#232838] last:border-0 min-h-0">
                   {week.map((day, di) => {
                     const tasks = getTasksForDay(day);
-                    const inMonth = isSameMonth(day, currentMonth);
+                    const inMonth = isWeekView || isSameMonth(day, currentMonth);
                     const today = isToday(day);
                     const isWeekend = di === 5 || di === 6;
                     const isSelected = selectedDay && isSameDay(day, selectedDay);
@@ -604,7 +657,7 @@ export default function CalendarPage() {
       {/* Legend */}
       <div className="flex items-center gap-4 mt-3 text-xs text-slate-500 dark:text-slate-500 flex-shrink-0">
         <span>Priority:</span>
-        {Object.entries(PRIORITY_COLORS).map(([key, color]) => (
+        {Object.entries(TASK_PRIORITY_HEX).map(([key, color]) => (
           <span key={key} className="flex items-center gap-1 capitalize">
             <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: color + "44", border: `2px solid ${color}` }} />
             {key}

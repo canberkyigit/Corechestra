@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import {
   FaRocket,
   FaPlus,
@@ -10,6 +10,11 @@ import {
   FaExclamationCircle,
 } from "react-icons/fa";
 import { useApp } from "../../../shared/context/AppContext";
+import { TASK_STATUS_SHORT_LABELS } from "../../../shared/constants/taskMeta";
+import { buildVelocityHistory, getAverageVelocity, sumStoryPoints } from "../utils/sprintMetrics";
+import { getUserColor } from "../utils/userColors";
+import { useBoardPermissions } from "../hooks/useBoardPermissions";
+import { isInProject } from "../../../shared/utils/helpers";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const DEFAULT_VELOCITY_PER_PERSON = 10;
@@ -32,21 +37,18 @@ const STATUS_CLASSES = {
   done:       "bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400",
 };
 
-const STATUS_LABEL = {
-  todo:       "To Do",
-  inprogress: "In Progress",
-  review:     "Review",
-  awaiting:   "Awaiting",
-  blocked:    "Blocked",
-  done:       "Done",
-};
-
 const TYPE_DOT = {
-  story:   "bg-green-400",
-  bug:     "bg-red-400",
-  task:    "bg-blue-400",
-  epic:    "bg-purple-400",
-  subtask: "bg-slate-400",
+  userstory:     "bg-green-400",
+  feature:       "bg-cyan-400",
+  bug:           "bg-red-400",
+  defect:        "bg-orange-400",
+  task:          "bg-blue-400",
+  epic:          "bg-purple-400",
+  investigation: "bg-violet-400",
+  test:          "bg-teal-400",
+  testset:       "bg-indigo-400",
+  testexecution: "bg-lime-500",
+  precondition:  "bg-sky-400",
 };
 
 // ─── Small reusable pieces ────────────────────────────────────────────────────
@@ -63,7 +65,7 @@ function StatusChip({ status }) {
   const s = (status || "todo").toLowerCase();
   return (
     <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded whitespace-nowrap ${STATUS_CLASSES[s] || STATUS_CLASSES.todo}`}>
-      {STATUS_LABEL[s] || s}
+      {TASK_STATUS_SHORT_LABELS[s] || s}
     </span>
   );
 }
@@ -87,18 +89,13 @@ function TypeDot({ type }) {
   );
 }
 
-function Avatar({ name, size = "sm" }) {
+function Avatar({ name, color, size = "sm" }) {
   const letter = (name || "?")[0].toUpperCase();
-  const colors = [
-    "bg-blue-600", "bg-purple-600", "bg-green-600",
-    "bg-yellow-600", "bg-red-600", "bg-pink-600",
-    "bg-indigo-600", "bg-teal-600",
-  ];
-  const colorIdx = (name || "").charCodeAt(0) % colors.length;
   const sizeClass = size === "sm" ? "w-6 h-6 text-[10px]" : "w-8 h-8 text-xs";
   return (
     <span
-      className={`inline-flex items-center justify-center rounded-full font-bold text-white flex-shrink-0 ${sizeClass} ${colors[colorIdx]}`}
+      className={`inline-flex items-center justify-center rounded-full font-bold text-white flex-shrink-0 ${sizeClass}`}
+      style={{ backgroundColor: color || getUserColor(name) }}
       title={name}
     >
       {letter}
@@ -152,9 +149,9 @@ function CapacityBar({ totalSP, capacitySP }) {
   );
 }
 
-// ─── Velocity mini-bar chart ──────────────────────────────────────────────────
-function VelocityChart({ snapshots }) {
-  if (!snapshots || snapshots.length === 0) {
+// ─── Velocity mini-bar chart (completed sprints) ──────────────────────────────
+function VelocityChart({ history }) {
+  if (!history || history.length === 0) {
     return (
       <div className="flex items-center justify-center h-16 text-slate-400 dark:text-slate-500 text-sm text-center">
         No velocity data yet — complete a sprint to start tracking
@@ -162,29 +159,23 @@ function VelocityChart({ snapshots }) {
     );
   }
 
-  const last5 = snapshots.slice(-5);
-  const velocities = last5.map((s) => (Number(s.total) || 0) - (Number(s.remaining) || 0));
-  const maxV = Math.max(...velocities, 1);
+  const maxV = Math.max(...history.map((entry) => Math.max(entry.completed, entry.committed)), 1);
 
   return (
     <div className="flex items-end gap-2 h-16">
-      {last5.map((snap, i) => {
-        const v = velocities[i];
-        const heightPct = maxV > 0 ? (v / maxV) * 100 : 0;
-        const dateStr = snap.date
-          ? new Date(snap.date + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })
-          : "—";
+      {history.map((entry) => {
+        const heightPct = (entry.completed / maxV) * 100;
         return (
-          <div key={snap.date || i} className="flex flex-col items-center gap-1 flex-1 min-w-0">
-            <span className="text-[9px] text-slate-500 font-semibold">{v} SP</span>
+          <div key={entry.id || entry.name} className="flex flex-col items-center gap-1 flex-1 min-w-0">
+            <span className="text-[9px] text-slate-500 font-semibold">{entry.completed} pts</span>
             <div className="w-full flex items-end" style={{ height: 32 }}>
               <div
                 className="w-full rounded-t bg-blue-500/70 hover:bg-blue-400/90 transition-colors"
                 style={{ height: `${Math.max(heightPct, 4)}%` }}
-                title={`${v} SP on ${dateStr}`}
+                title={`${entry.name}: ${entry.completed} of ${entry.committed} SP completed`}
               />
             </div>
-            <span className="text-[9px] text-slate-400 dark:text-slate-600 truncate w-full text-center">{dateStr}</span>
+            <span className="text-[9px] text-slate-400 dark:text-slate-600 truncate w-full text-center" title={entry.name}>{entry.name}</span>
           </div>
         );
       })}
@@ -201,27 +192,41 @@ export default function PlanningTab() {
     setBacklogSections,
     sprint,
     updateSprint,
-    burndownSnapshots,
+    completedSprints,
     users,
     projects,
     currentProjectId,
   } = useApp();
+  const { canEditTask } = useBoardPermissions();
 
   // ── Local state ──────────────────────────────────────────────────────────────
   const [goalDraft, setGoalDraft] = useState(sprint?.goal || "");
+  const goalFocusedRef = useRef(false);
   const [hoveredBacklogId, setHoveredBacklogId] = useState(null);
   const [hoveredSprintId, setHoveredSprintId] = useState(null);
-  const [capacities, setCapacities] = useState({});
 
-  // ── Sync goal draft when sprint changes ──────────────────────────────────────
+  // Capacity belongs to the current project's sprint, so it is persisted via
+  // perProjectSprint -> the Firestore "sprints" domain.
+  const capacities = useMemo(
+    () => sprint?.teamCapacities || {},
+    [sprint?.teamCapacities]
+  );
+
+  // ── Sync goal draft when sprint / project changes ────────────────────────────
+  useEffect(() => {
+    if (!goalFocusedRef.current) setGoalDraft(sprint?.goal || "");
+  }, [currentProjectId, sprint?.id, sprint?.goal]);
+
   const handleGoalBlur = useCallback(() => {
+    goalFocusedRef.current = false;
+    if (!sprint || goalDraft === (sprint.goal || "")) return;
     updateSprint({ goal: goalDraft });
-  }, [updateSprint, goalDraft]);
+  }, [updateSprint, goalDraft, sprint]);
 
   // ── Derived data ─────────────────────────────────────────────────────────────
   // Current project active tasks
   const projectActiveTasks = useMemo(
-    () => activeTasks.filter((t) => !currentProjectId || (t.projectId || "proj-1") === currentProjectId),
+    () => activeTasks.filter((t) => !currentProjectId || isInProject(t, currentProjectId)),
     [activeTasks, currentProjectId]
   );
 
@@ -241,19 +246,13 @@ export default function PlanningTab() {
 
   // Sprint stats
   const sprintTotalSP = useMemo(
-    () => projectActiveTasks.reduce((s, t) => s + (Number(t.storyPoint) || 0), 0),
+    () => sumStoryPoints(projectActiveTasks),
     [projectActiveTasks]
   );
 
-  // Average velocity from burndown snapshots
-  const avgVelocity = useMemo(() => {
-    if (!burndownSnapshots || burndownSnapshots.length === 0) return null;
-    const velocities = burndownSnapshots.map(
-      (s) => (Number(s.total) || 0) - (Number(s.remaining) || 0)
-    );
-    const sum = velocities.reduce((a, b) => a + b, 0);
-    return Math.round(sum / velocities.length);
-  }, [burndownSnapshots]);
+  // Real velocity: completed story points of the last completed sprints.
+  const avgVelocity = useMemo(() => getAverageVelocity(completedSprints || [], 3), [completedSprints]);
+  const velocityHistory = useMemo(() => buildVelocityHistory(completedSprints || [], 5), [completedSprints]);
 
   // Team capacity — filter to current project members only, then normalize to [{id, name}]
   const memberList = useMemo(() => {
@@ -306,17 +305,24 @@ export default function PlanningTab() {
   }, [memberList, capacities]);
 
   const handleCapacityChange = useCallback((userId, value) => {
-    setCapacities((prev) => ({ ...prev, [userId]: Number(value) }));
-  }, []);
+    const capacity = Number(value);
+    updateSprint((currentSprint) => ({
+      teamCapacities: {
+        ...(currentSprint?.teamCapacities || {}),
+        [userId]: capacity,
+      },
+    }));
+  }, [updateSprint]);
 
   const resetCapacities = useCallback(() => {
     const map = {};
     memberList.forEach((u) => { map[u.id] = 100; });
-    setCapacities(map);
-  }, [memberList]);
+    updateSprint({ teamCapacities: map });
+  }, [memberList, updateSprint]);
 
   // ── Actions ──────────────────────────────────────────────────────────────────
   const addToSprint = useCallback((task, sectionId) => {
+    if (!canEditTask) return;
     // Remove from backlog section
     setBacklogSections((prev) =>
       prev.map((s) =>
@@ -333,19 +339,21 @@ export default function PlanningTab() {
         projectId: currentProjectId,
       },
     ]);
-  }, [setBacklogSections, setActiveTasks, currentProjectId]);
+  }, [setBacklogSections, setActiveTasks, currentProjectId, canEditTask]);
 
   const removeFromSprint = useCallback((task) => {
+    if (!canEditTask) return;
     // Remove from active tasks
     setActiveTasks((prev) => prev.filter((t) => t.id !== task.id));
-    // Add back to first backlog section (or create one)
+    // Add back to the first backlog section — create one if none exists so the
+    // task is never dropped.
     setBacklogSections((prev) => {
-      if (!prev || prev.length === 0) return prev;
+      if (!prev || prev.length === 0) return [{ id: Date.now(), title: "Backlog", tasks: [task] }];
       return prev.map((s, i) =>
-        i !== 0 ? s : { ...s, tasks: [...s.tasks, task] }
+        i !== 0 ? s : { ...s, tasks: [...(s.tasks || []), task] }
       );
     });
-  }, [setActiveTasks, setBacklogSections]);
+  }, [setActiveTasks, setBacklogSections, canEditTask]);
 
   // ── Sprint date helpers ──────────────────────────────────────────────────────
   const formatDate = (dateStr) => {
@@ -412,7 +420,9 @@ export default function PlanningTab() {
           placeholder="Define the sprint goal — what value will be delivered by the end of this sprint?"
           value={goalDraft}
           onChange={(e) => setGoalDraft(e.target.value)}
+          onFocus={() => { goalFocusedRef.current = true; }}
           onBlur={handleGoalBlur}
+          disabled={!sprint}
           rows={2}
         />
       </div>
@@ -463,7 +473,7 @@ export default function PlanningTab() {
                             <SPBadge points={task.storyPoint} />
                             <PriorityBadge priority={task.priority} />
                           </div>
-                          {isHovered && (
+                          {isHovered && canEditTask && (
                             <button
                               onClick={() => addToSprint(task, section.id)}
                               className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white shadow-lg transition-colors"
@@ -515,6 +525,7 @@ export default function PlanningTab() {
                 return (
                   <div
                     key={task.id}
+                    data-testid={`planning-sprint-task-${task.id}`}
                     className="group relative flex items-center gap-2 py-2 px-2 rounded-lg hover:bg-slate-100 dark:hover:bg-[#232838] transition-colors cursor-default"
                     onMouseEnter={() => setHoveredSprintId(task.id)}
                     onMouseLeave={() => setHoveredSprintId(null)}
@@ -525,9 +536,14 @@ export default function PlanningTab() {
                     </span>
                     <div className="flex items-center gap-1.5 flex-shrink-0">
                       <SPBadge points={task.storyPoint} />
-                      {task.assignedTo && <Avatar name={typeof task.assignedTo === "object" ? task.assignedTo.name : task.assignedTo} />}
+                      {task.assignedTo && task.assignedTo !== "unassigned" && (
+                        <Avatar
+                          name={typeof task.assignedTo === "object" ? task.assignedTo.name : task.assignedTo}
+                          color={typeof task.assignedTo === "string" ? getUserColor(task.assignedTo, users) : undefined}
+                        />
+                      )}
                     </div>
-                    {isHovered && (
+                    {isHovered && canEditTask && (
                       <button
                         onClick={() => removeFromSprint(task)}
                         className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 shadow-lg transition-colors"
@@ -573,7 +589,7 @@ export default function PlanningTab() {
                 return (
                   <div key={member.id} className="space-y-1.5 py-1">
                     <div className="flex items-center gap-2">
-                      <Avatar name={member.name || member.id} size="sm" />
+                      <Avatar name={member.name || member.id} color={member.color} size="sm" />
                       <span className="flex-1 text-xs font-medium text-slate-700 dark:text-slate-300 truncate capitalize">
                         {member.name || member.id}
                       </span>
@@ -584,6 +600,7 @@ export default function PlanningTab() {
                     <div className="flex items-center gap-2">
                       <input
                         type="range"
+                        aria-label={`${member.name || member.id} capacity`}
                         min={0}
                         max={100}
                         step={10}
@@ -616,13 +633,13 @@ export default function PlanningTab() {
           <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
             Velocity Reference
           </span>
-          {burndownSnapshots && burndownSnapshots.length > 0 && (
+          {velocityHistory.length > 0 && (
             <span className="text-[10px] text-slate-400 dark:text-slate-600 ml-auto">
-              Last {Math.min(burndownSnapshots.length, 5)} data points
+              Completed SP · last {velocityHistory.length} sprint{velocityHistory.length !== 1 ? "s" : ""}
             </span>
           )}
         </div>
-        <VelocityChart snapshots={burndownSnapshots} />
+        <VelocityChart history={velocityHistory} />
       </div>
 
     </div>

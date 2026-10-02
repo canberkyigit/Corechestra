@@ -1,171 +1,109 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
-import { taskKey } from "../../../shared/utils/helpers";
-import {
-  buildEntityRegistry,
-  findLinkableEntities,
-  groupLinkedItemsByRelationship,
-  normalizeLinkedItem,
-} from "../../../shared/utils/entityRegistry";
+import React, { Suspense, lazy, useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Listbox } from "@headlessui/react";
-import {
-  FaTimes, FaTrash, FaCheck, FaPlus, FaChevronDown, FaSearch,
-  FaEye, FaEyeSlash, FaExpand, FaLink,
-  FaPaperclip, FaCloudUploadAlt, FaFileAlt,
-} from "react-icons/fa";
+import { FaTimes, FaTrash, FaEye, FaEyeSlash, FaExpand } from "react-icons/fa";
+import { taskKey } from "../../../shared/utils/helpers";
+import { normalizeLinkedItem } from "../../../shared/utils/entityRegistry";
 import { useApp } from "../../../shared/context/AppContext";
 import { useToast } from "../../../shared/context/ToastContext";
-import { useAuth } from "../../../shared/context/AuthContext";
-import { getEntityTypeMeta } from "../../../shared/constants/entityMeta";
 import { AppBadge, AppButton, getTaskStatusTone } from "../../../shared/components/AppPrimitives";
 import CommentSection from "../../docs/components/CommentSection";
 import SubtaskDetailPanel from "./SubtaskDetailPanel";
+import { TASK_TYPE_OPTIONS } from "../../../shared/constants/taskMeta";
+import { useEscapeKey } from "../hooks/useEscapeKey";
+import { useWorkflowGuard } from "../hooks/useWorkflowGuard";
+import { useBoardPermissions } from "../hooks/useBoardPermissions";
+import PanelMiniSelect from "./task-panel/PanelMiniSelect";
+import PanelQuickFields from "./task-panel/PanelQuickFields";
+import PanelSubtasksTable from "./task-panel/PanelSubtasksTable";
+import PanelLinkedItems from "./task-panel/PanelLinkedItems";
+import PanelSubtasksTab from "./task-panel/PanelSubtasksTab";
+import { usePanelResize } from "./task-panel/usePanelResize";
+import TaskAttachments from "./task-shared/TaskAttachments";
 import {
-  TYPE_OPTIONS, STATUS_OPTIONS, PRIORITY_OPTIONS,
-} from "../constants/taskOptions";
+  buildLink,
+  createSubtask,
+  readAttachmentFiles,
+  useProjectAssignees,
+  useProjectEpics,
+  useTaskLinkSearch,
+  useTaskStatusOptions,
+} from "./task-shared/taskDetailHooks";
 
-const LINK_RELATIONSHIPS = [
-  "relates to", "blocks", "is blocked by", "duplicates", "is duplicated by", "clones", "is cloned by",
-];
+const TaskDetailModal = lazy(() => import("./TaskDetailModal"));
 
-function MiniSelect({ value, options, onChange, renderValue, renderOption, disabled }) {
-  return (
-    <Listbox value={value} onChange={onChange} disabled={disabled}>
-      <div className="relative">
-        <Listbox.Button className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs border border-slate-200 dark:border-[#2a3044] bg-slate-50 dark:bg-[#232838] text-slate-700 dark:text-slate-300 transition-colors focus:outline-none ${disabled ? "opacity-50 cursor-not-allowed" : "hover:bg-slate-100 dark:hover:bg-[#2a3044]"}`}>
-          {renderValue(value)}
-          <FaChevronDown className="w-2.5 h-2.5 text-slate-400 ml-0.5" />
-        </Listbox.Button>
-        <Listbox.Options className="absolute z-50 mt-1 bg-white dark:bg-[#1c2030] border border-slate-200 dark:border-[#2a3044] rounded-lg shadow-lg py-1 min-w-28 max-h-40 overflow-auto">
-          {options.map((opt) => (
-            <Listbox.Option key={opt.value ?? opt} value={opt.value ?? opt}
-              className={({ active }) =>
-                `flex items-center gap-1.5 px-2.5 py-1.5 text-xs cursor-pointer ${active ? "bg-blue-50 dark:bg-blue-900/20 text-blue-700" : "text-slate-700 dark:text-slate-300"}`
-              }
-            >
-              {renderOption ? renderOption(opt) : (opt.label ?? opt)}
-            </Listbox.Option>
-          ))}
-        </Listbox.Options>
-      </div>
-    </Listbox>
-  );
-}
-
+/**
+ * Resizable right-hand task panel. Action fields (status, priority, assignee,
+ * type, due date, epic, subtasks, links, attachments) auto-save; title,
+ * description, story points and watchers need Save.
+ *
+ * "Open full view" calls `onOpenModal(draft, { hasChanges })` when provided;
+ * otherwise the panel opens the full TaskDetailModal itself with the unsaved
+ * draft applied.
+ */
 export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpenModal }) {
-  const {
-    epics,
-    labels,
-    deleteTask,
-    logActivity,
-    allTasks,
-    teamMembers,
-    currentProjectId,
-    projects,
-    docPages,
-    spaces,
-    releases,
-    testSuites,
-    testCases,
-    testRuns,
-  } = useApp();
-
-  const currentProject = projects.find((p) => p.id === currentProjectId);
-  const projectMemberSet = new Set(currentProject?.memberUsernames || []);
-  const projectAssignees = projectMemberSet.size > 0
-    ? teamMembers.filter((m) => m.value === "unassigned" || projectMemberSet.has(m.value))
-    : teamMembers.filter((m) => m.value !== "");
+  const { labels, deleteTask, logActivity, allTasks, users } = useApp();
   const { addToast } = useToast();
-  const { role } = useAuth();
-  const isViewer = role === "viewer";
+  const { canEditTask, canArchiveTask } = useBoardPermissions();
+  const readOnly = !canEditTask;
+  const { guardStatusChange, dialog: workflowDialog } = useWorkflowGuard();
+  const { width, isMobile, startResize } = usePanelResize();
 
-  const [title,        setTitle]        = useState("");
-  const [description,  setDescription]  = useState("");
-  const [type,         setType]         = useState("task");
-  const [status,       setStatus]       = useState("todo");
-  const [priority,     setPriority]     = useState("medium");
-  const [assignedTo,   setAssignedTo]   = useState("unassigned");
-  const [dueDate,      setDueDate]      = useState("");
-  const [storyPoint,   setStoryPoint]   = useState("");
-  const [epicId,       setEpicId]       = useState(null);
-  const [taskLabels,   setTaskLabels]   = useState([]);
-  const [watchers,      setWatchers]      = useState([]);
-  const [subtasks,      setSubtasks]      = useState([]);
-  const [linkedItems,   setLinkedItems]   = useState([]);
-  const [hasChanges,   setHasChanges]   = useState(false);
-  const [confirmDelete,setConfirmDelete]= useState(false);
-  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
-  const [activeTab,    setActiveTab]    = useState("details");
-
-  // Subtask inline add
-  const [inlineSubOpen,  setInlineSubOpen]  = useState(false);
-  const [inlineSubTitle, setInlineSubTitle] = useState("");
-
-  // Subtask detail panel
-  const [openSubtask, setOpenSubtask] = useState(null);
-
-  // Linked items
-  const [linkSearchOpen,    setLinkSearchOpen]    = useState(false);
-  const [linkSearch,        setLinkSearch]        = useState("");
-  const [linkRelationship,  setLinkRelationship]  = useState("relates to");
-
-  // Attachments
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [type, setType] = useState("task");
+  const [status, setStatus] = useState("todo");
+  const [priority, setPriority] = useState("medium");
+  const [assignedTo, setAssignedTo] = useState("unassigned");
+  const [dueDate, setDueDate] = useState("");
+  const [storyPoint, setStoryPoint] = useState("");
+  const [epicId, setEpicId] = useState(null);
+  const [taskLabels, setTaskLabels] = useState([]);
+  const [watchers, setWatchers] = useState([]);
+  const [subtasks, setSubtasks] = useState([]);
+  const [linkedItems, setLinkedItems] = useState([]);
   const [attachments, setAttachments] = useState([]);
-  const [dragOver, setDragOver] = useState(false);
-  const fileInputRef = useRef(null);
-
-  // Resize
-  const [panelWidth, setPanelWidth] = useState(580);
-  const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
-  const isResizingRef = useRef(false);
+  const [hasChanges, setHasChanges] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+  const [activeTab, setActiveTab] = useState("details");
+  const [inlineSubOpen, setInlineSubOpen] = useState(false);
+  const [inlineSubTitle, setInlineSubTitle] = useState("");
+  const [openSubtask, setOpenSubtask] = useState(null);
+  const [fullView, setFullView] = useState(null);
   const prevId = useRef(null);
 
-  // ── Resize listener ─────────────────────────────────────────────────────────
-  useEffect(() => {
-    const handleMouseMove = (e) => {
-      if (!isResizingRef.current) return;
-      setPanelWidth(Math.max(360, Math.min(900, window.innerWidth - e.clientX)));
-    };
-    const handleMouseUp = () => {
-      if (isResizingRef.current) {
-        isResizingRef.current = false;
-        document.body.style.cursor = "";
-        document.body.style.userSelect = "";
-      }
-    };
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
-    document.addEventListener("mousemove", handleMouseMove);
-    document.addEventListener("mouseup", handleMouseUp);
-    window.addEventListener("resize", handleResize);
-    return () => {
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
-      window.removeEventListener("resize", handleResize);
-    };
+  const projectId = task?.projectId;
+  const projectAssignees = useProjectAssignees(projectId);
+  const projectEpics = useProjectEpics(projectId, epicId);
+  const statusOptions = useTaskStatusOptions(projectId, status);
+  const links = useTaskLinkSearch({ task, allTasks, linkedItems });
+  const { closeLinkSearch } = links;
+
+  const syncActionFields = useCallback((source) => {
+    setStatus(source.status || "todo");
+    setPriority((source.priority || "medium").toLowerCase());
+    setAssignedTo(source.assignedTo || "unassigned");
+    setType(source.type || "task");
+    setDueDate(source.dueDate || "");
+    setStoryPoint(source.storyPoint ?? "");
+    setEpicId(source.epicId || null);
+    setTaskLabels(source.labels || []);
+    setWatchers(source.watchers || []);
+    setSubtasks(source.subtasks || []);
+    setLinkedItems((source.linkedItems || []).map(normalizeLinkedItem).filter(Boolean));
+    setAttachments(source.attachments || []);
   }, []);
 
-  // ── Init state from task ─────────────────────────────────────────────────────
   useEffect(() => {
     if (!open || !task) return;
     const isNewTask = task.id !== prevId.current;
     prevId.current = task.id;
 
-    // Always sync action fields so external updates (drag-and-drop, etc.) are reflected
-    setStatus(task.status || "todo");
-    setPriority((task.priority || "medium").toLowerCase());
-    setAssignedTo(task.assignedTo || "unassigned");
-    setType(task.type || "task");
-    setDueDate(task.dueDate || "");
-    setStoryPoint(task.storyPoint ?? "");
-    setEpicId(task.epicId || null);
-    setTaskLabels(task.labels || []);
-    setWatchers(task.watchers || []);
-    setSubtasks(task.subtasks || []);
-    setLinkedItems((task.linkedItems || []).map(normalizeLinkedItem).filter(Boolean));
-    setAttachments(task.attachments || []);
+    // Always sync action fields so external updates (drag-and-drop, etc.) show.
+    syncActionFields(task);
 
-    // Only reset text-edit fields and UI state when switching to a different task,
-    // so that in-progress title/description edits aren't lost on external updates.
+    // Only reset text fields / UI state when switching tasks, so in-progress
+    // title/description edits survive external updates.
     if (isNewTask) {
       setTitle(task.title || "");
       setDescription(task.description || "");
@@ -174,37 +112,11 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
       setShowDiscardConfirm(false);
       setActiveTab("details");
       setInlineSubOpen(false);
-      setLinkSearchOpen(false);
-      setLinkSearch("");
+      closeLinkSearch();
     }
-  }, [open, task]);
+  }, [open, task]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const entityRegistry = useMemo(() => (
-    buildEntityRegistry({
-      tasks: allTasks,
-      docPages,
-      spaces,
-      releases,
-      testSuites,
-      testCases,
-      testRuns,
-    })
-  ), [allTasks, docPages, releases, spaces, testCases, testRuns, testSuites]);
-
-  const linkSearchResults = useMemo(() => (
-    findLinkableEntities(linkSearch, entityRegistry.entities, {
-      sourceRef: task?.id ? { type: "task", id: task.id } : null,
-      linkedItems,
-    })
-  ), [entityRegistry.entities, linkSearch, linkedItems, task]);
-
-  // Group linked items by relationship
-  const linkedByRelationship = useMemo(() => (
-    groupLinkedItemsByRelationship(linkedItems, entityRegistry.entityMap)
-  ), [entityRegistry.entityMap, linkedItems]);
-
-  const shouldRender = open && task;
-
+  const shouldRender = Boolean(open && task);
   const changed = () => setHasChanges(true);
 
   const buildUpdated = () => ({
@@ -216,20 +128,23 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
     comments: task.comments || [],
   });
 
-  // Immediately persist action-field changes without requiring the Save button.
-  // patch overrides any stale local-state values captured by buildUpdated().
+  // Persist action-field changes immediately; `patch` overrides stale state.
   const autoSave = (patch) => {
-    if (isViewer) return;
+    if (readOnly) return;
     onTaskUpdate?.({ ...buildUpdated(), ...patch });
   };
 
   const handleClose = () => {
-    if (hasChanges) {
-      setShowDiscardConfirm(true);
-    } else {
-      onClose();
-    }
+    if (hasChanges) setShowDiscardConfirm(true);
+    else onClose();
   };
+
+  const handleEscape = () => {
+    if (confirmDelete) { setConfirmDelete(false); return; }
+    if (showDiscardConfirm) { setShowDiscardConfirm(false); return; }
+    handleClose();
+  };
+  useEscapeKey(handleEscape, shouldRender && !openSubtask && !fullView);
 
   const handleConfirmDiscard = () => {
     setShowDiscardConfirm(false);
@@ -238,7 +153,7 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
   };
 
   const handleSave = () => {
-    if (!title.trim() || isViewer) return;
+    if (!title.trim() || readOnly) return;
     onTaskUpdate?.(buildUpdated());
     if (task.id) logActivity(task.id, "updated task");
     setHasChanges(false);
@@ -246,831 +161,422 @@ export default function TaskSidePanel({ task, open, onClose, onTaskUpdate, onOpe
   };
 
   const handleDelete = () => {
+    if (!canArchiveTask) return;
     if (task.id) deleteTask(task.id);
-    addToast("Task deleted", "error");
+    addToast("Task moved to archive", "info");
     onClose();
+  };
+
+  const handleStatusChange = async (nextStatus) => {
+    if (readOnly || nextStatus === status) return;
+    const verdict = await guardStatusChange({ ...task, status }, nextStatus);
+    if (!verdict.ok) return;
+    setStatus(nextStatus);
+    autoSave(verdict.patch);
   };
 
   const addInlineSub = () => {
     if (!inlineSubTitle.trim()) return;
-    const newSub = { id: Date.now(), title: inlineSubTitle.trim(), done: false, priority: "medium", storyPoint: "", assignedTo: "unassigned" };
-    const newSubs = [...subtasks, newSub];
-    setSubtasks(newSubs);
+    const nextSubtasks = [...subtasks, createSubtask(inlineSubTitle)];
+    setSubtasks(nextSubtasks);
     setInlineSubTitle("");
     setInlineSubOpen(false);
-    autoSave({ subtasks: newSubs });
+    autoSave({ subtasks: nextSubtasks });
   };
 
   const toggleSubtask = (id) => {
-    const newSubs = subtasks.map((s) => s.id === id ? { ...s, done: !s.done } : s);
-    setSubtasks(newSubs);
-    autoSave({ subtasks: newSubs });
+    const nextSubtasks = subtasks.map((subtask) => (subtask.id === id ? { ...subtask, done: !subtask.done } : subtask));
+    setSubtasks(nextSubtasks);
+    autoSave({ subtasks: nextSubtasks });
   };
 
   const updateSubtask = (id, updates) => {
-    const newSubs = subtasks.map((s) => s.id === id ? { ...s, ...updates } : s);
-    setSubtasks(newSubs);
-    autoSave({ subtasks: newSubs });
+    const nextSubtasks = subtasks.map((subtask) => (subtask.id === id ? { ...subtask, ...updates } : subtask));
+    setSubtasks(nextSubtasks);
+    autoSave({ subtasks: nextSubtasks });
   };
 
-  // ── Linked items ────────────────────────────────────────────────────────────
-  const handleAddLink = (targetId) => {
-    const targetEntity = typeof targetId === "object" ? targetId : { type: "task", id: targetId };
-    const newLink = {
-      id: Date.now().toString(),
-      targetType: targetEntity.type || "task",
-      targetId: targetEntity.id,
-      relationship: linkRelationship,
-      createdAt: new Date().toISOString(),
-    };
-    const newLinkedItems = [...linkedItems, newLink];
-    setLinkedItems(newLinkedItems);
-    onTaskUpdate?.({ ...buildUpdated(), linkedItems: newLinkedItems });
-    setLinkSearchOpen(false);
-    setLinkSearch("");
+  const removeSubtask = (id) => {
+    setSubtasks((prev) => prev.filter((subtask) => subtask.id !== id));
+    changed();
+  };
+
+  const handleAddLink = (target) => {
+    if (readOnly) return;
+    const nextLinks = [...linkedItems, buildLink(target, links.linkRelationship)];
+    setLinkedItems(nextLinks);
+    autoSave({ linkedItems: nextLinks });
+    closeLinkSearch();
   };
 
   const handleRemoveLink = (linkId) => {
-    const newLinkedItems = linkedItems.filter((l) => l.id !== linkId);
-    setLinkedItems(newLinkedItems);
-    onTaskUpdate?.({ ...buildUpdated(), linkedItems: newLinkedItems });
+    if (readOnly) return;
+    const nextLinks = linkedItems.filter((link) => link.id !== linkId);
+    setLinkedItems(nextLinks);
+    autoSave({ linkedItems: nextLinks });
   };
 
-  // ── Attachments ─────────────────────────────────────────────────────────────
-  const formatFileSize = (bytes) => {
-    if (bytes >= 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + " MB";
-    return (bytes / 1024).toFixed(1) + " KB";
-  };
-
-  const processFiles = (files) => {
-    const MAX_SIZE = 5 * 1024 * 1024; // 5MB
-    Array.from(files).forEach((file) => {
-      if (file.size > MAX_SIZE) {
-        addToast(`File "${file.name}" exceeds 5 MB limit`, "error");
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const newAttachment = {
-          id: Date.now().toString() + Math.random().toString(36).slice(2, 8),
-          name: file.name,
-          size: file.size,
-          type: file.type,
-          dataUrl: e.target.result,
-          addedAt: new Date().toISOString(),
-        };
+  const handleFiles = (files) => {
+    if (readOnly) return;
+    readAttachmentFiles(files, {
+      onAttachment: (attachment) => {
         setAttachments((prev) => {
-          const updated = [...prev, newAttachment];
-          onTaskUpdate?.({ ...buildUpdated(), attachments: updated });
-          return updated;
+          const next = [...prev, attachment];
+          autoSave({ attachments: next });
+          return next;
         });
-      };
-      reader.readAsDataURL(file);
+      },
+      onReject: (file) => addToast(`File "${file.name}" exceeds 5 MB limit`, "error"),
     });
   };
 
-  const handleAttachmentDrop = (e) => {
-    e.preventDefault();
-    setDragOver(false);
-    if (e.dataTransfer.files?.length) processFiles(e.dataTransfer.files);
-  };
-
-  const handleAttachmentSelect = (e) => {
-    if (e.target.files?.length) processFiles(e.target.files);
-    e.target.value = "";
-  };
-
   const removeAttachment = (id) => {
-    const updated = attachments.filter((a) => a.id !== id);
-    setAttachments(updated);
-    onTaskUpdate?.({ ...buildUpdated(), attachments: updated });
+    if (readOnly) return;
+    const next = attachments.filter((attachment) => attachment.id !== id);
+    setAttachments(next);
+    autoSave({ attachments: next });
   };
 
-  const typeInfo     = TYPE_OPTIONS.find((t) => t.value === type) || TYPE_OPTIONS[0];
-  const TypeIcon     = typeInfo.icon;
-  const currentEpic  = epics.find((e) => e.id === epicId);
-  const taskLabelObjects = (taskLabels || []).map((id) => labels.find((l) => l.id === id)).filter(Boolean);
-  const completedSubs = subtasks.filter((s) => s.done).length;
+  const openFullView = () => {
+    const draft = buildUpdated();
+    if (onOpenModal) {
+      onOpenModal(draft, { hasChanges });
+      return;
+    }
+    setFullView({ task: draft, hasChanges });
+  };
 
-  // ── Render ───────────────────────────────────────────────────────────────────
+  const typeInfo = TASK_TYPE_OPTIONS.find((option) => option.value === type) || TASK_TYPE_OPTIONS[0];
+  const TypeIcon = typeInfo.icon;
+  const taskLabelObjects = (taskLabels || []).map((id) => (labels || []).find((label) => label.id === id)).filter(Boolean);
+  const statusLabel = statusOptions.find((option) => option.value === status)?.label || status;
+
+  // Built-in full view (used when no onOpenModal handler is supplied).
+  if (fullView && open) {
+    return (
+      <Suspense fallback={null}>
+        <TaskDetailModal
+          open
+          task={fullView.task}
+          initialDirty={fullView.hasChanges}
+          allTasks={allTasks}
+          onTaskUpdate={onTaskUpdate}
+          onClose={() => { setFullView(null); onClose(); }}
+          onOpenPanel={(draft, meta) => {
+            // Back to the panel with the modal's unsaved edits applied.
+            setTitle(draft.title || "");
+            setDescription(draft.description || "");
+            syncActionFields(draft);
+            setHasChanges(Boolean(meta?.hasChanges));
+            setFullView(null);
+          }}
+        />
+      </Suspense>
+    );
+  }
+
   return (
-    <AnimatePresence>
-      {shouldRender && (
-        <motion.div
-          key="task-side-panel-backdrop"
-          className="fixed inset-0 z-40 bg-black/20"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={handleClose}
-        />
-      )}
-      {shouldRender && (
-        <motion.div
-          key="task-side-panel"
-          className="fixed top-0 right-0 h-full z-40 app-surface border-l border-slate-200 dark:border-[#2a3044] shadow-2xl flex flex-col overflow-hidden"
-          style={{ width: isMobile ? "100vw" : panelWidth }}
-          initial={{ x: "100%" }}
-          animate={{ x: 0 }}
-          exit={{ x: "100%" }}
-          transition={{ type: "spring", damping: 25, stiffness: 300 }}
-        >
-      <SubtaskDetailPanel
-        subtask={openSubtask}
-        parentTask={task}
-        open={!!openSubtask}
-        onClose={() => setOpenSubtask(null)}
-        onSave={(updated) => {
-          const newSubtasks = subtasks.map((s) => s.id === updated.id ? updated : s);
-          setSubtasks(newSubtasks);
-          setOpenSubtask(updated);
-          autoSave({ subtasks: newSubtasks });
-        }}
-      />
-      {/* ── Resize handle — desktop only ── */}
-      {!isMobile && <div
-        className="absolute top-0 left-0 h-full w-2 cursor-col-resize z-50 group flex items-stretch"
-        onMouseDown={(e) => {
-          e.preventDefault();
-          isResizingRef.current = true;
-          document.body.style.cursor = "col-resize";
-          document.body.style.userSelect = "none";
-        }}
-      >
-        <div className="w-px h-full bg-slate-200 dark:bg-[#2a3044] group-hover:bg-blue-400 group-hover:w-0.5 transition-all ml-0.5" />
-      </div>}
-
-      {/* ── Header ── */}
-      <div className="flex items-center gap-2 px-4 py-3 border-b app-divider flex-shrink-0 pl-4 bg-white/70 dark:bg-[#171b28]/70">
-        <div className={`w-6 h-6 rounded flex items-center justify-center flex-shrink-0 ${typeInfo.color.replace("text-", "bg-").replace("500", "50").replace("600", "50")} dark:bg-white/10`}>
-          <TypeIcon className={`w-3.5 h-3.5 ${typeInfo.color}`} />
-        </div>
-        <span className="app-meta-pill font-mono">
-          {taskKey(task.id)}
-        </span>
-        <input
-          className="flex-1 text-sm font-semibold text-slate-800 dark:text-slate-200 bg-transparent border-none outline-none placeholder-slate-300 dark:placeholder-slate-600 min-w-0 disabled:cursor-not-allowed"
-          placeholder="Task title..."
-          value={title}
-          onChange={(e) => { setTitle(e.target.value); changed(); }}
-          disabled={isViewer}
-        />
-        <div className="flex items-center gap-1 ml-auto flex-shrink-0">
-          {onOpenModal && (
-            <button
-              className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
-              onClick={() => onOpenModal(buildUpdated())}
-              title="Open full view"
-            >
-              <FaExpand className="w-3.5 h-3.5" />
-            </button>
-          )}
-          {!isViewer && (
-            <button
-              className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-              onClick={() => setConfirmDelete(true)}
-              title="Delete"
-            >
-              <FaTrash className="w-3.5 h-3.5" />
-            </button>
-          )}
-          <button
-            className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#232838] rounded transition-colors"
+    <>
+      <AnimatePresence>
+        {shouldRender && (
+          <motion.div
+            key="task-side-panel-backdrop"
+            className="fixed inset-0 z-40 bg-black/20"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
             onClick={handleClose}
+          />
+        )}
+        {shouldRender && (
+          <motion.div
+            key="task-side-panel"
+            role="dialog"
+            aria-label={`Task ${taskKey(task.id)}`}
+            className="fixed top-0 right-0 h-full z-40 app-surface border-l border-slate-200 dark:border-[#2a3044] shadow-2xl flex flex-col overflow-hidden"
+            style={{ width }}
+            initial={{ x: "100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "100%" }}
+            transition={{ type: "spring", damping: 25, stiffness: 300 }}
           >
-            <FaTimes className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
+            <SubtaskDetailPanel
+              subtask={openSubtask}
+              parentTask={task}
+              open={!!openSubtask}
+              readOnly={readOnly}
+              onClose={() => setOpenSubtask(null)}
+              onSave={(updated) => {
+                const nextSubtasks = subtasks.map((subtask) => (subtask.id === updated.id ? updated : subtask));
+                setSubtasks(nextSubtasks);
+                setOpenSubtask(updated);
+                autoSave({ subtasks: nextSubtasks });
+              }}
+            />
 
-      {/* ── Delete confirm ── */}
-      {confirmDelete && (
-        <div className="bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800 px-4 py-2.5 flex items-center justify-between flex-shrink-0">
-          <span className="text-xs text-red-700 dark:text-red-400">Delete this task?</span>
-          <div className="flex gap-2">
-            <AppButton size="sm" variant="danger" onClick={handleDelete}>Delete</AppButton>
-            <AppButton size="sm" variant="secondary" onClick={() => setConfirmDelete(false)}>Cancel</AppButton>
-          </div>
-        </div>
-      )}
+            {!isMobile && (
+              <div className="absolute top-0 left-0 h-full w-2 cursor-col-resize z-50 group flex items-stretch" onMouseDown={startResize}>
+                <div className="w-px h-full bg-slate-200 dark:bg-[#2a3044] group-hover:bg-blue-400 group-hover:w-0.5 transition-all ml-0.5" />
+              </div>
+            )}
 
-      {/* ── Status + key row ── */}
-      <div className="flex items-center gap-2 px-4 py-2.5 border-b app-divider flex-shrink-0 flex-wrap bg-slate-50/65 dark:bg-[#151a27]/80">
-        <AppBadge tone={getTaskStatusTone(status)}>
-          {STATUS_OPTIONS.find((o) => o.value === status)?.label || status}
-        </AppBadge>
-        <MiniSelect
-          value={status}
-          options={STATUS_OPTIONS}
-          onChange={(v) => { setStatus(v); autoSave({ status: v }); }}
-          renderValue={() => <span className="text-slate-500 dark:text-slate-400">Change status</span>}
-          renderOption={(opt) => opt.label}
-          disabled={isViewer}
-        />
-      </div>
-
-      {/* ── Tabs ── */}
-      <div className="flex border-b app-divider px-4 flex-shrink-0 bg-slate-50/65 dark:bg-[#151a27]/80">
-        {[
-          { id: "details",  label: "Details" },
-          { id: "subtasks", label: `Subtasks (${subtasks.length})` },
-        ].map((tab) => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-            className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors mr-1 ${
-              activeTab === tab.id
-                ? "border-blue-500 text-blue-600"
-                : "border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
-            }`}
-          >{tab.label}</button>
-        ))}
-      </div>
-
-      {/* ── Body ── */}
-      <div className="flex-1 overflow-y-auto">
-
-        {/* ═══ DETAILS TAB ═══ */}
-        {activeTab === "details" && (
-          <div className="p-4 space-y-4">
-            {/* Quick fields grid */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <div className="text-xs text-slate-400 dark:text-slate-500 mb-1">Priority</div>
-                <MiniSelect
-                  value={priority}
-                  options={PRIORITY_OPTIONS}
-                  onChange={(v) => { setPriority(v); autoSave({ priority: v }); }}
-                  renderValue={(v) => { const o = PRIORITY_OPTIONS.find((p) => p.value === v); return o ? <span className={o.color}>{o.label}</span> : v; }}
-                  renderOption={(opt) => <span className={opt.color}>{opt.label}</span>}
-                  disabled={isViewer}
-                />
+            {/* Header */}
+            <div className="flex items-center gap-2 px-4 py-3 border-b app-divider flex-shrink-0 pl-4 bg-white/70 dark:bg-[#171b28]/70">
+              <div className={`w-6 h-6 rounded flex items-center justify-center flex-shrink-0 ${typeInfo.color.replace("text-", "bg-").replace("500", "50").replace("600", "50")} dark:bg-white/10`}>
+                <TypeIcon className={`w-3.5 h-3.5 ${typeInfo.color}`} />
               </div>
-              <div>
-                <div className="text-xs text-slate-400 dark:text-slate-500 mb-1">Assignee</div>
-                <MiniSelect
-                  value={assignedTo}
-                  options={projectAssignees.map(m => ({ value: m.value, label: m.label }))}
-                  onChange={(v) => { setAssignedTo(v); autoSave({ assignedTo: v }); }}
-                  renderValue={(v) => <span>{projectAssignees.find((m) => m.value === v)?.label || v}</span>}
-                  renderOption={(opt) => <span>{opt.label}</span>}
-                  disabled={isViewer}
-                />
-              </div>
-              <div>
-                <div className="text-xs text-slate-400 dark:text-slate-500 mb-1">Type</div>
-                <MiniSelect
-                  value={type}
-                  options={TYPE_OPTIONS}
-                  onChange={(v) => { setType(v); autoSave({ type: v }); }}
-                  renderValue={(v) => { const o = TYPE_OPTIONS.find((t) => t.value === v); if (!o) return v; const I = o.icon; return <span className="flex items-center gap-1"><I className={`w-3 h-3 ${o.color}`} />{o.label}</span>; }}
-                  renderOption={(opt) => { const I = opt.icon; return <><I className={`w-3 h-3 flex-shrink-0 ${opt.color}`} />{opt.label}</>; }}
-                  disabled={isViewer}
-                />
-              </div>
-              <div>
-                <div className="text-xs text-slate-400 dark:text-slate-500 mb-1">Story Points</div>
-                <input type="number" min="0"
-                  className="w-full border border-slate-200 dark:border-[#2a3044] rounded-md px-2 py-1 text-xs text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-[#232838] focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:opacity-50 disabled:cursor-not-allowed"
-                  value={storyPoint}
-                  onChange={(e) => { setStoryPoint(e.target.value); changed(); }}
-                  placeholder="0"
-                  disabled={isViewer}
-                />
-              </div>
-              <div>
-                <div className="text-xs text-slate-400 dark:text-slate-500 mb-1">Due Date</div>
-                <input type="date"
-                  className="w-full border border-slate-200 dark:border-[#2a3044] rounded-md px-2 py-1 text-xs text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-[#232838] focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:opacity-50 disabled:cursor-not-allowed"
-                  value={dueDate}
-                  onChange={(e) => { setDueDate(e.target.value); autoSave({ dueDate: e.target.value }); }}
-                  disabled={isViewer}
-                />
-              </div>
-              <div>
-                <div className="text-xs text-slate-400 dark:text-slate-500 mb-1">Epic</div>
-                <Listbox value={epicId} onChange={(v) => { setEpicId(v); autoSave({ epicId: v }); }}>
-                  <div className="relative">
-                    <Listbox.Button className="flex items-center gap-1 px-2 py-1 rounded-md text-xs border border-slate-200 dark:border-[#2a3044] bg-slate-50 dark:bg-[#232838] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#2a3044] transition-colors w-full justify-between focus:outline-none">
-                      {currentEpic
-                        ? <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ backgroundColor: currentEpic.color }} />{currentEpic.title}</span>
-                        : <span className="text-slate-400">No Epic</span>
-                      }
-                      <FaChevronDown className="w-2.5 h-2.5 text-slate-400" />
-                    </Listbox.Button>
-                    <Listbox.Options className="absolute z-50 mt-1 bg-white dark:bg-[#1c2030] border border-slate-200 dark:border-[#2a3044] rounded-lg shadow-lg py-1 w-full max-h-36 overflow-auto">
-                      <Listbox.Option value={null} className={({ active }) => `px-2.5 py-1.5 text-xs cursor-pointer text-slate-500 ${active ? "bg-blue-50 dark:bg-blue-900/20" : ""}`}>No Epic</Listbox.Option>
-                      {epics.map((e) => (
-                        <Listbox.Option key={e.id} value={e.id}
-                          className={({ active }) => `flex items-center gap-1.5 px-2.5 py-1.5 text-xs cursor-pointer ${active ? "bg-blue-50 dark:bg-blue-900/20" : ""}`}
-                        >
-                          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: e.color }} />
-                          <span className="text-slate-700 dark:text-slate-300">{e.title}</span>
-                        </Listbox.Option>
-                      ))}
-                    </Listbox.Options>
-                  </div>
-                </Listbox>
-              </div>
-            </div>
-
-            {/* Description */}
-            <div>
-              <div className="text-xs text-slate-400 dark:text-slate-500 mb-1">Description</div>
-              <textarea
-                className="w-full border border-slate-200 dark:border-[#2a3044] rounded-lg px-3 py-2 text-sm text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-[#232838] resize-none focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-slate-400 dark:placeholder-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                rows={3}
-                placeholder="Add a description..."
-                value={description}
-                onChange={(e) => { setDescription(e.target.value); changed(); }}
-                disabled={isViewer}
+              <span className="app-meta-pill font-mono">{taskKey(task.id)}</span>
+              <input
+                className="flex-1 text-sm font-semibold text-slate-800 dark:text-slate-200 bg-transparent border-none outline-none placeholder-slate-300 dark:placeholder-slate-600 min-w-0 disabled:cursor-not-allowed"
+                placeholder="Task title..."
+                value={title}
+                onChange={(event) => { setTitle(event.target.value); changed(); }}
+                disabled={readOnly}
               />
+              <div className="flex items-center gap-1 ml-auto flex-shrink-0">
+                <button
+                  type="button"
+                  className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
+                  onClick={openFullView}
+                  title="Open full view"
+                >
+                  <FaExpand className="w-3.5 h-3.5" />
+                </button>
+                {canArchiveTask && (
+                  <button
+                    type="button"
+                    className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                    onClick={() => setConfirmDelete(true)}
+                    title="Delete"
+                  >
+                    <FaTrash className="w-3.5 h-3.5" />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#232838] rounded transition-colors"
+                  onClick={handleClose}
+                  title="Close"
+                >
+                  <FaTimes className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
-            {/* Labels */}
-            {taskLabelObjects.length > 0 && (
-              <div>
-                <div className="text-xs text-slate-400 dark:text-slate-500 mb-1.5">Labels</div>
-                <div className="flex flex-wrap gap-1.5">
-                  {taskLabelObjects.map((label) => (
-                    <span key={label.id} className="text-xs px-2 py-0.5 rounded-full font-medium"
-                      style={{ backgroundColor: label.color + "22", color: label.color, border: `1px solid ${label.color}44` }}
-                    >{label.name}</span>
-                  ))}
+            {confirmDelete && (
+              <div className="bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800 px-4 py-2.5 flex items-center justify-between flex-shrink-0">
+                <span className="text-xs text-red-700 dark:text-red-400">Move this task to the archive?</span>
+                <div className="flex gap-2">
+                  <AppButton size="sm" variant="danger" onClick={handleDelete}>Delete</AppButton>
+                  <AppButton size="sm" variant="secondary" onClick={() => setConfirmDelete(false)}>Cancel</AppButton>
                 </div>
               </div>
             )}
 
-            {/* Watchers */}
-            <div>
-              <div className="text-xs text-slate-400 dark:text-slate-500 mb-1.5">Watchers</div>
-              <div className="flex flex-wrap gap-1.5">
-                {projectAssignees.filter(m => m.value && m.value !== "unassigned").map((member) => {
-                  const watching = watchers.includes(member.value);
-                  return (
-                    <button key={member.value} onClick={() => { setWatchers((p) => watching ? p.filter((w) => w !== member.value) : [...p, member.value]); changed(); }}
-                      className={`flex items-center gap-1 px-2 py-1 rounded text-xs border transition-all ${watching ? "bg-blue-50 dark:bg-blue-900/20 border-blue-300 text-blue-600" : "border-slate-200 dark:border-[#2a3044] text-slate-500 dark:text-slate-400"}`}
-                    >
-                      {watching ? <FaEye className="w-2.5 h-2.5" /> : <FaEyeSlash className="w-2.5 h-2.5" />}
-                      <span>{member.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
+            {/* Status row */}
+            <div className="flex items-center gap-2 px-4 py-2.5 border-b app-divider flex-shrink-0 flex-wrap bg-slate-50/65 dark:bg-[#151a27]/80">
+              <AppBadge tone={getTaskStatusTone(status)}>{statusLabel}</AppBadge>
+              <PanelMiniSelect
+                value={status}
+                options={statusOptions}
+                onChange={handleStatusChange}
+                renderValue={() => <span className="text-slate-500 dark:text-slate-400">Change status</span>}
+                renderOption={(option) => option.label}
+                disabled={readOnly}
+              />
+              {status === "blocked" && task.blockReason && (
+                <span className="text-[11px] text-red-600 dark:text-red-400 truncate max-w-full" title={task.blockReason}>
+                  Blocked: {task.blockReason}
+                </span>
+              )}
             </div>
 
-            {/* ── Subtasks inline table ── */}
-            <div className="border border-slate-200 dark:border-[#2a3044] rounded-lg overflow-hidden">
-              <div className="flex items-center justify-between px-3 py-2 bg-slate-50 dark:bg-[#232838] border-b border-slate-200 dark:border-[#2a3044]">
-                <span className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wide">Subtasks</span>
-                <div className="flex items-center gap-2">
-                  {subtasks.length > 0 && (
-                    <span className={`text-xs font-medium ${completedSubs === subtasks.length ? "text-green-600 dark:text-green-400" : "text-slate-400"}`}>
-                      {completedSubs === subtasks.length ? "100% Done" : `${completedSubs}/${subtasks.length}`}
-                    </span>
-                  )}
-                  <button
-                    onClick={() => setInlineSubOpen(true)}
-                    className="p-0.5 rounded hover:bg-slate-200 dark:hover:bg-[#2a3044] text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
-                    title="Add subtask"
-                  >
-                    <FaPlus className="w-2.5 h-2.5" />
-                  </button>
-                </div>
-              </div>
+            {/* Tabs */}
+            <div className="flex border-b app-divider px-4 flex-shrink-0 bg-slate-50/65 dark:bg-[#151a27]/80">
+              {[
+                { id: "details", label: "Details" },
+                { id: "subtasks", label: `Subtasks (${subtasks.length})` },
+              ].map((tab) => (
+                <button
+                  type="button"
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors mr-1 ${
+                    activeTab === tab.id
+                      ? "border-blue-500 text-blue-600 dark:text-blue-400"
+                      : "border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
 
-              {/* Progress bar */}
-              {subtasks.length > 0 && (
-                <div className="h-1 bg-slate-100 dark:bg-[#1a1f2e]">
-                  <div className="h-full bg-green-500 transition-all" style={{ width: `${(completedSubs / subtasks.length) * 100}%` }} />
-                </div>
-              )}
-
-              {/* Table header */}
-              {subtasks.length > 0 && (
-                <div className="grid px-3 py-1.5 bg-slate-50/50 dark:bg-[#1a1f2e]/50 text-[10px] text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-[#2a3044]"
-                  style={{ gridTemplateColumns: "1fr 36px 30px 26px 54px 16px", gap: "6px" }}>
-                  <span>Work</span>
-                  <span>Pri</span>
-                  <span className="text-center">SP</span>
-                  <span />
-                  <span>Status</span>
-                  <span />
-                </div>
-              )}
-
-              {/* Rows */}
-              {subtasks.map((sub) => {
-                const priColors  = { critical: "#ef4444", high: "#f97316", medium: "#eab308", low: "#22c55e" };
-                const priLabels  = { critical: "Crit", high: "High", medium: "Med", low: "Low" };
-                const assigneeColors = { alice: "#3b82f6", bob: "#7c3aed", carol: "#10b981", dave: "#f59e0b" };
-                const assigneeInitial = (sub.assignedTo && sub.assignedTo !== "unassigned")
-                  ? sub.assignedTo.charAt(0).toUpperCase() : "–";
-                return (
-                  <div key={sub.id}
-                    className="grid items-center px-3 py-2 border-b border-slate-100 dark:border-[#2a3044] last:border-0 hover:bg-slate-50 dark:hover:bg-[#232838] group"
-                    style={{ gridTemplateColumns: "1fr 36px 30px 26px 54px 16px", gap: "6px" }}
-                  >
-                    {/* Title + checkbox */}
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <button
-                        onClick={() => toggleSubtask(sub.id)}
-                        className={`w-3.5 h-3.5 rounded border flex-shrink-0 flex items-center justify-center transition-colors ${
-                          sub.done ? "bg-green-500 border-green-500" : "border-slate-300 dark:border-slate-600 hover:border-green-400"
-                        }`}
-                      >
-                        {sub.done && <FaCheck className="w-2 h-2 text-white" />}
-                      </button>
-                      <button
-                        onClick={() => setOpenSubtask(sub)}
-                        className={`text-xs truncate text-left hover:text-blue-500 dark:hover:text-blue-400 transition-colors ${sub.done ? "line-through text-slate-400" : "text-slate-700 dark:text-slate-300"}`}
-                      >
-                        {sub.title}
-                      </button>
-                    </div>
-
-                    {/* Priority — small select styled as badge */}
-                    <select
-                      value={sub.priority || "medium"}
-                      onChange={(e) => updateSubtask(sub.id, { priority: e.target.value })}
-                      className="w-full text-[10px] font-semibold bg-transparent border-0 focus:outline-none cursor-pointer appearance-none text-center rounded"
-                      style={{ color: priColors[sub.priority || "medium"] }}
-                      title="Priority"
-                    >
-                      {["critical","high","medium","low"].map((p) => (
-                        <option key={p} value={p}>{priLabels[p]}</option>
-                      ))}
-                    </select>
-
-                    {/* Story Points */}
-                    <input
-                      type="number" min="0"
-                      value={sub.storyPoint ?? ""}
-                      onChange={(e) => updateSubtask(sub.id, { storyPoint: e.target.value })}
-                      className="w-full text-xs text-center border border-slate-200 dark:border-[#2a3044] rounded px-0.5 py-0.5 bg-slate-50 dark:bg-[#232838] text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-400"
-                      placeholder="–"
-                      title="Story Points"
-                    />
-
-                    {/* Assignee avatar */}
-                    <div className="flex justify-center">
-                      <select
-                        value={sub.assignedTo || "unassigned"}
-                        onChange={(e) => updateSubtask(sub.id, { assignedTo: e.target.value })}
-                        className="sr-only"
-                        id={`sub-asgn-${sub.id}`}
-                      >
-                        <option value="unassigned">–</option>
-                        {projectAssignees.filter(m => m.value && m.value !== "unassigned").map((m) => (
-                          <option key={m.value} value={m.value}>{m.label}</option>
-                        ))}
-                      </select>
-                      <label
-                        htmlFor={`sub-asgn-${sub.id}`}
-                        className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[9px] font-bold cursor-pointer hover:ring-2 hover:ring-blue-300 transition-all flex-shrink-0"
-                        style={{ backgroundColor: assigneeColors[sub.assignedTo] || "#94a3b8" }}
-                        title={sub.assignedTo && sub.assignedTo !== "unassigned" ? (projectAssignees.find((m) => m.value === sub.assignedTo)?.label || sub.assignedTo) : "Unassigned"}
-                      >
-                        {assigneeInitial}
-                      </label>
-                    </div>
-
-                    {/* Status */}
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium text-center leading-tight ${
-                      sub.done ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                               : "bg-slate-100 text-slate-500 dark:bg-slate-700/50 dark:text-slate-400"
-                    }`}>
-                      {sub.done ? "Done" : "To Do"}
-                    </span>
-
-                    {/* Delete */}
-                    <button
-                      className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition-all justify-self-center"
-                      onClick={() => { setSubtasks((p) => p.filter((s) => s.id !== sub.id)); changed(); }}
-                    >
-                      <FaTimes className="w-2.5 h-2.5" />
-                    </button>
-                  </div>
-                );
-              })}
-
-              {/* Inline add row */}
-              {inlineSubOpen ? (
-                <div className="flex gap-2 p-2 border-t border-slate-100 dark:border-[#2a3044]">
-                  <input
-                    autoFocus
-                    className="flex-1 text-xs border border-blue-300 dark:border-blue-500 rounded px-2 py-1 bg-white dark:bg-[#232838] text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-400 placeholder-slate-400"
-                    placeholder="Subtask title..."
-                    value={inlineSubTitle}
-                    onChange={(e) => setInlineSubTitle(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") addInlineSub();
-                      if (e.key === "Escape") { setInlineSubOpen(false); setInlineSubTitle(""); }
-                    }}
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto">
+              {activeTab === "details" && (
+                <div className="p-4 space-y-4">
+                  <PanelQuickFields
+                    priority={priority}
+                    assignedTo={assignedTo}
+                    type={type}
+                    storyPoint={storyPoint}
+                    dueDate={dueDate}
+                    epicId={epicId}
+                    projectAssignees={projectAssignees}
+                    epics={projectEpics}
+                    readOnly={readOnly}
+                    onPriorityChange={(value) => { setPriority(value); autoSave({ priority: value }); }}
+                    onAssigneeChange={(value) => { setAssignedTo(value); autoSave({ assignedTo: value }); }}
+                    onTypeChange={(value) => { setType(value); autoSave({ type: value }); }}
+                    onStoryPointChange={(value) => { setStoryPoint(value); changed(); }}
+                    onDueDateChange={(value) => { setDueDate(value); autoSave({ dueDate: value }); }}
+                    onEpicChange={(value) => { setEpicId(value); autoSave({ epicId: value }); }}
                   />
-                  <button className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700" onClick={addInlineSub}>Add</button>
-                  <button className="px-2 py-1 text-slate-400 text-xs hover:text-slate-600" onClick={() => { setInlineSubOpen(false); setInlineSubTitle(""); }}>✕</button>
-                </div>
-              ) : (
-                <button
-                  className="w-full text-left px-3 py-2 text-xs text-slate-400 hover:text-blue-500 hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors border-t border-slate-100 dark:border-[#2a3044]"
-                  onClick={() => setInlineSubOpen(true)}
-                >
-                  + Add subtask
-                </button>
-              )}
-            </div>
 
-            {/* ── Linked Items ── */}
-            <div className="border border-slate-200 dark:border-[#2a3044] rounded-lg overflow-hidden">
-              <div className="flex items-center justify-between px-3 py-2 bg-slate-50 dark:bg-[#232838] border-b border-slate-200 dark:border-[#2a3044]">
-                <div className="flex items-center gap-1.5">
-                  <FaLink className="w-3 h-3 text-slate-400" />
-                  <span className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wide">Linked Items</span>
-                  {linkedItems.length > 0 && (
-                    <span className="text-xs text-slate-400 bg-slate-200 dark:bg-[#2a3044] px-1.5 rounded-full">{linkedItems.length}</span>
-                  )}
-                </div>
-                <button
-                  onClick={() => setLinkSearchOpen((p) => !p)}
-                  className="p-0.5 rounded hover:bg-slate-200 dark:hover:bg-[#2a3044] text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
-                  title="Link an entity"
-                >
-                  <FaPlus className="w-2.5 h-2.5" />
-                </button>
-              </div>
-
-              {/* Link search UI */}
-              {linkSearchOpen && (
-                <div className="p-2.5 border-b border-slate-100 dark:border-[#2a3044] bg-blue-50/30 dark:bg-blue-900/10 space-y-2">
-                  {/* Relationship selector */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-slate-500 dark:text-slate-400 flex-shrink-0">Link type:</span>
-                    <select
-                      className="flex-1 text-xs border border-slate-200 dark:border-[#2a3044] rounded px-2 py-1 bg-white dark:bg-[#232838] text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-400"
-                      value={linkRelationship}
-                      onChange={(e) => setLinkRelationship(e.target.value)}
-                    >
-                      {LINK_RELATIONSHIPS.map((r) => (
-                        <option key={r} value={r}>{r}</option>
-                      ))}
-                    </select>
-                  </div>
-                  {/* Entity search */}
-                  <div className="relative">
-                    <FaSearch className="absolute left-2 top-1/2 -translate-y-1/2 w-2.5 h-2.5 text-slate-400" />
-                    <input
-                      autoFocus
-                      className="w-full pl-6 pr-2 py-1.5 text-xs border border-slate-200 dark:border-[#2a3044] rounded-lg bg-white dark:bg-[#232838] text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-400 placeholder-slate-400"
-                      placeholder="Search tasks, docs, releases, or tests..."
-                      value={linkSearch}
-                      onChange={(e) => setLinkSearch(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === "Escape") { setLinkSearchOpen(false); setLinkSearch(""); } }}
+                  <div>
+                    <div className="text-xs text-slate-400 dark:text-slate-500 mb-1">Description</div>
+                    <textarea
+                      className="w-full border border-slate-200 dark:border-[#2a3044] rounded-lg px-3 py-2 text-sm text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-[#232838] resize-none focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-slate-400 dark:placeholder-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                      rows={3}
+                      placeholder="Add a description..."
+                      value={description}
+                      onChange={(event) => { setDescription(event.target.value); changed(); }}
+                      disabled={readOnly}
                     />
                   </div>
-                  {linkSearchResults.length > 0 && (
-                    <div className="border border-slate-200 dark:border-[#2a3044] rounded-lg bg-white dark:bg-[#1c2030] divide-y divide-slate-100 dark:divide-[#2a3044] max-h-44 overflow-y-auto">
-                      {linkSearchResults.map((entity) => {
-                        const entityMeta = getEntityTypeMeta(entity.type);
-                        const EntityIcon = entityMeta.icon;
+
+                  {taskLabelObjects.length > 0 && (
+                    <div>
+                      <div className="text-xs text-slate-400 dark:text-slate-500 mb-1.5">Labels</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {taskLabelObjects.map((label) => (
+                          <span
+                            key={label.id}
+                            className="text-xs px-2 py-0.5 rounded-full font-medium"
+                            style={{ backgroundColor: `${label.color}22`, color: label.color, border: `1px solid ${label.color}44` }}
+                          >
+                            {label.name}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <div className="text-xs text-slate-400 dark:text-slate-500 mb-1.5">Watchers</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {projectAssignees.filter((member) => member.value && member.value !== "unassigned").map((member) => {
+                        const watching = watchers.includes(member.value);
                         return (
                           <button
-                            key={`${entity.type}-${entity.id}`}
-                            className="w-full flex items-center gap-2 px-3 py-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-left transition-colors"
-                            onClick={() => handleAddLink(entity)}
+                            type="button"
+                            key={member.value}
+                            disabled={readOnly}
+                            onClick={() => {
+                              setWatchers((prev) => (watching ? prev.filter((watcher) => watcher !== member.value) : [...prev, member.value]));
+                              changed();
+                            }}
+                            className={`flex items-center gap-1 px-2 py-1 rounded text-xs border transition-all ${watching ? "bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400" : "border-slate-200 dark:border-[#2a3044] text-slate-500 dark:text-slate-400"}`}
                           >
-                            <EntityIcon className={`w-3 h-3 flex-shrink-0 ${entityMeta.color}`} />
-                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0 ${entityMeta.badgeClass}`}>
-                              {entityMeta.label}
-                            </span>
-                            <span className="text-xs font-mono text-slate-400 flex-shrink-0">{entity.key || taskKey(entity.id)}</span>
-                            <span className="text-xs text-slate-700 dark:text-slate-300 flex-1 truncate">{entity.title}</span>
-                            <span className="hidden md:inline text-[11px] text-slate-400 truncate max-w-24">
-                              {entity.subtitle || "Linked entity"}
-                            </span>
+                            {watching ? <FaEye className="w-2.5 h-2.5" /> : <FaEyeSlash className="w-2.5 h-2.5" />}
+                            <span>{member.label}</span>
                           </button>
                         );
                       })}
                     </div>
-                  )}
-                  {linkSearch.trim() && linkSearchResults.length === 0 && (
-                    <div className="text-xs text-slate-400 text-center py-2">No matching entities found</div>
-                  )}
-                  <button
-                    className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-                    onClick={() => { setLinkSearchOpen(false); setLinkSearch(""); }}
-                  >Cancel</button>
+                  </div>
+
+                  <PanelSubtasksTable
+                    subtasks={subtasks}
+                    projectAssignees={projectAssignees}
+                    users={users}
+                    readOnly={readOnly}
+                    inlineSubOpen={inlineSubOpen}
+                    setInlineSubOpen={setInlineSubOpen}
+                    inlineSubTitle={inlineSubTitle}
+                    setInlineSubTitle={setInlineSubTitle}
+                    onAdd={addInlineSub}
+                    onToggle={toggleSubtask}
+                    onUpdate={updateSubtask}
+                    onRemove={removeSubtask}
+                    onOpen={setOpenSubtask}
+                  />
+
+                  <PanelLinkedItems
+                    linkedItems={linkedItems}
+                    linkSearchOpen={links.linkSearchOpen}
+                    setLinkSearchOpen={links.setLinkSearchOpen}
+                    linkRelationship={links.linkRelationship}
+                    setLinkRelationship={links.setLinkRelationship}
+                    linkSearch={links.linkSearch}
+                    setLinkSearch={links.setLinkSearch}
+                    linkSearchResults={links.linkSearchResults}
+                    closeLinkSearch={closeLinkSearch}
+                    linkedByRelationship={links.linkedByRelationship}
+                    onAddLink={handleAddLink}
+                    onRemoveLink={handleRemoveLink}
+                    readOnly={readOnly}
+                  />
+
+                  <TaskAttachments
+                    variant="panel"
+                    attachments={attachments}
+                    onFiles={handleFiles}
+                    onRemove={removeAttachment}
+                    readOnly={readOnly}
+                  />
+
+                  <CommentSection
+                    key={task.id}
+                    savedComments={task.comments || []}
+                    allTasks={allTasks}
+                    taskTitle={task.title}
+                    taskId={task.id}
+                    onUpdate={(newComments) => onTaskUpdate?.({ ...buildUpdated(), comments: newComments })}
+                  />
                 </div>
               )}
 
-              {/* Linked items list grouped by relationship */}
-              {Object.keys(linkedByRelationship).length > 0 ? (
-                <div>
-                  {Object.entries(linkedByRelationship).map(([rel, items]) => (
-                    <div key={rel}>
-                      <div className="px-3 py-1.5 text-xs text-slate-400 dark:text-slate-500 italic border-b border-slate-50 dark:border-[#2a3044] bg-slate-50/50 dark:bg-[#1a1f2e]/30">
-                        {rel}
-                      </div>
-                      {items.map(({ id: linkId, linkedEntity }) => {
-                        const entityMeta = getEntityTypeMeta(linkedEntity.type);
-                        const EntityIcon = entityMeta.icon;
-                        return (
-                          <div key={linkId}
-                            className="flex items-center gap-2 px-3 py-2 border-b border-slate-50 dark:border-[#2a3044] last:border-0 hover:bg-slate-50 dark:hover:bg-[#232838] group"
-                          >
-                            <EntityIcon className={`w-3.5 h-3.5 flex-shrink-0 ${entityMeta.color}`} />
-                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0 ${entityMeta.badgeClass}`}>
-                              {entityMeta.label}
-                            </span>
-                            <span className="text-xs font-mono text-slate-400 dark:text-slate-500 flex-shrink-0">{linkedEntity.key || taskKey(linkedEntity.id)}</span>
-                            <span className="text-xs text-slate-700 dark:text-slate-300 flex-1 truncate">{linkedEntity.title}</span>
-                            <span className="hidden md:inline text-[11px] text-slate-400 truncate max-w-24">
-                              {linkedEntity.subtitle || "Linked entity"}
-                            </span>
-                            <button
-                              className="opacity-0 group-hover:opacity-100 p-0.5 text-slate-300 hover:text-red-500 transition-all flex-shrink-0"
-                              onClick={() => handleRemoveLink(linkId)}
-                              title="Unlink"
-                            >
-                              <FaTimes className="w-2.5 h-2.5" />
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                !linkSearchOpen && (
-                  <button
-                    className="w-full text-left px-3 py-2.5 text-xs text-slate-400 hover:text-blue-500 hover:bg-slate-50 dark:hover:bg-[#232838] transition-colors"
-                    onClick={() => setLinkSearchOpen(true)}
-                  >
-                    + Link a related task, doc, release, or test item
-                  </button>
-                )
-              )}
-            </div>
-
-            {/* ── Attachments ── */}
-            <div className="border border-slate-200 dark:border-[#2a3044] rounded-lg overflow-hidden">
-              <div className="flex items-center justify-between px-3 py-2 bg-slate-50 dark:bg-[#232838] border-b border-slate-200 dark:border-[#2a3044]">
-                <div className="flex items-center gap-1.5">
-                  <FaPaperclip className="w-3 h-3 text-slate-400" />
-                  <span className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wide">Attachments</span>
-                  {attachments.length > 0 && (
-                    <span className="text-xs text-slate-400 bg-slate-200 dark:bg-[#2a3044] px-1.5 rounded-full">{attachments.length}</span>
-                  )}
-                </div>
-              </div>
-
-              {/* Drop zone */}
-              <div
-                className={`p-3 border-b border-slate-100 dark:border-[#2a3044] transition-colors cursor-pointer ${
-                  dragOver
-                    ? "bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-600"
-                    : "bg-white dark:bg-[#1c2030] hover:bg-slate-50 dark:hover:bg-[#232838]"
-                }`}
-                onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-                onDragLeave={() => setDragOver(false)}
-                onDrop={handleAttachmentDrop}
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <div className="flex flex-col items-center justify-center py-2 border-2 border-dashed border-slate-200 dark:border-[#2a3044] rounded-lg">
-                  <FaCloudUploadAlt className={`w-5 h-5 mb-1 ${dragOver ? "text-blue-500" : "text-slate-300 dark:text-slate-600"}`} />
-                  <span className="text-xs text-slate-400 dark:text-slate-500">
-                    {dragOver ? "Drop files here" : "Drop files here or click to browse"}
-                  </span>
-                  <span className="text-[10px] text-slate-300 dark:text-slate-600 mt-0.5">Max 5 MB per file</span>
-                </div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  multiple
-                  className="hidden"
-                  onChange={handleAttachmentSelect}
+              {activeTab === "subtasks" && (
+                <PanelSubtasksTab
+                  subtasks={subtasks}
+                  readOnly={readOnly}
+                  inlineSubTitle={inlineSubTitle}
+                  setInlineSubTitle={setInlineSubTitle}
+                  onAdd={addInlineSub}
+                  onToggle={toggleSubtask}
+                  onRemove={removeSubtask}
                 />
-              </div>
-
-              {/* File list */}
-              {attachments.length > 0 && (
-                <div>
-                  {attachments.map((att) => (
-                    <div key={att.id} className="flex items-center gap-2 px-3 py-2 border-b border-slate-100 dark:border-[#2a3044] last:border-0 hover:bg-slate-50 dark:hover:bg-[#232838] group">
-                      {att.type?.startsWith("image/") ? (
-                        <img
-                          src={att.dataUrl}
-                          alt={att.name}
-                          className="w-10 h-10 rounded object-cover flex-shrink-0 border border-slate-200 dark:border-[#2a3044]"
-                        />
-                      ) : (
-                        <div className="w-10 h-10 rounded bg-slate-100 dark:bg-[#232838] flex items-center justify-center flex-shrink-0 border border-slate-200 dark:border-[#2a3044]">
-                          <FaFileAlt className="w-4 h-4 text-slate-400" />
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs text-slate-700 dark:text-slate-300 truncate">{att.name}</div>
-                        <div className="text-[10px] text-slate-400 dark:text-slate-500">{formatFileSize(att.size)}</div>
-                      </div>
-                      <button
-                        className="opacity-0 group-hover:opacity-100 p-0.5 text-slate-300 hover:text-red-500 transition-all flex-shrink-0"
-                        onClick={(e) => { e.stopPropagation(); removeAttachment(att.id); }}
-                        title="Remove"
-                      >
-                        <FaTimes className="w-2.5 h-2.5" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
               )}
             </div>
 
-            {/* ── Comments ── */}
-            <CommentSection
-              key={task.id}
-              savedComments={task.comments || []}
-              allTasks={allTasks}
-              taskTitle={task.title}
-              taskId={task.id}
-              onUpdate={(newComments) => onTaskUpdate?.({ ...buildUpdated(), comments: newComments })}
-            />
-          </div>
-        )}
-
-        {/* ═══ SUBTASKS TAB ═══ */}
-        {activeTab === "subtasks" && (
-          <div className="p-4">
-            {subtasks.length > 0 && (
-              <div className="mb-3">
-                <div className="flex justify-between text-xs text-slate-400 dark:text-slate-500 mb-1">
-                  <span>{completedSubs}/{subtasks.length} done</span>
-                  <span>{subtasks.length > 0 ? Math.round((completedSubs / subtasks.length) * 100) : 0}%</span>
-                </div>
-                <div className="h-1.5 bg-slate-100 dark:bg-[#232838] rounded-full overflow-hidden">
-                  <div className="h-full bg-green-500 rounded-full" style={{ width: `${subtasks.length > 0 ? (completedSubs / subtasks.length) * 100 : 0}%` }} />
+            {showDiscardConfirm && (
+              <div className="bg-amber-50 dark:bg-amber-900/20 border-t border-amber-200 dark:border-amber-800 px-4 py-2.5 flex items-center justify-between flex-shrink-0">
+                <span className="text-xs text-amber-700 dark:text-amber-400">You have unsaved changes. Discard?</span>
+                <div className="flex gap-2">
+                  <AppButton size="sm" variant="danger" onClick={handleConfirmDiscard}>Discard</AppButton>
+                  <AppButton size="sm" variant="secondary" onClick={() => setShowDiscardConfirm(false)}>Keep Editing</AppButton>
                 </div>
               </div>
             )}
-            <div className="space-y-1.5 mb-3">
-              {subtasks.map((sub) => (
-                <div key={sub.id} className="flex items-center gap-2 p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-[#232838] group">
-                  <button onClick={() => { toggleSubtask(sub.id); }}
-                    className={`w-3.5 h-3.5 rounded border flex-shrink-0 flex items-center justify-center ${sub.done ? "bg-green-500 border-green-500" : "border-slate-300 dark:border-slate-600"}`}
-                  >
-                    {sub.done && <FaCheck className="w-2 h-2 text-white" />}
-                  </button>
-                  <span className={`flex-1 text-xs ${sub.done ? "line-through text-slate-400" : "text-slate-700 dark:text-slate-300"}`}>{sub.title}</span>
-                  <button className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 p-0.5"
-                    onClick={() => { setSubtasks((p) => p.filter((s) => s.id !== sub.id)); changed(); }}>
-                    <FaTimes className="w-2.5 h-2.5" />
-                  </button>
-                </div>
-              ))}
+
+            {/* Footer */}
+            <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 dark:border-[#232838] bg-slate-50/50 dark:bg-[#141720]/50 flex-shrink-0">
+              <div className="text-xs text-orange-500 font-medium">{hasChanges ? "Unsaved changes" : readOnly ? <span className="text-slate-400">Read-only</span> : ""}</div>
+              <div className="flex gap-2">
+                <AppButton variant="secondary" size="sm" onClick={handleClose}>
+                  Close
+                </AppButton>
+                <AppButton size="sm" onClick={handleSave} disabled={!title.trim() || readOnly}>
+                  Save
+                </AppButton>
+              </div>
             </div>
-            <div className="flex gap-2">
-              <input
-                className="flex-1 border border-slate-200 dark:border-[#2a3044] rounded-lg px-2.5 py-1.5 text-xs text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-[#232838] focus:outline-none focus:ring-1 focus:ring-blue-400 placeholder-slate-400"
-                placeholder="Add subtask..."
-                value={inlineSubTitle}
-                onChange={(e) => setInlineSubTitle(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") addInlineSub(); }}
-              />
-              <button className="px-2.5 py-1.5 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700" onClick={addInlineSub}>
-                <FaPlus className="w-2.5 h-2.5" />
-              </button>
-            </div>
-          </div>
+          </motion.div>
         )}
-
-      </div>
-
-      {/* ── Discard confirmation banner ── */}
-      {showDiscardConfirm && (
-        <div className="bg-amber-50 dark:bg-amber-900/20 border-t border-amber-200 dark:border-amber-800 px-4 py-2.5 flex items-center justify-between flex-shrink-0">
-          <span className="text-xs text-amber-700 dark:text-amber-400">You have unsaved changes. Discard?</span>
-          <div className="flex gap-2">
-            <AppButton size="sm" variant="danger" onClick={handleConfirmDiscard}>Discard</AppButton>
-            <AppButton size="sm" variant="secondary" onClick={() => setShowDiscardConfirm(false)}>Keep Editing</AppButton>
-          </div>
-        </div>
-      )}
-
-      {/* ── Footer ── */}
-      <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 dark:border-[#232838] bg-slate-50/50 dark:bg-[#141720]/50 flex-shrink-0">
-        <div className="text-xs text-orange-500 font-medium">{hasChanges ? "Unsaved changes" : ""}</div>
-        <div className="flex gap-2">
-          <AppButton variant="secondary" size="sm" onClick={handleClose}>
-            Close
-          </AppButton>
-          <AppButton
-            size="sm"
-            onClick={handleSave}
-            disabled={!title.trim() || isViewer}
-          >
-            Save
-          </AppButton>
-        </div>
-      </div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+      </AnimatePresence>
+      {workflowDialog}
+    </>
   );
 }

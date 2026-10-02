@@ -1,18 +1,10 @@
-import React, { useState, useMemo } from "react";
-import { taskKey } from "../../../shared/utils/helpers";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
+import { taskKey, isInProject } from "../../../shared/utils/helpers";
 import { FaPlay, FaSearch } from "react-icons/fa";
 import { useApp } from "../../../shared/context/AppContext";
-import { TYPE_OPTIONS } from "../constants/taskOptions";
-
-const TYPE_COLORS = {
-  feature: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400",
-  task: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-  defect: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
-  test: "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400",
-  testset: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400",
-  testexecution: "bg-lime-100 text-lime-700 dark:bg-lime-900/30 dark:text-lime-400",
-  precondition: "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400",
-};
+import { BOARD_FILTER_TYPE_OPTIONS, TASK_TYPE_BADGE_STYLES } from "../../../shared/constants/taskMeta";
+import { useBoardPermissions } from "../hooks/useBoardPermissions";
+import { toStoryPoints } from "../utils/sprintMetrics";
 
 const PRI_DOT = {
   critical: "bg-red-500",
@@ -21,33 +13,55 @@ const PRI_DOT = {
   low: "bg-slate-300 dark:bg-slate-500",
 };
 
+/**
+ * Parses the inline story-point input. Returns a non-negative number, ""
+ * (cleared) or `null` when the input is not a valid number.
+ */
+export function parseStoryPointInput(raw) {
+  const text = String(raw ?? "").trim();
+  if (text === "") return "";
+  const number = Number(text.replace(",", "."));
+  if (!Number.isFinite(number) || number < 0) return null;
+  return number;
+}
+
 // ── Inline SP editor ─────────────────────────────────────────────────────────
-function InlineSP({ value, onSave }) {
+function InlineSP({ value, onSave, readOnly = false }) {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState(String(value ?? ""));
 
   // Sync displayed value when parent updates storyPoint externally
-  React.useEffect(() => {
+  useEffect(() => {
     if (!editing) setVal(String(value ?? ""));
   }, [value, editing]);
 
   const commit = (v) => {
-    const num = v === "" ? "" : Number(v) || v;
-    onSave(num);
+    const parsed = parseStoryPointInput(v);
+    if (parsed !== null && parsed !== (value ?? "")) onSave(parsed);
     setEditing(false);
   };
+
+  if (readOnly) {
+    return (
+      <span className="w-10 h-8 flex items-center justify-center rounded-lg font-bold text-sm border border-slate-200 dark:border-[#2a3044] text-slate-500 dark:text-slate-400">
+        {value || "?"}
+      </span>
+    );
+  }
 
   if (editing) {
     return (
       <input
         autoFocus
         className="w-12 text-center text-sm font-bold rounded-lg border border-blue-400 bg-white dark:bg-[#1c2030] text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-400 px-1 py-1"
+        aria-label="Story points"
+        inputMode="decimal"
         value={val}
         onChange={(e) => setVal(e.target.value)}
         onBlur={() => commit(val)}
         onKeyDown={(e) => {
           if (e.key === "Enter") commit(val);
-          if (e.key === "Escape") setEditing(false);
+          if (e.key === "Escape") { e.preventDefault(); setVal(String(value ?? "")); setEditing(false); }
         }}
       />
     );
@@ -69,7 +83,7 @@ function InlineSP({ value, onSave }) {
 }
 
 // ── Task row ─────────────────────────────────────────────────────────────────
-function TaskEstimationRow({ task, onTaskClick, onPokerClick, onSpUpdate }) {
+function TaskEstimationRow({ task, onTaskClick, onPokerClick, onSpUpdate, readOnly }) {
   const isActive = task._source === "active";
 
   return (
@@ -94,7 +108,7 @@ function TaskEstimationRow({ task, onTaskClick, onPokerClick, onSpUpdate }) {
 
       {/* Type badge */}
       <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded flex-shrink-0 ${
-        TYPE_COLORS[task.type] || "bg-slate-100 text-slate-500 dark:bg-[#2a3044] dark:text-slate-400"
+        TASK_TYPE_BADGE_STYLES[task.type] || "bg-slate-100 text-slate-500 dark:bg-[#2a3044] dark:text-slate-400"
       }`}>
         {task.type || "task"}
       </span>
@@ -118,10 +132,11 @@ function TaskEstimationRow({ task, onTaskClick, onPokerClick, onSpUpdate }) {
 
       {/* SP inline edit */}
       <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-        <InlineSP value={task.storyPoint} onSave={(v) => onSpUpdate?.(task.id, task._source, v)} />
+        <InlineSP value={task.storyPoint} readOnly={readOnly} onSave={(v) => onSpUpdate?.(task, v)} />
       </div>
 
       {/* Poker button — visible on hover */}
+      {!readOnly && onPokerClick && (
       <button
         onClick={(e) => { e.stopPropagation(); onPokerClick?.(task); }}
         className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors text-xs font-medium flex-shrink-0 opacity-0 group-hover:opacity-100"
@@ -129,13 +144,16 @@ function TaskEstimationRow({ task, onTaskClick, onPokerClick, onSpUpdate }) {
         <FaPlay className="w-2.5 h-2.5" />
         Poker
       </button>
+      )}
     </div>
   );
 }
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 export default function RefinementTab({ onTaskClick, onPokerClick }) {
-  const { activeTasks, setActiveTasks, backlogSections, setBacklogSections, pokerHistory, currentProjectId } = useApp();
+  const { activeTasks, backlogSections, pokerHistory: pokerHistoryRaw, currentProjectId, updateTask } = useApp();
+  const { canEditTask } = useBoardPermissions();
+  const pokerHistory = pokerHistoryRaw || [];
 
   const [typeFilter,    setTypeFilter]    = useState("");
   const [search,        setSearch]        = useState("");
@@ -143,14 +161,14 @@ export default function RefinementTab({ onTaskClick, onPokerClick }) {
   const [hideEstimated, setHideEstimated] = useState(false);
 
   const allTasksForEstimation = useMemo(() => [
-    ...activeTasks.filter((t) => (t.projectId || "proj-1") === currentProjectId).map((t) => ({ ...t, _source: "active" })),
-    ...backlogSections.flatMap((s) => s.tasks).map((t) => ({ ...t, _source: "backlog" })),
+    ...(activeTasks || []).filter((t) => isInProject(t, currentProjectId)).map((t) => ({ ...t, _source: "active" })),
+    ...(backlogSections || []).flatMap((s) => s.tasks || []).map((t) => ({ ...t, _source: "backlog" })),
   ], [activeTasks, backlogSections, currentProjectId]);
 
   const { estimatedCount, pendingCount, completionRate } = useMemo(() => {
     let estimated = 0;
     for (const t of allTasksForEstimation) {
-      if (t.storyPoint && t.storyPoint > 0) estimated++;
+      if (toStoryPoints(t.storyPoint) > 0) estimated++;
     }
     const total = allTasksForEstimation.length;
     return {
@@ -162,7 +180,7 @@ export default function RefinementTab({ onTaskClick, onPokerClick }) {
 
   const filtered = useMemo(() => {
     let list = allTasksForEstimation.filter((t) => {
-      if (hideEstimated && t.storyPoint && t.storyPoint > 0) return false;
+      if (hideEstimated && toStoryPoints(t.storyPoint) > 0) return false;
       if (typeFilter && t.type !== typeFilter) return false;
       if (search) {
         const q = search.toLowerCase();
@@ -172,7 +190,7 @@ export default function RefinementTab({ onTaskClick, onPokerClick }) {
     });
 
     if (sortBy === "unestimated") {
-      list = [...list].sort((a, b) => (a.storyPoint ? 1 : 0) - (b.storyPoint ? 1 : 0));
+      list = [...list].sort((a, b) => (toStoryPoints(a.storyPoint) > 0 ? 1 : 0) - (toStoryPoints(b.storyPoint) > 0 ? 1 : 0));
     } else if (sortBy === "priority") {
       const ORDER = { critical: 0, high: 1, medium: 2, low: 3 };
       list = [...list].sort((a, b) => (ORDER[a.priority] ?? 4) - (ORDER[b.priority] ?? 4));
@@ -180,14 +198,12 @@ export default function RefinementTab({ onTaskClick, onPokerClick }) {
     return list;
   }, [allTasksForEstimation, typeFilter, search, sortBy, hideEstimated]);
 
-  const handleSpUpdate = (taskId, source, newSp) => {
-    const upd = (tasks) => tasks.map((t) => t.id === taskId ? { ...t, storyPoint: newSp } : t);
-    if (source === "active") {
-      setActiveTasks((prev) => upd(prev));
-    } else {
-      setBacklogSections((prev) => prev.map((s) => ({ ...s, tasks: upd(s.tasks) })));
-    }
-  };
+  // Goes through updateTask so active and backlog tasks are both handled
+  // (transient `_source` is stripped by the action).
+  const handleSpUpdate = useCallback((task, newSp) => {
+    if (!canEditTask) return;
+    updateTask({ ...task, storyPoint: newSp });
+  }, [canEditTask, updateTask]);
 
   return (
     <div className="w-full max-w-6xl mx-auto flex flex-col gap-4 px-4 py-4 overflow-y-auto pb-12">
@@ -276,7 +292,7 @@ export default function RefinementTab({ onTaskClick, onPokerClick }) {
             onChange={(e) => setTypeFilter(e.target.value)}
             className="text-xs border border-slate-200 dark:border-[#2a3044] rounded-lg px-2.5 py-1.5 bg-white dark:bg-[#232838] text-slate-700 dark:text-slate-200 focus:outline-none"
           >
-            {TYPE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            {BOARD_FILTER_TYPE_OPTIONS.map((o) => <option key={o.value || "all"} value={o.value}>{o.value ? o.label : "All types"}</option>)}
           </select>
 
           <select
@@ -330,6 +346,7 @@ export default function RefinementTab({ onTaskClick, onPokerClick }) {
                 onTaskClick={onTaskClick}
                 onPokerClick={onPokerClick}
                 onSpUpdate={handleSpUpdate}
+                readOnly={!canEditTask}
               />
             ))}
           </div>
@@ -406,7 +423,7 @@ export default function RefinementTab({ onTaskClick, onPokerClick }) {
                 >
                   <div className="flex items-center gap-3 mb-1.5">
                     <span className="text-[10px] text-slate-400 flex-shrink-0">
-                      {new Date(h.date).toLocaleDateString("tr-TR")}
+                      {h.date ? new Date(h.date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "—"}
                     </span>
                     <span className="font-medium text-slate-700 dark:text-slate-200 text-xs flex-1 truncate">
                       {h.taskTitle}

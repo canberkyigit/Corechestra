@@ -1,135 +1,67 @@
-import { PRIORITY_STYLES } from "../constants";
-
-const SUBTASK_TEMPLATES = {
-  bug: [
-    "Reproduce the issue in local environment",
-    "Identify and document root cause",
-    "Write a failing test to capture the bug",
-    "Implement the fix",
-    "Verify fix in staging environment",
-  ],
-  defect: [
-    "Reproduce the issue in local environment",
-    "Identify and document root cause",
-    "Write a failing test to capture the defect",
-    "Implement the fix",
-    "Verify fix in staging environment",
-  ],
-  feature: [
-    "Define acceptance criteria",
-    "Design UI/UX mockup",
-    "Implement backend changes",
-    "Build frontend component",
-    "Write integration tests",
-  ],
-  test: [
-    "Define test scenarios and scope",
-    "Set up test environment",
-    "Write test cases",
-    "Execute tests",
-    "Document and report results",
-  ],
-  testset: [
-    "Identify test scope and coverage",
-    "Create test data",
-    "Write automated test scripts",
-    "Run the full test suite",
-    "Analyze and report results",
-  ],
-  testexecution: [
-    "Prepare test environment",
-    "Execute smoke tests",
-    "Run regression suite",
-    "Log defects found",
-    "Sign off on results",
-  ],
-  investigation: [
-    "Gather requirements and context",
-    "Analyze existing system behavior",
-    "Identify bottlenecks and issues",
-    "Document findings",
-    "Propose recommended solutions",
-  ],
-  epic: [
-    "Break down into user stories",
-    "Define MVP scope",
-    "Set up project structure",
-    "Coordinate with stakeholders",
-    "Track delivery progress",
-  ],
-  userstory: [
-    "Define acceptance criteria",
-    "Create wireframes",
-    "Implement the feature",
-    "Write tests",
-    "Demo to stakeholders",
-  ],
-  precondition: [
-    "Identify prerequisites",
-    "Document required conditions",
-    "Validate environment setup",
-    "Run prerequisite checks",
-    "Confirm readiness",
-  ],
-  task: [
-    "Research and plan approach",
-    "Design the solution",
-    "Implement changes",
-    "Review and test",
-    "Deploy and monitor",
-  ],
-};
-
-const SUBTASK_PRIORITIES = ["high", "medium", "medium", "low", "low"];
-const SUBTASK_STORY_POINTS = [3, 2, 2, 1, 1];
-
-export function generateSubtasks(title, type = "task", min = 3, max = 5) {
-  const templates = SUBTASK_TEMPLATES[type] || SUBTASK_TEMPLATES.task;
-  const count = Math.min(templates.length, Math.floor(Math.random() * (max - min + 1)) + min);
-  const doneCount = Math.floor(count * 0.4);
-  return templates.slice(0, count).map((subTitle, i) => {
-    const done = i < doneCount;
-    return {
-      id: `${title.replace(/\s+/g, "_").toLowerCase()}_sub_${i + 1}`,
-      title: subTitle,
-      done,
-      status: done ? "done" : i === doneCount ? "inprogress" : "todo",
-      priority: SUBTASK_PRIORITIES[i] || "medium",
-      storyPoint: SUBTASK_STORY_POINTS[i] || 1,
-      assignedTo: "unassigned",
-      description: "",
-      type: "task",
-    };
-  });
+/**
+ * Project id a task (or epic / any project-scoped entity) belongs to. Legacy
+ * records without `projectId` are treated as belonging to `fallbackProjectId`
+ * (normally the current project) instead of a hard-coded seed project.
+ */
+export function getTaskProjectId(entity, fallbackProjectId = "") {
+  return entity?.projectId || fallbackProjectId || "";
 }
 
-export function getPriorityColor(priority) {
-  return PRIORITY_STYLES[(priority || "medium").toLowerCase()] || PRIORITY_STYLES.medium;
+/**
+ * True when `entity` belongs to `projectId`. Records without `projectId` are
+ * attributed to `fallbackProjectId` (defaults to `projectId`, i.e. the current
+ * project when filtering the current project's data).
+ */
+export function isInProject(entity, projectId, fallbackProjectId = projectId) {
+  return getTaskProjectId(entity, fallbackProjectId) === (projectId || "");
 }
 
-export function getRetroItemColor(score) {
-  const clamp = (val, min, max) => Math.max(min, Math.min(max, val));
-  const s = clamp(score, -10, 10);
-  if (s === 0) return "white";
-  if (s < 0) {
-    const pct = Math.abs(s) / 10;
-    const sat = 70 * (1 - pct);
-    const l = 90 + 10 * (1 - pct);
-    return `hsl(120,${sat}%,${l}%)`;
-  } else {
-    const pct = s / 10;
-    const sat = 70 * pct;
-    const l = 100 - 10 * pct;
-    return `hsl(0,${sat}%,${l}%)`;
+// Task ids are `CY-<digits>` (taskKey / CommentSection rely on that format).
+// Older builds used 5 random digits (100k space) which collided easily. New ids
+// are time-ordered: seconds since 2024-01-01 followed by 4 random digits, so a
+// collision requires two clients to create a task in the same second AND draw
+// the same 4 digits. Within one session ids are strictly increasing, and an
+// optional collection of existing ids (array, Set, Map keys or task objects)
+// is checked as a final guard.
+const ID_EPOCH_MS = Date.UTC(2024, 0, 1);
+const ID_RANDOM_SPACE = 10000;
+let lastIssuedIdNumber = 0;
+
+function randomIdSuffix() {
+  const cryptoApi = typeof window !== "undefined" ? window.crypto : undefined;
+  if (cryptoApi && typeof cryptoApi.getRandomValues === "function") {
+    const buf = new Uint32Array(1);
+    cryptoApi.getRandomValues(buf);
+    return buf[0] % ID_RANDOM_SPACE;
   }
+  return Math.floor(Math.random() * ID_RANDOM_SPACE);
 }
 
-export function normalizeStatus(val) {
-  return (val || "").toLowerCase().replace(/[\s-]/g, "");
+function toIdSet(existingIds) {
+  if (!existingIds) return null;
+  const set = new Set();
+  const add = (entry) => {
+    if (entry == null) return;
+    const id = typeof entry === "object" ? entry.id : entry;
+    if (id != null) set.add(String(id));
+  };
+  if (existingIds instanceof Map) existingIds.forEach((_, key) => add(key));
+  else if (typeof existingIds[Symbol.iterator] === "function") {
+    for (const entry of existingIds) add(entry);
+  }
+  return set.size ? set : null;
 }
 
-export function generateId() {
-  return `CY-${Math.floor(Math.random() * 100000)}`;
+export function generateId(existingIds) {
+  const taken = toIdSet(existingIds);
+  const seconds = Math.max(0, Math.floor((Date.now() - ID_EPOCH_MS) / 1000));
+  let candidate = seconds * ID_RANDOM_SPACE + randomIdSuffix();
+  if (candidate <= lastIssuedIdNumber) candidate = lastIssuedIdNumber + 1;
+  while (taken && (taken.has(`CY-${candidate}`) || taken.has(String(candidate)))) {
+    candidate += 1;
+  }
+  lastIssuedIdNumber = candidate;
+  return `CY-${candidate}`;
 }
 
 // Normalises a task id for display — prevents double "CY-CY-" when the stored
@@ -137,10 +69,4 @@ export function generateId() {
 export function taskKey(id) {
   const s = String(id || "");
   return s.startsWith("CY-") ? s : `CY-${s}`;
-}
-
-export function getSprintLabel(sprint) {
-  if (!sprint) return "";
-  if (sprint.value === "active") return "Active Sprint";
-  return sprint.label || "";
 }

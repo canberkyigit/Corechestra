@@ -1,20 +1,48 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "../../../shared/context/AuthContext";
 import Logo from "../../../shared/components/Logo";
 import {
   FaEnvelope, FaLock, FaEye, FaEyeSlash,
-  FaCheckCircle, FaExclamationCircle,
+  FaCheckCircle, FaExclamationCircle, FaArrowLeft,
 } from "react-icons/fa";
 
-const ERROR_MESSAGES = {
-  "auth/user-not-found":       "No account found with this email.",
-  "auth/wrong-password":       "Incorrect password.",
-  "auth/invalid-email":        "Invalid email address.",
-  "auth/invalid-credential":   "Invalid email or password.",
-  "auth/too-many-requests":    "Too many attempts. Try again later.",
+export const ERROR_MESSAGES = {
+  "auth/user-not-found":         "Invalid email or password.",
+  "auth/wrong-password":         "Invalid email or password.",
+  "auth/invalid-email":          "Invalid email address.",
+  "auth/invalid-credential":     "Invalid email or password.",
+  "auth/missing-password":       "Enter your password.",
+  "auth/missing-email":          "Enter your email address.",
+  "auth/user-disabled":          "This account has been deactivated. Contact your workspace administrator to restore access.",
+  "auth/account-deleted":        "This account has been removed from the workspace. Contact your workspace administrator if you think this is a mistake.",
+  "auth/too-many-requests":      "Too many attempts. Try again later or reset your password.",
   "auth/network-request-failed": "Network error. Check your connection.",
+  "auth/operation-not-allowed":  "Email/password sign-in is not enabled for this workspace.",
 };
+
+const REMEMBER_KEY = "corechestra_remember_email";
+
+function readRememberedEmail() {
+  try {
+    return window.localStorage.getItem(REMEMBER_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
+function writeRememberedEmail(email) {
+  try {
+    if (email) window.localStorage.setItem(REMEMBER_KEY, email);
+    else window.localStorage.removeItem(REMEMBER_KEY);
+  } catch {
+    // storage unavailable (private mode) — remember-me only affects convenience
+  }
+}
+
+function getErrorMessage(err) {
+  return ERROR_MESSAGES[err?.code] || "Something went wrong. Please try again.";
+}
 
 const FEATURES = [
   { label: "Sprint planning & kanban boards" },
@@ -23,26 +51,73 @@ const FEATURES = [
 ];
 
 export default function LoginPage() {
-  const { login } = useAuth();
-  const [email,        setEmail]        = useState("");
+  const { login, sendPasswordReset, authError, clearAuthError } = useAuth();
+  const [mode,         setMode]         = useState("login"); // "login" | "reset"
+  const [email,        setEmail]        = useState(() => readRememberedEmail());
   const [password,     setPassword]     = useState("");
+  const [remember,     setRemember]     = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [loading,      setLoading]      = useState(false);
   const [error,        setError]        = useState("");
+  const [notice,       setNotice]       = useState("");
+
+  // Access refused after sign-in (deactivated / deleted account) — surface it here.
+  useEffect(() => {
+    if (authError) setError(authError);
+  }, [authError]);
+
+  const resetMessages = () => {
+    setError("");
+    setNotice("");
+    clearAuthError?.();
+  };
+
+  const switchMode = (nextMode) => {
+    resetMessages();
+    setMode(nextMode);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (loading) return;
-    setError("");
+    resetMessages();
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) { setError(ERROR_MESSAGES["auth/missing-email"]); return; }
+    if (!password) { setError(ERROR_MESSAGES["auth/missing-password"]); return; }
     setLoading(true);
     try {
-      await login(email.trim(), password);
+      writeRememberedEmail(remember ? trimmedEmail : "");
+      await login(trimmedEmail, password, { remember });
     } catch (err) {
-      setError(ERROR_MESSAGES[err.code] || "Something went wrong. Please try again.");
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
   };
+
+  const handleReset = async (e) => {
+    e.preventDefault();
+    if (loading) return;
+    resetMessages();
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) { setError(ERROR_MESSAGES["auth/missing-email"]); return; }
+    setLoading(true);
+    try {
+      await sendPasswordReset(trimmedEmail);
+      // Same message whether or not the account exists (no account enumeration).
+      setNotice(`If an account exists for ${trimmedEmail}, a password reset link is on its way. Check your inbox.`);
+    } catch (err) {
+      if (err?.code === "auth/user-not-found") {
+        setNotice(`If an account exists for ${trimmedEmail}, a password reset link is on its way. Check your inbox.`);
+      } else {
+        setError(getErrorMessage(err));
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const isReset = mode === "reset";
 
   return (
     <div className="min-h-screen flex bg-[#080b14] overflow-hidden">
@@ -124,24 +199,31 @@ export default function LoginPage() {
 
           {/* Heading */}
           <div className="mb-8">
-            <h2 className="text-2xl font-bold text-white tracking-tight">Welcome back</h2>
-            <p className="text-slate-400 text-sm mt-1.5">Sign in to your workspace to continue</p>
+            <h2 className="text-2xl font-bold text-white tracking-tight">
+              {isReset ? "Reset your password" : "Welcome back"}
+            </h2>
+            <p className="text-slate-400 text-sm mt-1.5">
+              {isReset
+                ? "Enter your work email and we'll send you a link to choose a new password."
+                : "Sign in to your workspace to continue"}
+            </p>
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={isReset ? handleReset : handleSubmit} className="space-y-4" noValidate>
 
             {/* Email field */}
             <div className="space-y-1.5">
-              <label className="block text-[11px] font-semibold uppercase tracking-widest text-slate-500">
+              <label htmlFor="login-email" className="block text-[11px] font-semibold uppercase tracking-widest text-slate-500">
                 Email
               </label>
               <div className="relative group">
                 <FaEnvelope className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-600 group-focus-within:text-indigo-400 transition-colors" />
                 <input
+                  id="login-email"
                   type="email"
                   value={email}
-                  onChange={(e) => { setEmail(e.target.value); setError(""); }}
+                  onChange={(e) => { setEmail(e.target.value); setError(""); setNotice(""); }}
                   placeholder="you@company.com"
                   required
                   autoComplete="email"
@@ -151,13 +233,24 @@ export default function LoginPage() {
             </div>
 
             {/* Password field */}
+            {!isReset && (
             <div className="space-y-1.5">
-              <label className="block text-[11px] font-semibold uppercase tracking-widest text-slate-500">
-                Password
-              </label>
+              <div className="flex items-center justify-between">
+                <label htmlFor="login-password" className="block text-[11px] font-semibold uppercase tracking-widest text-slate-500">
+                  Password
+                </label>
+                <button
+                  type="button"
+                  onClick={() => switchMode("reset")}
+                  className="text-[11px] font-medium text-indigo-300 hover:text-indigo-200 transition-colors"
+                >
+                  Forgot password?
+                </button>
+              </div>
               <div className="relative group">
                 <FaLock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-600 group-focus-within:text-indigo-400 transition-colors" />
                 <input
+                  id="login-password"
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => { setPassword(e.target.value); setError(""); }}
@@ -170,6 +263,7 @@ export default function LoginPage() {
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
                   tabIndex={-1}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                   className="absolute right-3.5 top-1/2 -translate-y-1/2 p-0.5 text-slate-600 hover:text-slate-300 transition-colors"
                 >
                   {showPassword
@@ -179,6 +273,20 @@ export default function LoginPage() {
                 </button>
               </div>
             </div>
+            )}
+
+            {/* Remember me */}
+            {!isReset && (
+              <label className="flex items-center gap-2 text-xs text-slate-400 select-none cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={remember}
+                  onChange={(e) => setRemember(e.target.checked)}
+                  className="h-3.5 w-3.5 rounded border-white/20 bg-white/[0.05] text-indigo-500 focus:ring-indigo-500/50"
+                />
+                Keep me signed in on this device
+              </label>
+            )}
 
             {/* Error message */}
             <AnimatePresence>
@@ -191,7 +299,19 @@ export default function LoginPage() {
                   className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-red-500/10 border border-red-500/20"
                 >
                   <FaExclamationCircle className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
-                  <p className="text-red-400 text-xs leading-snug">{error}</p>
+                  <p role="alert" className="text-red-400 text-xs leading-snug">{error}</p>
+                </motion.div>
+              )}
+              {notice && (
+                <motion.div
+                  initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0,  scale: 1    }}
+                  exit={{    opacity: 0, y: -6, scale: 0.98 }}
+                  transition={{ duration: 0.2 }}
+                  className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20"
+                >
+                  <FaCheckCircle className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                  <p role="status" className="text-emerald-300 text-xs leading-snug">{notice}</p>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -218,11 +338,21 @@ export default function LoginPage() {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
                     </svg>
-                    Signing in...
+                    {isReset ? "Sending..." : "Signing in..."}
                   </>
-                ) : "Sign in"}
+                ) : (isReset ? "Send reset link" : "Sign in")}
               </span>
             </button>
+
+            {isReset && (
+              <button
+                type="button"
+                onClick={() => switchMode("login")}
+                className="w-full flex items-center justify-center gap-2 text-xs font-medium text-slate-400 hover:text-slate-200 transition-colors"
+              >
+                <FaArrowLeft className="w-3 h-3" /> Back to login
+              </button>
+            )}
 
           </form>
 

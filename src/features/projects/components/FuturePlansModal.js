@@ -5,6 +5,7 @@ import { FaTimes, FaCalendarAlt, FaPlus, FaTrash, FaRocket } from "react-icons/f
 import { useApp } from "../../../shared/context/AppContext";
 import { plannedSprintSchema } from "../../../shared/schemas";
 import { format, parseISO } from "date-fns";
+import { useEscapeKey } from "../../board/hooks/useEscapeKey";
 
 const fmt = (d) => {
   if (!d) return "—";
@@ -14,14 +15,15 @@ const fmt = (d) => {
 function FieldError({ message }) {
   if (!message) return null;
   return (
-    <p className="mt-1 text-xs text-red-400 flex items-center gap-1">
+    <p className="mt-1 text-xs text-red-500 dark:text-red-400 flex items-center gap-1">
       <span>⚠</span> {message}
     </p>
   );
 }
 
 export default function FuturePlansModal({ open, onClose }) {
-  const { plannedSprints, createPlannedSprint, deletePlannedSprint } = useApp();
+  const { plannedSprints: plannedSprintsRaw, createPlannedSprint, deletePlannedSprint } = useApp();
+  const plannedSprints = plannedSprintsRaw || [];
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
   const {
@@ -33,6 +35,11 @@ export default function FuturePlansModal({ open, onClose }) {
     resolver: zodResolver(plannedSprintSchema),
     defaultValues: { name: "", goal: "", startDate: "", endDate: "" },
   });
+
+  useEscapeKey(() => {
+    if (confirmDeleteId) setConfirmDeleteId(null);
+    else onClose();
+  }, Boolean(open));
 
   if (!open) return null;
 
@@ -46,13 +53,18 @@ export default function FuturePlansModal({ open, onClose }) {
   const inputCls = (hasError) =>
     `w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 transition-colors ${
       hasError
-        ? "border-red-500 focus:ring-red-400 bg-red-500/10 text-red-300 placeholder-red-400/60"
-        : "border-[#2a3044] focus:ring-indigo-400 bg-[#232838] text-slate-300 placeholder-slate-500"
+        ? "border-red-400 dark:border-red-500 focus:ring-red-400 bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-300 placeholder-red-400/60"
+        : "border-slate-200 dark:border-[#2a3044] focus:ring-indigo-400 bg-white dark:bg-[#232838] text-slate-700 dark:text-slate-300 placeholder-slate-400 dark:placeholder-slate-500"
     }`;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-[#1c2030] rounded-2xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        className="bg-white dark:bg-[#1c2030] border border-slate-200 dark:border-[#2a3044] rounded-2xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden"
+        onClick={(event) => event.stopPropagation()}
+      >
 
         {/* Header */}
         <div className="px-6 py-4 flex items-center justify-between bg-indigo-600">
@@ -65,12 +77,12 @@ export default function FuturePlansModal({ open, onClose }) {
               </span>
             )}
           </div>
-          <button className="text-white/70 hover:text-white transition-colors" onClick={onClose}>
+          <button type="button" className="text-white/70 hover:text-white transition-colors" onClick={onClose} title="Close">
             <FaTimes className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="flex divide-x divide-[#252b3b]" style={{ minHeight: 360 }}>
+        <div className="flex divide-x divide-slate-200 dark:divide-[#252b3b]" style={{ minHeight: 360 }}>
 
           {/* Left — list */}
           <div className="flex-1 p-5 space-y-2 overflow-y-auto" style={{ maxHeight: 460 }}>
@@ -80,21 +92,21 @@ export default function FuturePlansModal({ open, onClose }) {
 
             {sorted.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10 text-center">
-                <FaRocket className="w-8 h-8 text-slate-700 mb-3" />
+                <FaRocket className="w-8 h-8 text-slate-300 dark:text-slate-700 mb-3" />
                 <p className="text-sm text-slate-500">No future sprints planned yet.</p>
-                <p className="text-xs text-slate-600 mt-1">Use the form to plan ahead.</p>
+                <p className="text-xs text-slate-400 dark:text-slate-600 mt-1">Use the form to plan ahead.</p>
               </div>
             ) : (
               sorted.map((s) => (
-                <div key={s.id} className="group relative border border-[#2a3044] rounded-xl p-3.5 bg-[#1a1f2e] hover:border-indigo-700 transition-colors">
+                <div key={s.id} className="group relative border border-slate-200 dark:border-[#2a3044] rounded-xl p-3.5 bg-slate-50 dark:bg-[#1a1f2e] hover:border-indigo-300 dark:hover:border-indigo-700 transition-colors">
                   {confirmDeleteId === s.id && (
-                    <div className="absolute inset-0 z-10 flex items-center justify-center gap-2 bg-[#1c2030]/95 rounded-xl">
-                      <span className="text-xs text-slate-400">Delete this sprint?</span>
+                    <div className="absolute inset-0 z-10 flex items-center justify-center gap-2 bg-white/95 dark:bg-[#1c2030]/95 rounded-xl">
+                      <span className="text-xs text-slate-500 dark:text-slate-400">Delete this sprint? Its backlog tasks move to the archive.</span>
                       <button className="px-2.5 py-1 bg-red-600 text-white text-xs rounded-lg hover:bg-red-700"
                         onClick={() => { deletePlannedSprint(s.id); setConfirmDeleteId(null); }}>
                         Delete
                       </button>
-                      <button className="px-2.5 py-1 text-xs text-slate-400 border border-[#2a3044] rounded-lg hover:bg-[#232838]"
+                      <button type="button" className="px-2.5 py-1 text-xs text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-100 dark:hover:bg-[#232838]"
                         onClick={() => setConfirmDeleteId(null)}>
                         Cancel
                       </button>
@@ -104,7 +116,7 @@ export default function FuturePlansModal({ open, onClose }) {
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="w-2 h-2 rounded-full bg-indigo-400 flex-shrink-0" />
-                        <span className="text-sm font-semibold text-slate-200 truncate">{s.name}</span>
+                        <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 truncate">{s.name}</span>
                       </div>
                       <div className="flex items-center gap-1.5 text-xs text-slate-500 ml-3.5">
                         <FaCalendarAlt className="w-2.5 h-2.5 flex-shrink-0" />
@@ -115,7 +127,9 @@ export default function FuturePlansModal({ open, onClose }) {
                       )}
                     </div>
                     <button
-                      className="opacity-0 group-hover:opacity-100 p-1.5 text-slate-600 hover:text-red-400 transition-all flex-shrink-0 rounded-lg hover:bg-red-900/20"
+                      type="button"
+                      title="Delete planned sprint"
+                      className="opacity-0 group-hover:opacity-100 focus:opacity-100 p-1.5 text-slate-400 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 transition-all flex-shrink-0 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20"
                       onClick={() => setConfirmDeleteId(s.id)}
                     >
                       <FaTrash className="w-3 h-3" />
@@ -127,20 +141,20 @@ export default function FuturePlansModal({ open, onClose }) {
           </div>
 
           {/* Right — form */}
-          <div className="w-72 flex-shrink-0 p-5 space-y-4 bg-[#141720]/50">
+          <div className="w-72 flex-shrink-0 p-5 space-y-4 bg-slate-50/60 dark:bg-[#141720]/50">
             <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
               Plan a New Sprint
             </div>
 
             <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
               <div>
-                <label className="text-xs font-medium text-slate-400 block mb-1">Sprint Name *</label>
+                <label className="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-1">Sprint Name *</label>
                 <input {...register("name")} className={inputCls(!!errors.name)} placeholder="e.g. Sprint 12" />
                 <FieldError message={errors.name?.message} />
               </div>
 
               <div>
-                <label className="text-xs font-medium text-slate-400 block mb-1">Goal</label>
+                <label className="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-1">Goal</label>
                 <textarea {...register("goal")} rows={2}
                   className={`${inputCls(false)} resize-none`}
                   placeholder="What's the goal?" />
@@ -148,12 +162,12 @@ export default function FuturePlansModal({ open, onClose }) {
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-xs font-medium text-slate-400 block mb-1">Start *</label>
+                  <label className="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-1">Start *</label>
                   <input type="date" {...register("startDate")} className={inputCls(!!errors.startDate)} />
                   <FieldError message={errors.startDate?.message} />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-slate-400 block mb-1">End *</label>
+                  <label className="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-1">End *</label>
                   <input type="date" {...register("endDate")} className={inputCls(!!errors.endDate)} />
                   <FieldError message={errors.endDate?.message} />
                 </div>
@@ -168,8 +182,8 @@ export default function FuturePlansModal({ open, onClose }) {
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-3 border-t border-[#252b3b] flex justify-end">
-          <button className="px-4 py-1.5 text-sm text-slate-400 border border-[#2a3044] rounded-lg hover:bg-[#232838] transition-colors"
+        <div className="px-6 py-3 border-t border-slate-200 dark:border-[#252b3b] flex justify-end">
+          <button type="button" className="px-4 py-1.5 text-sm text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-[#2a3044] rounded-lg hover:bg-slate-100 dark:hover:bg-[#232838] transition-colors"
             onClick={onClose}>
             Close
           </button>

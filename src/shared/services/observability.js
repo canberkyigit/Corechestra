@@ -109,3 +109,19 @@ export function trackEvent(name, properties = {}) {
     posthog.capture(name, properties);
   });
 }
+
+/** True when an analytics sink is configured (web-vitals are only collected then). */
+export function canReportWebVitals() {
+  return canUsePostHog();
+}
+
+/** `web-vitals` callback: forwards a Core Web Vitals metric to the analytics sink. */
+export function reportWebVital(metric) {
+  if (!metric?.name) return;
+  trackEvent("web_vital", {
+    metric: metric.name,
+    value: Math.round(metric.name === "CLS" ? metric.value * 1000 : metric.value),
+    delta: Math.round(metric.name === "CLS" ? metric.delta * 1000 : metric.delta),
+    id: metric.id,
+  });
+}

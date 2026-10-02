@@ -1,46 +1,6 @@
-.App {
-  text-align: center;
-}
-
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
-}
-
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
-}
-
-.App-link {
-  color: #61dafb;
-}
-
-@keyframes App-logo-spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
 @keyframes slide-in-right {
   from { transform: translateX(100%); opacity: 0; }
   to   { transform: translateX(0);    opacity: 1; }
-}
-
-@keyframes slide-out-right {
-  from { transform: translateX(0);    opacity: 1; }
-  to   { transform: translateX(100%); opacity: 0; }
 }
 
 @keyframes modal-enter {
@@ -48,25 +8,12 @@
   to   { transform: scale(1);    opacity: 1; }
 }
 
-@keyframes backdrop-enter {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-
 .animate-slide-in-right {
   animation: slide-in-right 0.26s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-.animate-slide-out-right {
-  animation: slide-out-right 0.2s cubic-bezier(0.7, 0, 0.84, 0) both;
-}
-
 .animate-modal-enter {
   animation: modal-enter 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.animate-backdrop-enter {
-  animation: backdrop-enter 0.15s ease both;
 }
 
 @keyframes task-done-flash {
@@ -397,11 +344,6 @@
   border-color: rgba(59, 130, 246, 0.24);
 }
 
-@keyframes toast-enter {
-  from { transform: translateX(120%) scale(0.9); opacity: 0; }
-  to   { transform: translateX(0)   scale(1);   opacity: 1; }
-}
-
 /* ─── TipTap WYSIWYG editor ──────────────────────────────────────────────── */
 .docs-tiptap .ProseMirror {
   outline: none;
@@ -503,35 +445,6 @@
   pointer-events: none;
   float: left;
   height: 0;
-}
-
-/* ─── Docs inline editor — remove MDEditor chrome ────────────────────────── */
-.docs-inline-editor .w-md-editor {
-  border: none !important;
-  box-shadow: none !important;
-  background: transparent !important;
-  border-radius: 0 !important;
-}
-.docs-inline-editor .w-md-editor-toolbar {
-  border-bottom: 1px solid #e2e8f0 !important;
-  background: transparent !important;
-  padding: 4px 0 !important;
-  border-radius: 0 !important;
-}
-.dark .docs-inline-editor .w-md-editor-toolbar {
-  border-bottom-color: #2a3044 !important;
-}
-.docs-inline-editor .w-md-editor-content {
-  background: transparent !important;
-}
-.docs-inline-editor .w-md-editor-text-textarea,
-.docs-inline-editor .w-md-editor-text-pre > code,
-.docs-inline-editor .w-md-editor-text {
-  font-size: 15px !important;
-  line-height: 1.7 !important;
-}
-.docs-inline-editor .w-md-editor-area {
-  background: transparent !important;
 }
 
 /* ─── MDEditor / wmde-markdown dark mode overrides ───────────────────────── */

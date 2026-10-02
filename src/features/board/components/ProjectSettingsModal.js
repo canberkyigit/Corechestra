@@ -5,6 +5,9 @@ import {
 } from "react-icons/fa";
 import { useApp } from "../../../shared/context/AppContext";
 import { useToast } from "../../../shared/context/ToastContext";
+import { DEFAULT_COLUMNS } from "../../../shared/context/AppSeeds";
+import { useEscapeKey } from "../hooks/useEscapeKey";
+import { useBoardPermissions } from "../hooks/useBoardPermissions";
 
 const PROJECT_COLORS = [
   "#2563eb", "#7c3aed", "#059669", "#d97706", "#dc2626",
@@ -47,9 +50,17 @@ function Toggle({ on, onToggle }) {
   );
 }
 
-export default function ProjectSettingsModal({ project, onClose }) {
-  const { updateProject, deleteProject, users, projectColumns, updateProjectColumns, templateRegistry, workspaceSettings } = useApp();
+export default function ProjectSettingsModal({ project: projectProp, onClose }) {
+  const { updateProject, deleteProject, users: usersRaw, projects, projectColumns, updateProjectColumns, templateRegistry, workspaceSettings } = useApp();
   const { addToast } = useToast();
+  const { canManageProject } = useBoardPermissions();
+  const readOnly = !canManageProject;
+  const users = usersRaw || [];
+  // Always render / save against the live project (the prop is a snapshot
+  // taken when the modal opened). Saves send partial patches that the
+  // `updateProject` action merges.
+  const project = (projects || []).find((item) => item.id === projectProp.id) || projectProp;
+  useEscapeKey(onClose);
   const [tab, setTab] = useState("general");
   const workspaceDefaultTemplates = workspaceSettings?.defaultTemplates || {};
   const workspaceDefaultWorkflow = workspaceSettings?.defaultProjectWorkflow || {};
@@ -60,8 +71,8 @@ export default function ProjectSettingsModal({ project, onClose }) {
   const [genColor, setGenColor] = useState(project.color || PROJECT_COLORS[0]);
 
   const saveGeneral = () => {
-    if (!genName.trim()) return;
-    updateProject({ ...project, name: genName.trim(), description: genDesc, color: genColor });
+    if (readOnly || !genName.trim()) return;
+    updateProject({ id: project.id, name: genName.trim(), description: genDesc, color: genColor });
     addToast("General settings saved", "success");
   };
 
@@ -94,17 +105,20 @@ export default function ProjectSettingsModal({ project, onClose }) {
   const availableUsers = uniqueUsers.filter((u) => !members.some((m) => m.userId === u.id));
 
   const saveMembers = () => {
+    if (readOnly) return;
     // Save both project.members (role info) and project.memberUsernames (for People tab sync)
     const memberUsernames = members
       .map((m) => uniqueUsers.find((u) => u.id === m.userId)?.username)
       .filter(Boolean);
-    updateProject({ ...project, members, memberUsernames });
+    updateProject({ id: project.id, members, memberUsernames });
     addToast("Members saved", "success");
   };
 
   // ── Workflow ───────────────────────────────────────────────────────────────
   const [cols, setCols]       = useState(() =>
-    (projectColumns[project.id] || []).map((c) => ({ ...c, color: c.color || "#64748b" }))
+    // Projects without a saved column list use the default workflow; saving
+    // must never persist an empty list (it would hide the whole board).
+    ((projectColumns?.[project.id]?.length ? projectColumns[project.id] : DEFAULT_COLUMNS)).map((c) => ({ ...c, color: c.color || "#64748b" }))
   );
   const [newColName, setNewColName] = useState("");
   const [editColId,  setEditColId]  = useState(null);
@@ -121,8 +135,13 @@ export default function ProjectSettingsModal({ project, onClose }) {
   const updateCol = (id, patch) => setCols((p) => p.map((c) => c.id === id ? { ...c, ...patch } : c));
 
   const saveWorkflow = () => {
+    if (readOnly) return;
+    if (cols.length === 0) {
+      addToast("A workflow needs at least one column", "error");
+      return;
+    }
     updateProjectColumns(project.id, cols);
-    updateProject({ ...project, workflowRules });
+    updateProject({ id: project.id, workflowRules });
     addToast("Workflow saved", "success");
   };
 
@@ -139,6 +158,7 @@ export default function ProjectSettingsModal({ project, onClose }) {
   });
 
   const saveSprint = () => {
+    if (readOnly) return;
     updateProject({
       ...project,
       sprintDefaults: { duration: sprintDuration, velocityTarget: sprintVelocity, namingFormat: sprintNaming, templateId: sprintTemplateId },
@@ -156,7 +176,8 @@ export default function ProjectSettingsModal({ project, onClose }) {
   const removeLabel = (id) => setProjectLabels((p) => p.filter((l) => l.id !== id));
 
   const saveLabels = () => {
-    updateProject({ ...project, projectLabels });
+    if (readOnly) return;
+    updateProject({ id: project.id, projectLabels });
     addToast("Labels saved", "success");
   };
 
@@ -168,13 +189,14 @@ export default function ProjectSettingsModal({ project, onClose }) {
   });
 
   const saveNotifs = () => {
-    updateProject({ ...project, notifications: notifs });
+    if (readOnly) return;
+    updateProject({ id: project.id, notifications: notifs });
     addToast("Notification settings saved", "success");
   };
 
   // ── Shared styles ──────────────────────────────────────────────────────────
   const inputCls = "w-full px-3 py-2 border border-slate-200 dark:border-[#2a3044] bg-white dark:bg-[#141720] text-slate-800 dark:text-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400";
-  const saveBtnCls = "flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors";
+  const saveBtnCls = "flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors";
   const cardCls = "flex items-center justify-between px-4 py-3 rounded-lg border border-slate-100 dark:border-[#2a3044] bg-white dark:bg-[#141720]";
 
   return (
@@ -231,6 +253,12 @@ export default function ProjectSettingsModal({ project, onClose }) {
 
           {/* Content */}
           <div className="flex-1 overflow-y-auto px-6 py-5">
+            {readOnly && (
+              <div className="mb-4 rounded-lg border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-900/20 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+                You can view these settings, but only people with the “Manage projects” permission can change them.
+              </div>
+            )}
+            <fieldset disabled={readOnly} className="min-w-0 border-0 p-0 m-0">
 
             {/* ── General ──────────────────────────────────────────────────── */}
             {tab === "general" && (
@@ -617,7 +645,7 @@ export default function ProjectSettingsModal({ project, onClose }) {
                   </div>
                   <button
                     onClick={() => {
-                      updateProject({ ...project, status: project.status === "archived" ? "active" : "archived" });
+                      updateProject({ id: project.id, status: project.status === "archived" ? "active" : "archived" });
                       addToast(project.status === "archived" ? "Project restored" : "Project archived", "info");
                       onClose();
                     }}
@@ -630,7 +658,7 @@ export default function ProjectSettingsModal({ project, onClose }) {
                 <div className="border border-red-200 dark:border-red-700/40 rounded-xl p-4 flex items-start justify-between gap-4">
                   <div>
                     <div className="text-sm font-medium text-slate-700 dark:text-slate-200">Delete Project</div>
-                    <div className="text-xs text-slate-400 mt-0.5">Permanently delete this project and all its data. This cannot be undone.</div>
+                    <div className="text-xs text-slate-400 mt-0.5">Removes the project from the workspace. Its tasks are no longer shown anywhere. This cannot be undone.</div>
                   </div>
                   <button
                     onClick={() => {
@@ -640,7 +668,7 @@ export default function ProjectSettingsModal({ project, onClose }) {
                         onClose();
                       }
                     }}
-                    className="flex-shrink-0 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors"
+                    className="flex-shrink-0 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                   >
                     Delete Project
                   </button>
@@ -648,6 +676,7 @@ export default function ProjectSettingsModal({ project, onClose }) {
               </div>
             )}
 
+            </fieldset>
           </div>
         </div>
       </div>

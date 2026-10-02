@@ -2,7 +2,17 @@ import React, { useMemo, useState } from "react";
 import { FaBell, FaBookOpen, FaClipboardList, FaComments, FaFlask, FaLayerGroup } from "react-icons/fa";
 import { useApp } from "../../../shared/context/AppContext";
 import { buildUniversalTimeline } from "../../../shared/utils/universalTimeline";
-import { AppBadge, AppEmptyState, AppSectionHeader } from "../../../shared/components/AppPrimitives";
+import { AppBadge, AppButton, AppEmptyState, AppSectionHeader } from "../../../shared/components/AppPrimitives";
+import { ActivitySkeleton } from "../../../shared/components/Skeleton";
+import { requestNavigate, requestOpenTask } from "../../../shared/components/appNavigation";
+
+const PAGE_SIZE = 50;
+
+function formatTimestamp(timestamp) {
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+}
 
 const CATEGORY_META = {
   all: { label: "All", tone: "neutral", icon: FaLayerGroup },
@@ -25,6 +35,7 @@ export default function ActivityPage() {
     dbReady,
   } = useApp();
   const [filter, setFilter] = useState("all");
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   const timeline = useMemo(() => buildUniversalTimeline({
     currentUser,
@@ -36,12 +47,31 @@ export default function ActivityPage() {
     testRuns,
   }), [activeTasks, backlogSections, currentUser, docPages, globalActivityLog, releases, testRuns]);
 
-  const visibleEntries = useMemo(
+  const filteredEntries = useMemo(
     () => timeline.filter((entry) => filter === "all" || entry.category === filter),
     [filter, timeline]
   );
+  const visibleEntries = filteredEntries.slice(0, visibleCount);
 
-  if (!dbReady) return null;
+  const taskById = useMemo(() => {
+    const map = new Map();
+    [...(activeTasks || []), ...((backlogSections || []).flatMap((section) => section.tasks || []))]
+      .forEach((task) => map.set(String(task.id), task));
+    return map;
+  }, [activeTasks, backlogSections]);
+
+  const getEntryAction = (entry) => {
+    if (entry.entityType === "task") {
+      const task = taskById.get(String(entry.entityId));
+      return task ? () => requestOpenTask(task) : null;
+    }
+    if (entry.entityType === "doc" && entry.entityId) return () => requestNavigate(`docs?page=${encodeURIComponent(entry.entityId)}`);
+    if (entry.entityType === "release") return () => requestNavigate("releases");
+    if (entry.entityType === "test-run") return () => requestNavigate("tests");
+    return null;
+  };
+
+  if (!dbReady) return <ActivitySkeleton />;
 
   return (
     <div className="h-full overflow-y-auto bg-slate-50 dark:bg-[#141720]">
@@ -58,7 +88,7 @@ export default function ActivityPage() {
                   <button
                     key={key}
                     type="button"
-                    onClick={() => setFilter(key)}
+                    onClick={() => { setFilter(key); setVisibleCount(PAGE_SIZE); }}
                     className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-colors ${
                       filter === key
                         ? "bg-blue-600 text-white"
@@ -84,8 +114,14 @@ export default function ActivityPage() {
           <div className="space-y-3">
             {visibleEntries.map((entry) => {
               const meta = CATEGORY_META[entry.category] || CATEGORY_META.all;
+              const action = getEntryAction(entry);
+              const Wrapper = action ? "button" : "div";
               return (
-                <div key={entry.id} className="app-surface p-4">
+                <Wrapper
+                  key={entry.id}
+                  {...(action ? { type: "button", onClick: action } : {})}
+                  className={`app-surface p-4 w-full text-left block ${action ? "hover:border-blue-300 dark:hover:border-blue-700 transition-colors" : ""}`}
+                >
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 mb-2">
@@ -96,13 +132,20 @@ export default function ActivityPage() {
                       <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{entry.subtitle}</p>
                     </div>
                     <div className="text-right text-xs text-slate-400 dark:text-slate-500 whitespace-nowrap">
-                      <div>{new Date(entry.timestamp).toLocaleDateString()}</div>
+                      <div>{formatTimestamp(entry.timestamp)}</div>
                       <div className="mt-1">{entry.actor || "System"}</div>
                     </div>
                   </div>
-                </div>
+                </Wrapper>
               );
             })}
+            {filteredEntries.length > visibleCount && (
+              <div className="flex justify-center pt-2">
+                <AppButton onClick={() => setVisibleCount((count) => count + PAGE_SIZE)}>
+                  Show more ({filteredEntries.length - visibleCount} older)
+                </AppButton>
+              </div>
+            )}
           </div>
         )}
       </div>

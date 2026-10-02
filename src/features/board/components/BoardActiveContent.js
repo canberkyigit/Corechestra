@@ -24,9 +24,11 @@ function KanbanEmptyState({ title, description, onCreateTask, onClearFilters, ha
             Clear filters
           </button>
         )}
-        <button className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors" onClick={onCreateTask}>
-          Create Task
-        </button>
+        {onCreateTask && (
+          <button className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors" onClick={onCreateTask}>
+            Create Task
+          </button>
+        )}
       </div>
     </div>
   );
@@ -39,8 +41,6 @@ export function BoardActiveContent({
   filterValue,
   memberValue,
   search,
-  setProjectTasks,
-  idToGlobalIndex,
   showBadges,
   showPriorityColors,
   showTaskIds,
@@ -88,8 +88,7 @@ export function BoardActiveContent({
           member={memberValue}
           search={search}
           tasks={projectActiveTasks}
-          setTasks={setProjectTasks}
-          idToGlobalIndex={idToGlobalIndex}
+          visibleTasks={filteredTasks}
           allBadgesOpen={showBadges}
           priorityColorsOpen={showPriorityColors}
           taskIdsOpen={showTaskIds}
@@ -110,7 +109,9 @@ export function BoardActiveContent({
         selectedIds={selectedIds}
         onToggleSelect={onToggleSelect}
         bulkMode={bulkMode}
+        columns={columns}
         onCreateTask={onCreateTask}
+        hasActiveFilters={hasActiveFilters}
         onClearFilters={onClearFilters}
       />
     );
@@ -124,7 +125,9 @@ export function BoardActiveContent({
       onToggleSelect={onToggleSelect}
       bulkMode={bulkMode}
       onSelectAll={onSelectAll}
+      columns={columns}
       onCreateTask={onCreateTask}
+      hasActiveFilters={hasActiveFilters}
       onClearFilters={onClearFilters}
     />
   );

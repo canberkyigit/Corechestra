@@ -13,6 +13,7 @@ export function useDocsApi({
     updateDocPage: docsActions.updateDocPage,
     deleteDocPage: docsActions.deleteDocPage,
     moveDocPage: docsActions.moveDocPage,
+    reorderDocPages: docsActions.reorderDocPages,
     addDocComment: docsActions.addDocComment,
     deleteDocComment: docsActions.deleteDocComment,
   };

@@ -5,65 +5,22 @@ import {
   FaBell, FaCog, FaUserCircle, FaChevronLeft, FaChevronRight,
   FaColumns, FaTachometerAlt, FaRocket, FaCalendarAlt,
   FaChartBar, FaSearch, FaMoon, FaSun,
-  FaCheckCircle, FaExclamationTriangle, FaComment, FaArrowRight,
   FaShieldAlt, FaLayerGroup, FaBook, FaTag, FaFlask,
-  FaCheckSquare, FaBug, FaPlusSquare, FaExclamationCircle,
-  FaUser, FaFlag, FaPlay, FaRegDotCircle, FaTimes, FaArchive, FaUndo, FaBolt,
+  FaTimes, FaArchive, FaPlus,
   FaSignOutAlt, FaBars, FaBuilding, FaStream,
 } from "react-icons/fa";
 import { useApp } from "../context/AppContext";
+import { TASK_STATUS_BADGE_STYLES, TASK_STATUS_SHORT_LABELS, TASK_TYPE_ICON_META } from "../constants/taskMeta";
 import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
 import { usePermissions } from "../context/hooks/usePermissions";
+import {
+  filterNotificationsForUser,
+  getNotificationMeta,
+  resolveNotificationTarget,
+} from "../constants/notificationMeta";
+import { useAppNavigationListener } from "./appNavigation";
 import Logo from "./Logo";
-
-const NOTIF_META = {
-  assignment:      { icon: FaArrowRight,          color: "text-blue-500   bg-blue-50   dark:bg-blue-900/20"   },
-  status_done:     { icon: FaCheckCircle,         color: "text-green-500  bg-green-50  dark:bg-green-900/20"  },
-  status_blocked:  { icon: FaExclamationTriangle, color: "text-red-500    bg-red-50    dark:bg-red-900/20"    },
-  status_change:   { icon: FaArrowRight,          color: "text-blue-500   bg-blue-50   dark:bg-blue-900/20"   },
-  comment:         { icon: FaComment,             color: "text-purple-500 bg-purple-50 dark:bg-purple-900/20" },
-  mention:         { icon: FaComment,             color: "text-purple-500 bg-purple-50 dark:bg-purple-900/20" },
-  task_created:    { icon: FaCheckCircle,         color: "text-green-500  bg-green-50  dark:bg-green-900/20"  },
-  task_archived:   { icon: FaArchive,             color: "text-amber-500  bg-amber-50  dark:bg-amber-900/20"  },
-  task_restored:   { icon: FaUndo,                color: "text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20" },
-  task_deleted:    { icon: FaExclamationTriangle, color: "text-red-500    bg-red-50    dark:bg-red-900/20"    },
-  sprint_started:  { icon: FaPlay,                color: "text-blue-500   bg-blue-50   dark:bg-blue-900/20"   },
-  sprint_completed:{ icon: FaCheckCircle,         color: "text-green-500  bg-green-50  dark:bg-green-900/20"  },
-  project_created: { icon: FaLayerGroup,          color: "text-purple-500 bg-purple-50 dark:bg-purple-900/20" },
-  project_deleted: { icon: FaExclamationTriangle, color: "text-red-500    bg-red-50    dark:bg-red-900/20"    },
-  epic_created:    { icon: FaBolt,                color: "text-violet-500 bg-violet-50 dark:bg-violet-900/20" },
-  epic_deleted:    { icon: FaExclamationTriangle, color: "text-red-500    bg-red-50    dark:bg-red-900/20"    },
-  archive_emptied: { icon: FaArchive,             color: "text-red-500    bg-red-50    dark:bg-red-900/20"    },
-};
-
-const SEARCH_TYPE_ICONS = {
-  task:          { icon: FaCheckSquare,       color: "text-green-500"  },
-  bug:           { icon: FaBug,               color: "text-red-500"    },
-  feature:       { icon: FaPlusSquare,        color: "text-cyan-500"   },
-  defect:        { icon: FaExclamationCircle, color: "text-orange-500" },
-  userstory:     { icon: FaUser,              color: "text-blue-500"   },
-  investigation: { icon: FaSearch,            color: "text-purple-500" },
-  epic:          { icon: FaRocket,            color: "text-violet-500" },
-  test:          { icon: FaSearch,            color: "text-teal-500"   },
-  testset:       { icon: FaFlag,              color: "text-indigo-500" },
-  testexecution: { icon: FaPlay,              color: "text-lime-600"   },
-  precondition:  { icon: FaRegDotCircle,      color: "text-sky-500"    },
-};
-
-const SEARCH_STATUS_COLORS = {
-  todo:       "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300",
-  inprogress: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
-  review:     "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300",
-  awaiting:   "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300",
-  blocked:    "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
-  done:       "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
-};
-
-const SEARCH_STATUS_LABELS = {
-  todo: "To Do", inprogress: "In Progress", review: "Review",
-  awaiting: "Awaiting", blocked: "Blocked", done: "Done",
-};
 
 const SEARCH_PAGES = [
   { id: "dashboard", label: "Dashboard",  icon: FaTachometerAlt },
@@ -72,6 +29,9 @@ const SEARCH_PAGES = [
   { id: "reports",   label: "Reports",    icon: FaChartBar      },
   { id: "calendar",  label: "Calendar",   icon: FaCalendarAlt   },
   { id: "projects",  label: "Projects",   icon: FaLayerGroup    },
+  { id: "docs",      label: "Documentation", icon: FaBook       },
+  { id: "releases",  label: "Releases",   icon: FaTag           },
+  { id: "tests",     label: "Tests",      icon: FaFlask         },
   { id: "admin",     label: "Admin",      icon: FaShieldAlt     },
   { id: "archive",   label: "Archive",    icon: FaArchive       },
   { id: "for-you",   label: "For You",    icon: FaBell          },
@@ -79,7 +39,9 @@ const SEARCH_PAGES = [
 ];
 
 function relativeTime(isoStr) {
-  const diff = Date.now() - new Date(isoStr).getTime();
+  const time = new Date(isoStr).getTime();
+  if (!isoStr || Number.isNaN(time)) return "";
+  const diff = Date.now() - time;
   const mins = Math.floor(diff / 60000);
   if (mins < 1) return "Just now";
   if (mins < 60) return `${mins}m ago`;
@@ -118,6 +80,7 @@ export default function Layout({
   const {
     sidebarCollapsed: collapsed, setSidebarCollapsed: setCollapsed,
     notifications, markNotifRead, markAllNotifsRead, activeTasks, backlogSections, epics, projects, currentProjectId,
+    currentUser, archivedTasks,
   } = useApp();
   const { user, role, profile, logout } = useAuth();
   const { canAccessPage, canPerform } = usePermissions();
@@ -138,7 +101,15 @@ export default function Layout({
 
   const { addToast } = useToast();
   const notifRef    = useRef(null);
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const visibleNotifications = useMemo(
+    () => filterNotificationsForUser(notifications, currentUser),
+    [notifications, currentUser]
+  );
+  const unreadCount = visibleNotifications.filter((n) => !n.read).length;
+  const canCreateTask = typeof onCreateClick === "function" && canPerform("task:create");
+
+  // Feature pages request "open task" / "navigate" through window events.
+  useAppNavigationListener({ onOpenTask, onNavigate: onPageChange });
 
   useEffect(() => {
     const handler = (e) => addToast(e.detail.message, "error");
@@ -190,7 +161,7 @@ export default function Layout({
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const markAllRead = markAllNotifsRead;
+  const markAllRead = () => markAllNotifsRead(visibleNotifications.filter((n) => !n.read).map((n) => n.id));
   const markRead    = markNotifRead;
 
   // ── Inline search logic ────────────────────────────────────────────────────
@@ -240,10 +211,24 @@ export default function Layout({
 
   useEffect(() => {
     const el = searchListRef.current?.children[searchCursor];
-    el?.scrollIntoView({ block: "nearest" });
+    el?.scrollIntoView?.({ block: "nearest" });
   }, [searchCursor]);
 
   useEffect(() => { setSearchCursor(0); }, [searchResults]);
+
+  const resolveTarget = (notification) => resolveNotificationTarget(notification, {
+    tasks: [...(activeTasks || []), ...allBacklogTasks],
+    archivedTasks,
+    canAccessPage,
+  });
+
+  const handleNotificationClick = (notification) => {
+    markRead(notification.id);
+    setNotifOpen(false);
+    const target = resolveTarget(notification);
+    if (target?.kind === "task") onOpenTask?.(target.task);
+    else if (target?.kind === "route") onPageChange?.(target.route);
+  };
 
   const handleSearchSelect = (result) => {
     if (result.kind === "task") { onOpenTask?.(result.item); }
@@ -292,7 +277,7 @@ export default function Layout({
     : "text-slate-600 hover:bg-slate-100 hover:text-slate-900";
 
   // ── Nav button (handles collapsed / expanded) ──────────────────────────────
-  const NavBtn = ({ id, label, Icon }) => {
+  const renderNavBtn = ({ id, label, Icon }) => {
     const isActive = activePage === id;
     const showLabels = isMobile || !collapsed;
     return (
@@ -365,20 +350,20 @@ export default function Layout({
         {/* Nav */}
         <nav className={`flex-1 overflow-y-auto py-2 ${(!isMobile && collapsed) ? "px-1 space-y-0.5" : "px-2 space-y-0.5"}`}>
           {visibleNavItems.map(({ id, label, icon: Icon }) => (
-              <NavBtn key={id} id={id} label={label} Icon={Icon} />
+              <React.Fragment key={id}>{renderNavBtn({ id, label, Icon })}</React.Fragment>
             ))}
 
           {visibleAdminNavItems.length > 0 && (!isMobile && collapsed ? (
             <div className={`mt-2 pt-2 border-t ${borderColor} space-y-0.5`}>
               {visibleAdminNavItems.map(({ id, label, icon: Icon }) => (
-                <NavBtn key={id} id={id} label={label} Icon={Icon} />
+                <React.Fragment key={id}>{renderNavBtn({ id, label, Icon })}</React.Fragment>
               ))}
             </div>
           ) : (
             <div className={`mt-2 pt-2 border-t ${borderColor}`}>
               <p className={`px-3 py-1 text-[10px] font-semibold uppercase tracking-widest ${subText}`}>Admin</p>
               {visibleAdminNavItems.map(({ id, label, icon: Icon }) => (
-                <NavBtn key={id} id={id} label={label} Icon={Icon} />
+                <React.Fragment key={id}>{renderNavBtn({ id, label, Icon })}</React.Fragment>
               ))}
             </div>
           ))}
@@ -502,7 +487,8 @@ export default function Layout({
               onChange={(e) => { setSearchQuery(e.target.value); setSearchOpen(true); }}
               onFocus={() => setSearchOpen(true)}
               onKeyDown={handleSearchKeyDown}
-              placeholder="Search issues, tasks, pages… (⌘K)"
+              placeholder="Search tasks, epics, pages…"
+              aria-label="Search tasks, epics and pages"
               className={`w-full pl-9 pr-8 py-1.5 text-sm rounded-lg border transition-all focus:outline-none focus:ring-2 focus:ring-blue-400
                 ${darkMode
                   ? "bg-[#252b3b] text-slate-200 placeholder-slate-500 border-[#353d50] focus:bg-[#1a1f2e]"
@@ -535,7 +521,7 @@ export default function Layout({
                       {searchResults.map((r, i) => {
                         const isFocused = i === searchCursor;
                         if (r.kind === "task") {
-                          const typeInfo = SEARCH_TYPE_ICONS[r.type] || SEARCH_TYPE_ICONS.task;
+                          const typeInfo = TASK_TYPE_ICON_META[r.type] || TASK_TYPE_ICON_META.task;
                           const TypeIcon = typeInfo.icon;
                           return (
                             <button
@@ -548,8 +534,8 @@ export default function Layout({
                               <span className="text-xs font-mono text-slate-400 flex-shrink-0">{taskKey(r.id)}</span>
                               <span className={`text-sm flex-1 truncate ${darkMode ? "text-slate-200" : "text-slate-700"}`}>{highlightMatch(r.title)}</span>
                               {r.status && (
-                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 ${SEARCH_STATUS_COLORS[r.status] || SEARCH_STATUS_COLORS.todo}`}>
-                                  {SEARCH_STATUS_LABELS[r.status] || r.status}
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 ${TASK_STATUS_BADGE_STYLES[r.status] || TASK_STATUS_BADGE_STYLES.todo}`}>
+                                  {TASK_STATUS_SHORT_LABELS[r.status] || r.status}
                                 </span>
                               )}
                             </button>
@@ -596,7 +582,7 @@ export default function Layout({
                 ) : (
                   <div className="py-3 px-2">
                     <p className={`text-xs ${subText} mb-1.5 px-2`}>Quick navigation</p>
-                    {SEARCH_PAGES.map((p, i) => {
+                    {visibleSearchPages.map((p, i) => {
                       const Icon = p.icon;
                       return (
                         <button
@@ -635,10 +621,23 @@ export default function Layout({
             >
               <FaSearch className="w-3.5 h-3.5" />
             </button>
+            {/* Create — hidden for roles without task:create (e.g. viewers) */}
+            {canCreateTask && (
+              <button
+                onClick={onCreateClick}
+                title="Create task"
+                aria-label="Create task"
+                className="flex items-center gap-1.5 p-2 md:px-3 md:py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors"
+              >
+                <FaPlus className="w-3 h-3" />
+                <span className="hidden md:inline">Create</span>
+              </button>
+            )}
             {/* Notifications */}
             <div className="relative" ref={notifRef}>
               <button
                 onClick={() => setNotifOpen((v) => !v)}
+                aria-label="Notifications"
                 className={`relative p-2 rounded-lg transition-colors ${bottomRowClass}`}
               >
                 <FaBell className="w-4 h-4" />
@@ -666,27 +665,16 @@ export default function Layout({
                     )}
                   </div>
                   <div className="max-h-80 overflow-y-auto">
-                    {notifications.length === 0 ? (
+                    {visibleNotifications.length === 0 ? (
                       <div className={`py-8 text-center text-xs ${subText}`}>No notifications yet</div>
-                    ) : notifications.map((n) => {
-                      const meta = NOTIF_META[n.type] || NOTIF_META.status_change;
+                    ) : visibleNotifications.map((n) => {
+                      const meta = getNotificationMeta(n.type);
                       const NIcon = meta.icon;
+                      const target = resolveTarget(n);
                       return (
                         <button
                           key={n.id}
-                          onClick={() => {
-                            markRead(n.id);
-                            setNotifOpen(false);
-                            if (n.taskId) {
-                              const task = [...activeTasks, ...allBacklogTasks].find((t) => t.id === n.taskId);
-                              if (task) {
-                                onPageChange?.("board");
-                                onOpenTask?.(task);
-                              }
-                            } else if (n.type === "sprint_start" || n.type === "sprint_end") {
-                              onPageChange?.("board");
-                            }
-                          }}
+                          onClick={() => handleNotificationClick(n)}
                           className={`w-full flex items-start gap-3 px-4 py-3 transition-colors text-left border-b last:border-0 ${borderColor} group/notif ${
                             !n.read
                               ? darkMode ? "bg-blue-900/10 hover:bg-blue-900/20" : "bg-blue-50/40 hover:bg-blue-50"
@@ -700,9 +688,9 @@ export default function Layout({
                             <p className={`text-xs leading-snug ${!n.read ? projNameText + " font-medium" : subText}`}>{n.text}</p>
                             <div className="flex items-center gap-2 mt-0.5">
                               <p className={`text-xs ${subText}`}>{relativeTime(n.timestamp)}</p>
-                              {n.taskId && (
+                              {target && (
                                 <span className={`text-[10px] opacity-0 group-hover/notif:opacity-100 transition-opacity font-medium text-blue-500`}>
-                                  View task →
+                                  {target.kind === "task" ? "View task →" : "Open →"}
                                 </span>
                               )}
                             </div>

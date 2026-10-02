@@ -1,8 +1,8 @@
 import { useCallback } from "react";
 import { DEFAULT_BOARD_SETTINGS, DEFAULT_COLUMNS } from "../../AppSeeds";
+import { useAppStore } from "../../../store/useAppStore";
 
 export function useWorkspaceActions({
-  currentProjectId,
   projects,
   workspaceSettings,
   setProjects,
@@ -18,7 +18,6 @@ export function useWorkspaceActions({
   setTeams,
   setUsers,
   setDeletedUserIds,
-  setSprintDefaults,
   addNotification,
   logAuditEvent,
 }) {
@@ -105,29 +104,40 @@ export function useWorkspaceActions({
     workspaceSettings,
   ]);
 
+  // Merges a (possibly partial) project patch into the stored project so a
+  // stale snapshot from one settings tab cannot wipe fields saved by another.
   const updateProject = useCallback((updated) => {
+    if (!updated?.id) return;
+    const existing = (useAppStore.getState().projects || []).find((project) => project.id === updated.id);
+    const merged = { ...(existing || {}), ...updated };
     setProjects((prev) => prev.map((project) => (
-      project.id === updated.id ? updated : project
+      project.id === updated.id ? { ...project, ...updated } : project
     )));
     setPerProjectBoardSettings((prev) => ({
       ...prev,
       [updated.id]: {
         ...(prev[updated.id] || DEFAULT_BOARD_SETTINGS),
-        boardName: updated.name,
-        projectKey: updated.key,
+        ...(merged.name !== undefined ? { boardName: merged.name } : {}),
+        ...(merged.key !== undefined ? { projectKey: merged.key } : {}),
       },
     }));
     logAuditEvent?.("project_updated", {
       entityType: "project",
       entityId: updated.id,
-      name: updated.name,
+      name: merged.name,
       scope: "workspace",
     });
   }, [logAuditEvent, setPerProjectBoardSettings, setProjects]);
 
   const deleteProject = useCallback((projectId) => {
-    const project = projects.find((item) => item.id === projectId);
+    const state = useAppStore.getState();
+    const project = (state.projects || projects || []).find((item) => item.id === projectId);
     setProjects((prev) => prev.filter((item) => item.id !== projectId));
+    // Don't leave the workspace pointing at a project that no longer exists.
+    if (state.currentProjectId === projectId) {
+      const fallback = (state.projects || []).find((item) => item.id !== projectId);
+      state.setCurrentProjectId?.(fallback?.id || "");
+    }
     if (project) {
       addNotification({ type: "project_deleted", text: `Project "${project.name}" deleted` });
       logAuditEvent?.("project_deleted", {
@@ -209,6 +219,27 @@ export function useWorkspaceActions({
     });
   }, [logAuditEvent, setUsers]);
 
+  // Re-key a People record (e.g. invited `user-<ts>` → auth uid) and migrate managerId references.
+  const relinkUser = useCallback((oldId, newId, patch = {}) => {
+    if (!oldId || !newId || oldId === newId) return;
+    setUsers((prev) => {
+      if (!prev.some((user) => user.id === oldId)) return prev;
+      return prev
+        .filter((user) => user.id !== newId)
+        .map((user) => {
+          if (user.id === oldId) return { ...user, ...patch, id: newId };
+          if (user.managerId === oldId) return { ...user, managerId: newId };
+          return user;
+        });
+    });
+    logAuditEvent?.("user_updated", {
+      entityType: "user",
+      entityId: newId,
+      previousId: oldId,
+      scope: "security",
+    });
+  }, [logAuditEvent, setUsers]);
+
   const deleteUser = useCallback((userId) => {
     setUsers((prev) => prev.filter((user) => user.id !== userId));
     setDeletedUserIds((prev) => (
@@ -222,15 +253,6 @@ export function useWorkspaceActions({
     });
   }, [logAuditEvent, setDeletedUserIds, setUsers]);
 
-  const updateSprintDefaults = useCallback((patch) => {
-    setSprintDefaults((prev) => ({ ...prev, ...patch }));
-    logAuditEvent?.("sprint_defaults_updated", {
-      entityType: "workspace",
-      scope: "workspace",
-      patch,
-    });
-  }, [logAuditEvent, setSprintDefaults]);
-
   return {
     createProject,
     updateProject,
@@ -240,8 +262,7 @@ export function useWorkspaceActions({
     deleteTeam,
     createUser,
     updateUser,
+    relinkUser,
     deleteUser,
-    updateSprintDefaults,
-    currentProjectId,
   };
 }

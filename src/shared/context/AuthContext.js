@@ -1,11 +1,15 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { auth, db } from "../services/firebase";
 import {
   signInWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
+  sendPasswordResetEmail,
+  setPersistence,
+  browserLocalPersistence,
+  browserSessionPersistence,
 } from "firebase/auth";
-import { doc, getDoc, setDoc, updateDoc, onSnapshot } from "firebase/firestore";
+import { doc, getDoc, setDoc, onSnapshot } from "firebase/firestore";
 import {
   isE2EMode,
   readE2EAuthUsers,
@@ -14,7 +18,30 @@ import {
   upsertE2EAuthUser,
   writeE2ESession,
   E2E_SESSION_KEY,
+  E2E_AUTH_USERS_KEY,
 } from "../e2e/testMode";
+import {
+  ACCOUNT_BLOCK_MESSAGES,
+  getAccountBlockReason,
+  isValidRole,
+} from "../constants/permissions";
+
+function createBlockedError(reason) {
+  const error = new Error(ACCOUNT_BLOCK_MESSAGES[reason] || ACCOUNT_BLOCK_MESSAGES.disabled);
+  error.code = reason === "deleted" ? "auth/account-deleted" : "auth/user-disabled";
+  return error;
+}
+
+// Pending invite written by Admin > People (`invites/{email}`), if any.
+async function readInvite(email) {
+  if (!email) return null;
+  try {
+    const snap = await getDoc(doc(db, "invites", email.trim().toLowerCase()));
+    return snap.exists() ? snap.data() : null;
+  } catch {
+    return null;
+  }
+}
 
 const AuthContext = createContext(null);
 
@@ -34,11 +61,23 @@ export function AuthProvider({ children }) {
       ? { email: initialSession.email, role: initialSession.role || "member", ...initialSession }
       : null
   )); // persisted profile fields from Firestore
+  // Message shown on the login page when access was refused (deactivated / deleted account)
+  const [authError, setAuthError] = useState(null);
+  const clearAuthError = useCallback(() => setAuthError(null), []);
 
   useEffect(() => {
     if (e2eMode) {
       const applySession = () => {
         const session = readE2ESession();
+        const account = session
+          ? readE2EAuthUsers().find((candidate) => candidate.uid === session.uid)
+          : null;
+        const blockReason = getAccountBlockReason(account);
+        if (session && blockReason) {
+          setAuthError(ACCOUNT_BLOCK_MESSAGES[blockReason]);
+          writeE2ESession(null);
+          return;
+        }
         if (session) {
           setUser({ uid: session.uid, email: session.email });
           setRole(session.role || "member");
@@ -51,10 +90,25 @@ export function AuthProvider({ children }) {
       };
 
       applySession();
-      return subscribeE2EKey(E2E_SESSION_KEY, applySession);
+      const unsubSession = subscribeE2EKey(E2E_SESSION_KEY, applySession);
+      const unsubUsers = subscribeE2EKey(E2E_AUTH_USERS_KEY, applySession);
+      return () => {
+        unsubSession();
+        unsubUsers();
+      };
     }
 
     let unsubFirestore = null;
+
+    // Refuse access: keep the reason for the login page and end the Firebase session.
+    const blockSession = (reason) => {
+      if (unsubFirestore) { unsubFirestore(); unsubFirestore = null; }
+      setAuthError(ACCOUNT_BLOCK_MESSAGES[reason] || ACCOUNT_BLOCK_MESSAGES.disabled);
+      setRole(null);
+      setProfile(null);
+      setUser(null);
+      signOut(auth).catch(() => {});
+    };
 
     const unsubAuth = onAuthStateChanged(auth, async (firebaseUser) => {
       // Cancel any previous Firestore listener before switching users
@@ -68,13 +122,37 @@ export function AuthProvider({ children }) {
         try {
           const snap = await getDoc(userRef);
           if (!snap.exists()) {
-            const initial = { email: firebaseUser.email, role: "member" };
+            // First login: apply a pending invite (role) or refuse a revoked one.
+            const invite = await readInvite(firebaseUser.email);
+            const inviteBlock = getAccountBlockReason(invite);
+            if (inviteBlock) {
+              blockSession(inviteBlock);
+              return;
+            }
+            const initialRole = isValidRole(invite?.role) ? invite.role : "member";
+            const initial = {
+              email: firebaseUser.email,
+              role: initialRole,
+              ...(invite?.name ? { name: invite.name } : {}),
+            };
             await setDoc(userRef, initial);
-            setRole("member");
+            if (invite) {
+              setDoc(doc(db, "invites", firebaseUser.email.trim().toLowerCase()), {
+                status: "accepted",
+                acceptedUid: firebaseUser.uid,
+                acceptedAt: new Date().toISOString(),
+              }, { merge: true }).catch(() => {});
+            }
+            setRole(initialRole);
             setProfile(initial);
           } else {
             const data = snap.data();
-            setRole(data.role || "member");
+            const blockReason = getAccountBlockReason(data);
+            if (blockReason) {
+              blockSession(blockReason);
+              return;
+            }
+            setRole(isValidRole(data.role) ? data.role : "member");
             setProfile(data);
           }
         } catch (err) {
@@ -90,7 +168,12 @@ export function AuthProvider({ children }) {
         unsubFirestore = onSnapshot(userRef, (snap) => {
           if (snap.exists()) {
             const data = snap.data();
-            setRole(data.role || "member");
+            const blockReason = getAccountBlockReason(data);
+            if (blockReason) {
+              blockSession(blockReason);
+              return;
+            }
+            setRole(isValidRole(data.role) ? data.role : "member");
             setProfile(data);
           }
         }, (err) => {
@@ -111,22 +194,26 @@ export function AuthProvider({ children }) {
 
   // Persist profile fields to Firestore and update local state
   const updateProfile = async (fields) => {
+    // Never let a profile edit touch access-control fields.
+    const { role: _role, disabled: _disabled, deleted: _deleted, status: _status, ...safeFields } = fields || {};
     if (e2eMode) {
       const session = readE2ESession();
       if (!session) return;
-      const nextSession = { ...session, ...fields };
+      const nextSession = { ...session, ...safeFields };
       writeE2ESession(nextSession);
       upsertE2EAuthUser(session.uid, nextSession);
-      setProfile((prev) => ({ ...prev, ...fields }));
+      setProfile((prev) => ({ ...prev, ...safeFields }));
       return;
     }
     if (!user) return;
     const userRef = doc(db, "users", user.uid);
-    await updateDoc(userRef, fields);
-    setProfile((prev) => ({ ...prev, ...fields }));
+    // merge: works even if the profile doc was never created (e.g. Firestore was offline at first login)
+    await setDoc(userRef, safeFields, { merge: true });
+    setProfile((prev) => ({ ...prev, ...safeFields }));
   };
 
-  const login = async (email, password) => {
+  const login = async (email, password, { remember = true } = {}) => {
+    setAuthError(null);
     if (e2eMode) {
       const normalizedEmail = email.trim().toLowerCase();
       const matched = readE2EAuthUsers().find((candidate) => candidate.email?.toLowerCase() === normalizedEmail);
@@ -135,6 +222,8 @@ export function AuthProvider({ children }) {
         error.code = "auth/invalid-credential";
         throw error;
       }
+      const blockReason = getAccountBlockReason(matched);
+      if (blockReason) throw createBlockedError(blockReason);
       writeE2ESession({
         uid: matched.uid,
         email: matched.email,
@@ -144,10 +233,28 @@ export function AuthProvider({ children }) {
       });
       return;
     }
+    try {
+      await setPersistence(auth, remember ? browserLocalPersistence : browserSessionPersistence);
+    } catch (err) {
+      console.warn("[AuthContext] Could not set auth persistence:", err.code || err.message);
+    }
     return signInWithEmailAndPassword(auth, email, password);
   };
 
+  // Sends a password reset email. In E2E mode no email exists, so it resolves without side effects.
+  const sendPasswordReset = async (email) => {
+    const normalizedEmail = String(email || "").trim();
+    if (!normalizedEmail) {
+      const error = new Error("Enter your email address.");
+      error.code = "auth/missing-email";
+      throw error;
+    }
+    if (e2eMode || !auth) return;
+    await sendPasswordResetEmail(auth, normalizedEmail);
+  };
+
   const logout = () => {
+    setAuthError(null);
     if (e2eMode) {
       writeE2ESession(null);
       return Promise.resolve();
@@ -157,7 +264,19 @@ export function AuthProvider({ children }) {
   const isAdmin = role === "admin";
 
   return (
-    <AuthContext.Provider value={{ user, role, profile, isAdmin, login, logout, updateProfile }}>
+    <AuthContext.Provider value={{
+      user,
+      role,
+      profile,
+      isAdmin,
+      login,
+      logout,
+      updateProfile,
+      sendPasswordReset,
+      authError,
+      clearAuthError,
+    }}
+    >
       {children}
     </AuthContext.Provider>
   );

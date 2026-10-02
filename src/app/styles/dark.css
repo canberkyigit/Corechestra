@@ -70,63 +70,6 @@
 .dark input::placeholder,
 .dark textarea::placeholder { color: #475569; }
 
-/* ── Topbar (Layout) ── */
-.dark header.topbar {
-  background-color: #1c2030;
-  border-bottom-color: #2a3044;
-}
-
-/* ── Modal overlay ── */
-.dark .modal-backdrop { background-color: rgba(0,0,0,0.7); }
-
-/* ── Specific component tweaks ── */
-
-/* Task cards */
-.dark .task-card {
-  background-color: #1c2030;
-  border-color: #2a3044;
-}
-.dark .task-card:hover {
-  border-color: #3b82f6;
-  background-color: #202540;
-}
-
-/* Kanban column drop zones */
-.dark .kanban-drop-zone {
-  background-color: #141720;
-}
-
-/* Topbar search */
-.dark .topbar-search {
-  background-color: #232838;
-  border-color: #2a3044;
-  color: #e2e8f0;
-}
-.dark .topbar-search:focus {
-  background-color: #1c2030;
-  border-color: #3b82f6;
-}
-
-/* Listbox dropdowns */
-.dark .listbox-options {
-  background-color: #1c2030;
-  border-color: #2a3044;
-}
-
-/* Sprint banner */
-.dark .sprint-banner {
-  background-color: #1c2030;
-  border-bottom-color: #2a3044;
-}
-
-/* Tab bars */
-.dark .tab-bar {
-  background-color: #1c2030;
-  border-bottom-color: #2a3044;
-}
-
-/* Stat cards in dashboard (bg-blue-50, bg-green-50 etc — keep colored) */
-
 /* ── Headlessui Listbox ── */
 .dark [data-headlessui-state] {
   background-color: #1c2030;
