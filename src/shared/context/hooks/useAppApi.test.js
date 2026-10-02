@@ -476,6 +476,7 @@ describe("useApp", () => {
         currentUser: "alice",
         activeTasks: [{ id: "task-1", title: "A" }],
         notifications: [{ id: 1, text: "Hi" }],
+        testSharedSteps: [{ id: "tss-1", name: "Login" }],
         darkMode: true,
         dbReady: true,
       });
@@ -486,6 +487,7 @@ describe("useApp", () => {
     await act(async () => {
       await result.current.resetAllData();
     });
+    expect(useAppStore.getState().testSharedSteps).toEqual([]);
 
     const state = useAppStore.getState();
     expect(mockClearAllDomains).toHaveBeenCalledTimes(1);
@@ -518,5 +520,20 @@ describe("useApp", () => {
     expect(useAppStore.getState().activeTasks).toEqual([{ id: "task-1", title: "Keep me" }]);
     expect(useAppStore.getState().currentProjectId).toBe("proj-1");
     expect(useAppStore.getState().dbReady).toBe(true);
+  });
+
+  it("exposes shared test steps and the test-management actions through the facade", () => {
+    act(() => {
+      useAppStore.setState({ currentProjectId: "proj-1", currentUser: "alice", testSharedSteps: [{ id: "tss-1", name: "Login", steps: [] }] });
+    });
+    const { result } = renderHook(() => useApp());
+    expect(result.current.testSharedSteps).toEqual([{ id: "tss-1", name: "Login", steps: [] }]);
+    [
+      "createSharedSteps", "updateSharedSteps", "deleteSharedSteps", "moveTestSuite", "bulkUpdateTestCases", "moveTestCases",
+      "cloneTestCases", "deleteTestCases", "addTestCaseComment", "recordTestExecution", "updateTestRunScope", "cloneTestRun",
+      "linkDefectToExecution", "importTestingData", "removeSampleTestingData",
+    ].forEach((name) => expect(typeof result.current[name]).toBe("function"));
+    act(() => { result.current.createSharedSteps({ name: "Reset data", steps: ["Call reset"] }); });
+    expect(useAppStore.getState().testSharedSteps.map((group) => group.name)).toEqual(["Login", "Reset data"]);
   });
 });

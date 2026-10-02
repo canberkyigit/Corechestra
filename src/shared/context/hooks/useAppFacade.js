@@ -7,6 +7,7 @@ import { useNotificationActions } from "./actions/useNotificationActions";
 import { useSystemActions } from "./actions/useSystemActions";
 import { useTestingActions } from "./actions/useTestingActions";
 import { useWorkspaceActions } from "./actions/useWorkspaceActions";
+import { useWorkspaceEventBridge } from "./actions/useWorkspaceEventBridge";
 import { useBoardApi } from "./api/useBoardApi";
 import { useDocsApi } from "./api/useDocsApi";
 import { useTestingApi } from "./api/useTestingApi";
@@ -74,6 +75,8 @@ export function useAppFacade() {
     setTestCases,
     testRuns,
     setTestRuns,
+    testSharedSteps,
+    setTestSharedSteps,
     setPerProjectCompletedSprints,
     setPerProjectPlannedSprints,
     archivedTasks,
@@ -190,7 +193,7 @@ export function useAppFacade() {
     setDocPages,
   });
 
-  const testingActions = useTestingActions({
+  const rawTestingActions = useTestingActions({
     currentUser,
     templateRegistry,
     setReleases,
@@ -198,7 +201,10 @@ export function useAppFacade() {
     setTestSuites,
     setTestCases,
     setTestRuns,
+    setTestSharedSteps,
   });
+  // Announces local release / test-run changes to the Chats project channels.
+  const testingActions = useWorkspaceEventBridge(rawTestingActions, { currentUser, currentProjectId });
 
   const { resetAllData } = useSystemActions({
     setProjects,
@@ -229,6 +235,7 @@ export function useAppFacade() {
     setTestSuites,
     setTestCases,
     setTestRuns,
+    setTestSharedSteps,
     setPerProjectCompletedSprints,
     setPerProjectPlannedSprints,
     setArchivedTasks,
@@ -305,6 +312,8 @@ export function useAppFacade() {
     setTestCases,
     testRuns,
     setTestRuns,
+    testSharedSteps,
+    setTestSharedSteps,
     testingActions,
   });
 

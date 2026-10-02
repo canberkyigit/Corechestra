@@ -7,7 +7,7 @@ import {
   FaChartBar, FaSearch, FaMoon, FaSun,
   FaShieldAlt, FaLayerGroup, FaBook, FaTag, FaFlask,
   FaTimes, FaArchive, FaPlus,
-  FaSignOutAlt, FaBars, FaBuilding, FaStream,
+  FaSignOutAlt, FaBars, FaBuilding, FaStream, FaComments,
 } from "react-icons/fa";
 import { useApp } from "../context/AppContext";
 import { TASK_STATUS_BADGE_STYLES, TASK_STATUS_SHORT_LABELS, TASK_TYPE_ICON_META } from "../constants/taskMeta";
@@ -20,11 +20,13 @@ import {
   resolveNotificationTarget,
 } from "../constants/notificationMeta";
 import { useAppNavigationListener } from "./appNavigation";
+import { useChatUnread } from "../context/ChatContext";
 import Logo from "./Logo";
 
 const SEARCH_PAGES = [
   { id: "dashboard", label: "Dashboard",  icon: FaTachometerAlt },
   { id: "board",     label: "Board",      icon: FaColumns       },
+  { id: "chats",     label: "Chats",      icon: FaComments      },
   { id: "roadmap",   label: "Roadmap",    icon: FaRocket        },
   { id: "reports",   label: "Reports",    icon: FaChartBar      },
   { id: "calendar",  label: "Calendar",   icon: FaCalendarAlt   },
@@ -55,6 +57,7 @@ function relativeTime(isoStr) {
 const NAV_ITEMS = [
   { id: "dashboard",     label: "Dashboard",     icon: FaTachometerAlt },
   { id: "board",         label: "Board",         icon: FaColumns       },
+  { id: "chats",         label: "Chats",         icon: FaComments      },
   { id: "roadmap",       label: "Roadmap",       icon: FaRocket        },
   { id: "reports",       label: "Reports",       icon: FaChartBar      },
   { id: "calendar",      label: "Calendar",      icon: FaCalendarAlt   },
@@ -84,6 +87,7 @@ export default function Layout({
   } = useApp();
   const { user, role, profile, logout } = useAuth();
   const { canAccessPage, canPerform } = usePermissions();
+  const chatUnread = useChatUnread();
   const displayName = profile?.fullName || user?.email || "User";
   const [notifOpen,       setNotifOpen]       = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
@@ -280,17 +284,33 @@ export default function Layout({
   const renderNavBtn = ({ id, label, Icon }) => {
     const isActive = activePage === id;
     const showLabels = isMobile || !collapsed;
+    // Chats: red count for DMs / mentions / thread replies, a dot for other unread channels.
+    const badgeCount = id === "chats" ? chatUnread.badge : 0;
+    const showDot = id === "chats" && !badgeCount && chatUnread.hasUnread;
+    const badgeLabel = badgeCount > 99 ? "99+" : String(badgeCount);
     return (
       <button
         key={id}
         onClick={() => { onPageChange && onPageChange(id); setMobileNavOpen(false); }}
-        title={(!isMobile && collapsed) ? label : undefined}
+        title={(!isMobile && collapsed) ? (badgeCount ? `${label} (${badgeLabel} unread)` : label) : undefined}
+        aria-label={badgeCount ? `${label}, ${badgeLabel} unread` : undefined}
         className={`w-full flex items-center rounded-lg text-sm transition-colors ${
           (!isMobile && collapsed) ? "justify-center p-2.5" : "gap-3 px-3 py-2"
         } ${isActive ? navActive : navInactive}`}
       >
-        <Icon className="w-4 h-4 flex-shrink-0" />
-        {showLabels && <span>{label}</span>}
+        <span className="relative flex-shrink-0">
+          <Icon className="w-4 h-4" />
+          {(!showLabels && (badgeCount > 0 || showDot)) && (
+            <span className={`absolute -top-1 -right-1 rounded-full bg-red-500 ring-2 ${darkMode ? "ring-[#1a1f2e]" : "ring-white"} ${badgeCount ? "h-2.5 w-2.5" : "h-2 w-2"}`} />
+          )}
+        </span>
+        {showLabels && <span className={`flex-1 text-left ${showDot && !isActive ? "font-semibold" : ""}`}>{label}</span>}
+        {showLabels && badgeCount > 0 && (
+          <span className="min-w-[18px] h-[18px] px-1.5 rounded-full bg-red-500 text-white text-[10.5px] font-bold leading-[18px] text-center tabular-nums">
+            {badgeLabel}
+          </span>
+        )}
+        {showLabels && showDot && <span className="h-2 w-2 rounded-full bg-red-500" aria-hidden="true" />}
       </button>
     );
   };

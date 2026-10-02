@@ -35,6 +35,7 @@ export function useAppStoreSync() {
     testSuites,
     testCases,
     testRuns,
+    testSharedSteps,
     perProjectCompletedSprints,
     perProjectPlannedSprints,
     archivedTasks,
@@ -81,6 +82,7 @@ export function useAppStoreSync() {
     setTestSuites,
     setTestCases,
     setTestRuns,
+    setTestSharedSteps,
     setPerProjectCompletedSprints,
     setPerProjectPlannedSprints,
     setArchivedTasks,
@@ -130,6 +132,7 @@ export function useAppStoreSync() {
     testSuites: setTestSuites,
     testCases: setTestCases,
     testRuns: setTestRuns,
+    testSharedSteps: setTestSharedSteps,
     perProjectCompletedSprints: setPerProjectCompletedSprints,
     perProjectPlannedSprints: setPerProjectPlannedSprints,
     darkMode: setDarkMode,
@@ -176,6 +179,7 @@ export function useAppStoreSync() {
     setTestSuites,
     setTestCases,
     setTestRuns,
+    setTestSharedSteps,
     setPerProjectCompletedSprints,
     setPerProjectPlannedSprints,
     setDarkMode,
@@ -407,6 +411,11 @@ export function useAppStoreSync() {
     if (!dbReady) return;
     saveDomain("testing", { testRuns });
   }, [testRuns, dbReady]);
+
+  useEffect(() => {
+    if (!dbReady) return;
+    saveDomain("testing", { testSharedSteps });
+  }, [testSharedSteps, dbReady]);
 
   useEffect(() => {
     if (!dbReady) return;

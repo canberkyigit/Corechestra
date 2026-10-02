@@ -35,6 +35,7 @@ export function useSystemActions({
   setTestSuites,
   setTestCases,
   setTestRuns,
+  setTestSharedSteps,
   setPerProjectCompletedSprints,
   setPerProjectPlannedSprints,
   setArchivedTasks,
@@ -86,6 +87,7 @@ export function useSystemActions({
     setTestSuites([]);
     setTestCases([]);
     setTestRuns([]);
+    setTestSharedSteps([]);
     setPerProjectCompletedSprints({});
     setPerProjectPlannedSprints({});
     setArchivedTasks([]);
@@ -169,6 +171,7 @@ export function useSystemActions({
     setTeams,
     setTestCases,
     setTestRuns,
+    setTestSharedSteps,
     setTestSuites,
     setUsers,
     setWorkspaceSettings,

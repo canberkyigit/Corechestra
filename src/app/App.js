@@ -11,6 +11,10 @@ import { AppProvider, useApp } from "../shared/context/AppContext";
 import { ToastProvider } from "../shared/context/ToastContext";
 import { AuthProvider, useAuth } from "../shared/context/AuthContext";
 import { HRProvider } from "../shared/context/HRContext";
+import { ChatProvider } from "../shared/context/ChatContext";
+import ChatIncomingToasts from "../features/chat/components/ChatIncomingToasts";
+import { HuddleProvider } from "../features/chat/huddle/HuddleContext";
+import HuddleWindow from "../features/chat/huddle/HuddleWindow";
 import { usePermissions } from "../shared/context/hooks/usePermissions";
 import { captureException, identifyUser, initializeObservability, trackEvent } from "../shared/services/observability";
 import "./styles/app.css";
@@ -33,6 +37,7 @@ const ReleasesPage = lazy(() => import("../features/releases/pages/ReleasesPage"
 const TestsPage = lazy(() => import("../features/tests/pages/TestsPage"));
 const ArchivePage = lazy(() => import("../features/archive/pages/ArchivePage"));
 const ForYouPage = lazy(() => import("../features/for-you/pages/ForYouPage"));
+const ChatsPage = lazy(() => import("../features/chat/pages/ChatsPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -63,6 +68,7 @@ const PATH_TO_PAGE = {
   "/for-you":   "for-you",
   "/activity":  "activity",
   "/hr":        "hr",
+  "/chats":     "chats",
 };
 
 // Enter-only transition. Exit animations are intentionally not wired with
@@ -331,9 +337,13 @@ function AppInner() {
           <Route path="/archive"   element={renderProtectedPage("archive", <ArchivePage />)} />
           <Route path="/for-you"   element={renderProtectedPage("for-you", <ForYouPage />)} />
           <Route path="/hr"        element={renderProtectedPage("hr", <HRPage />)} />
+          <Route path="/chats"     element={renderProtectedPage("chats", <ChatsPage />, { fullHeight: true })} />
           <Route path="*"          element={<Navigate to={`/${firstAccessiblePage === "board" ? "board" : firstAccessiblePage}`} replace />} />
         </Routes>
       </Layout>
+
+      <ChatIncomingToasts />
+      <HuddleWindow />
 
       {cmdPaletteOpen && (
         <Suspense fallback={null}>
@@ -398,7 +408,11 @@ function AuthGate() {
     <AppProvider>
       <ToastProvider>
         <HRProvider>
-          <AppInner />
+          <ChatProvider>
+            <HuddleProvider>
+              <AppInner />
+            </HuddleProvider>
+          </ChatProvider>
         </HRProvider>
       </ToastProvider>
     </AppProvider>
