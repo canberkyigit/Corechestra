@@ -119,4 +119,42 @@ describe("useAppStoreSync", () => {
       });
     });
   });
+
+  it("hydrates and persists shared test steps in the testing domain", async () => {
+    storage.loadAllDomains.mockResolvedValue({
+      currentProjectId: "proj-1",
+      testSharedSteps: [{ id: "tss-1", name: "Login as admin", steps: [{ id: "s1", action: "Open" }] }],
+    });
+
+    renderHook(() => useAppStoreSync(), { wrapper: createWrapper() });
+
+    await waitFor(() => expect(useAppStore.getState().dbReady).toBe(true));
+    expect(useAppStore.getState().testSharedSteps).toEqual([{ id: "tss-1", name: "Login as admin", steps: [{ id: "s1", action: "Open" }] }]);
+    storage.saveDomain.mockClear();
+
+    act(() => {
+      useAppStore.getState().setTestSharedSteps((previous) => [...previous, { id: "tss-2", name: "Reset data", steps: [] }]);
+    });
+
+    await waitFor(() => {
+      expect(storage.saveDomain).toHaveBeenCalledWith("testing", {
+        testSharedSteps: [
+          { id: "tss-1", name: "Login as admin", steps: [{ id: "s1", action: "Open" }] },
+          { id: "tss-2", name: "Reset data", steps: [] },
+        ],
+      });
+    });
+  });
+
+  it("applies remote testSharedSteps updates", async () => {
+    let onUpdate;
+    storage.subscribeToAll.mockImplementation((callback) => {
+      onUpdate = callback;
+      return () => {};
+    });
+    renderHook(() => useAppStoreSync(), { wrapper: createWrapper() });
+    await waitFor(() => expect(useAppStore.getState().dbReady).toBe(true));
+    act(() => onUpdate("testSharedSteps", [{ id: "tss-9", name: "Remote" }]));
+    await waitFor(() => expect(useAppStore.getState().testSharedSteps).toEqual([{ id: "tss-9", name: "Remote" }]));
+  });
 });

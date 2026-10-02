@@ -6,6 +6,8 @@ export const testingInitialState = {
   testSuites: [],
   testCases: [],
   testRuns: [],
+  // Reusable step groups referenced by test cases (`steps[].sharedStepsId`).
+  testSharedSteps: [],
 };
 
 export function createTestingSlice(set) {
@@ -16,5 +18,6 @@ export function createTestingSlice(set) {
     setTestSuites: createFieldSetter("testSuites", set),
     setTestCases: createFieldSetter("testCases", set),
     setTestRuns: createFieldSetter("testRuns", set),
+    setTestSharedSteps: createFieldSetter("testSharedSteps", set),
   };
 }

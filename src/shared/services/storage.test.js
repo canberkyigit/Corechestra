@@ -55,6 +55,17 @@ describe("storage service", () => {
     });
   });
 
+  it("maps testSharedSteps to the testing domain and loads it from the testing document", async () => {
+    mockGetDoc.mockImplementation(async (ref) => (ref.id === "testing"
+      ? { exists: () => true, data: () => ({ testSuites: [{ id: "ts-1" }], testSharedSteps: [{ id: "tss-1", name: "Login" }] }) }
+      : { exists: () => false, data: () => ({}) }));
+
+    const { DOMAIN_FIELDS, loadAllDomains } = await import("./storage");
+    expect(DOMAIN_FIELDS.testing).toEqual(["testPlans", "testSuites", "testCases", "testRuns", "testSharedSteps"]);
+    const result = await loadAllDomains();
+    expect(result).toEqual({ testSuites: [{ id: "ts-1" }], testSharedSteps: [{ id: "tss-1", name: "Login" }] });
+  });
+
   it("dispatches a UI event when a debounced save fails", async () => {
     jest.useFakeTimers();
     mockSetDoc.mockRejectedValue(new Error("save failed"));

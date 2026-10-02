@@ -180,31 +180,55 @@ export function TestsSkeleton() {
 // ─── Releases page skeleton ───────────────────────────────────────────────────
 export function ReleasesSkeleton() {
   return (
-    <div className="flex h-full gap-0">
-      {/* Sidebar */}
-      <div className="w-64 flex-shrink-0 border-r border-slate-200 dark:border-[#2a3044] p-4 space-y-3">
-        <SkeletonBlock className="h-5 w-24" />
-        <SkeletonBlock className="h-9 w-full rounded-lg" />
-        {[0,1,2,3].map(i => (
-          <div key={i} className="rounded-lg p-3 space-y-2">
-            <div className="flex items-center gap-2">
-              <SkeletonBlock className="h-4 w-16 rounded-full" />
-              <SkeletonBlock className="h-3 w-12" />
-            </div>
-            <SkeletonBlock className="h-3 w-full" />
+    <div className="h-full overflow-hidden bg-slate-50 dark:bg-[#141720]" data-testid="releases-skeleton">
+      <div className="mx-auto flex max-w-[1680px] flex-col gap-5 px-4 py-5 md:px-6 xl:px-8">
+        {/* Header */}
+        <div className="flex items-end justify-between gap-4">
+          <div className="space-y-2">
+            <SkeletonBlock className="h-3 w-40" />
+            <SkeletonBlock className="h-7 w-36" />
           </div>
-        ))}
-      </div>
-      {/* Detail */}
-      <div className="flex-1 p-6 space-y-4">
-        <SkeletonBlock className="h-7 w-48" />
-        <SkeletonBlock className="h-4 w-full" />
-        <SkeletonBlock className="h-4 w-3/4" />
-        <div className="space-y-2 pt-2">
-          {[0,1,2,3,4].map(i => (
-            <div key={i} className="flex items-center gap-3 py-2 border-b border-slate-100 dark:border-[#2a3044]">
-              <SkeletonBlock className="h-4 w-4 rounded flex-shrink-0" />
-              <SkeletonBlock className="h-3 flex-1" />
+          <div className="flex gap-2">
+            <SkeletonBlock className="h-9 w-9 rounded-lg" />
+            <SkeletonBlock className="h-9 w-32 rounded-lg" />
+          </div>
+        </div>
+        {/* Toolbar */}
+        <div className="flex flex-wrap items-center gap-2">
+          <SkeletonBlock className="h-9 w-64 rounded-lg" />
+          {[0, 1, 2, 3, 4].map((i) => <SkeletonBlock key={i} className="h-8 w-20 rounded-full" />)}
+          <div className="flex-1" />
+          <SkeletonBlock className="h-9 w-56 rounded-lg" />
+        </div>
+        {/* KPI strip */}
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+          {[0, 1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="flex items-start gap-3 rounded-xl border border-slate-200 dark:border-[#252b3b] bg-white dark:bg-[#1a1f2e] p-3.5">
+              <SkeletonBlock className="h-8 w-8 rounded-lg flex-shrink-0" />
+              <div className="flex-1 space-y-2">
+                <SkeletonBlock className="h-2.5 w-20" />
+                <SkeletonBlock className="h-5 w-14" />
+                <SkeletonBlock className="h-2.5 w-24" />
+              </div>
+            </div>
+          ))}
+        </div>
+        {/* List rows */}
+        <div className="rounded-xl border border-slate-200 dark:border-[#252b3b] bg-white dark:bg-[#1a1f2e]">
+          <div className="border-b border-slate-100 dark:border-[#252b3b] px-4 py-3">
+            <SkeletonBlock className="h-3 w-full max-w-xl" />
+          </div>
+          {[0, 1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="flex items-center gap-4 border-b border-slate-100 dark:border-[#252b3b] px-4 py-3.5 last:border-b-0">
+              <SkeletonBlock className="h-5 w-16 rounded-md" />
+              <div className="flex-1 space-y-1.5">
+                <SkeletonBlock className="h-3 w-48" />
+                <SkeletonBlock className="h-2.5 w-72 max-w-full" />
+              </div>
+              <SkeletonBlock className="hidden md:block h-5 w-20 rounded-full" />
+              <SkeletonBlock className="hidden lg:block h-2 w-36 rounded-full" />
+              <SkeletonBlock className="hidden xl:block h-8 w-8 rounded-full" />
+              <SkeletonBlock className="hidden lg:block h-6 w-6 rounded-full" />
             </div>
           ))}
         </div>

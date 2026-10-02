@@ -149,7 +149,7 @@ export const DOMAIN_FIELDS = {
   workspace: ["perProjectRetrospective", "perProjectPokerHistory", "perProjectNotes"],
   docs:      ["spaces", "docPages"],
   releases:  ["releases"],
-  testing:   ["testPlans", "testSuites", "testCases", "testRuns"],
+  testing:   ["testPlans", "testSuites", "testCases", "testRuns", "testSharedSteps"],
   archive:   ["archivedTasks", "archivedProjects", "archivedEpics"],
 };
 
