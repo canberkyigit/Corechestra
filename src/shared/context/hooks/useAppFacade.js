@@ -3,6 +3,7 @@ import { useAppStore } from "../../store/useAppStore";
 import { useActivityActions } from "./actions/useActivityActions";
 import { useAutomationActions } from "./actions/useAutomationActions";
 import { useBoardActions } from "./actions/useBoardActions";
+import { useCustomFieldActions } from "./actions/useCustomFieldActions";
 import { useDocsActions } from "./actions/useDocsActions";
 import { useNotificationActions } from "./actions/useNotificationActions";
 import { useSystemActions } from "./actions/useSystemActions";
@@ -11,6 +12,7 @@ import { useWorkspaceActions } from "./actions/useWorkspaceActions";
 import { useWorkspaceEventBridge } from "./actions/useWorkspaceEventBridge";
 import { useAutomationApi } from "./api/useAutomationApi";
 import { useBoardApi } from "./api/useBoardApi";
+import { useCustomFieldApi } from "./api/useCustomFieldApi";
 import { useDocsApi } from "./api/useDocsApi";
 import { useTestingApi } from "./api/useTestingApi";
 import { useUiApi } from "./api/useUiApi";
@@ -61,6 +63,8 @@ export function useAppFacade() {
     setUsers,
     deletedUserIds,
     setDeletedUserIds,
+    customFieldDefs,
+    setCustomFieldDefs,
     sprintDefaults,
     setSprintDefaults,
     spaces,
@@ -219,6 +223,16 @@ export function useAppFacade() {
     logAuditEvent,
   });
 
+  const customFieldActions = useCustomFieldActions({
+    currentUser,
+    currentProjectId,
+    setCustomFieldDefs,
+    setActiveTasks,
+    setPerProjectBacklog,
+    setArchivedTasks,
+    logAuditEvent,
+  });
+
   const { resetAllData } = useSystemActions({
     setProjects,
     setCurrentProjectId,
@@ -240,6 +254,7 @@ export function useAppFacade() {
     setTeams,
     setUsers,
     setDeletedUserIds,
+    setCustomFieldDefs,
     setSprintDefaults,
     setSpaces,
     setDocPages,
@@ -374,6 +389,11 @@ export function useAppFacade() {
     automationActions,
   });
 
+  const customFieldApi = useCustomFieldApi({
+    customFieldDefs,
+    customFieldActions,
+  });
+
   return {
     ...workspaceApi,
     ...boardApi,
@@ -381,6 +401,7 @@ export function useAppFacade() {
     ...docsApi,
     ...testingApi,
     ...automationApi,
+    ...customFieldApi,
     logAuditEvent,
   };
 }

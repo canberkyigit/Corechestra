@@ -10,6 +10,8 @@ export const workspaceInitialState = {
   teams: [],
   users: [],
   deletedUserIds: [],
+  // Per-project custom field definitions (values live on task.customFields).
+  customFieldDefs: [],
 };
 
 export function createWorkspaceSlice(set) {
@@ -24,5 +26,6 @@ export function createWorkspaceSlice(set) {
     setTeams: createFieldSetter("teams", set),
     setUsers: createFieldSetter("users", set),
     setDeletedUserIds: createFieldSetter("deletedUserIds", set),
+    setCustomFieldDefs: createFieldSetter("customFieldDefs", set),
   };
 }

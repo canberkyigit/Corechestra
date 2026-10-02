@@ -25,6 +25,7 @@ export function useBoardPermissions() {
       canManageProject: allow("project:manage"),
       canManageWorkspace: allow("workspace:manage"),
       canManageAutomation: allow("automation:manage"),
+      canManageFields: allow("fields:manage"),
     };
   }, [isAdmin, permissionMatrix, role]);
 }

@@ -24,6 +24,15 @@ import TaskInlineSubtasks from "./task-modal/TaskInlineSubtasks";
 import TaskInlineLinks from "./task-modal/TaskInlineLinks";
 import { TaskEpicPicker, TaskLabelsPicker, TaskWatchersPicker } from "./task-modal/TaskModalFields";
 import TaskAttachments from "./task-shared/TaskAttachments";
+import TaskCustomFields from "../../custom-fields/components/TaskCustomFields";
+import {
+  buildDefaultCustomFieldValues,
+  getApplicableCustomFields,
+  getProjectCustomFieldDefs,
+  isSameCustomFieldDraft,
+  normalizeCustomFieldValuesMap,
+  validateCustomFieldValues,
+} from "../../../shared/utils/customFields";
 import {
   buildLink,
   createSubtask,
@@ -52,7 +61,7 @@ export default function TaskDetailModal({
   setSelectedSprint,
   onOpenPanel,
 }) {
-  const { labels, deleteTask, logActivity, sprint, users } = useApp();
+  const { labels, deleteTask, logActivity, sprint, users, customFieldDefs, currentProjectId } = useApp();
   const { canCreateTask, canEditTask, canArchiveTask } = useBoardPermissions();
   const readOnly = isCreate ? !canCreateTask : !canEditTask;
   const { addToast } = useToast();
@@ -80,8 +89,12 @@ export default function TaskDetailModal({
   const [openSubtask, setOpenSubtask] = useState(null);
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
   const [titleError, setTitleError] = useState(false);
+  const [customFieldValues, setCustomFieldValues] = useState({});
 
   const projectId = task?.projectId;
+  const fieldProjectId = projectId || currentProjectId || "";
+  const projectFieldDefs = getProjectCustomFieldDefs(customFieldDefs, fieldProjectId);
+  const applicableFields = getApplicableCustomFields(customFieldDefs, { projectId: fieldProjectId, taskType: type });
   const projectAssignees = useProjectAssignees(projectId);
   const projectEpics = useProjectEpics(projectId, epicId);
   const statusOptions = useTaskStatusOptions(projectId, status);
@@ -114,6 +127,13 @@ export default function TaskDetailModal({
     setSubtasks(task.subtasks || []);
     setLinkedItems((task.linkedItems || []).map(normalizeLinkedItem).filter(Boolean));
     setAttachments(task.attachments || []);
+    // New tasks start with the project's field defaults; existing tasks keep
+    // every stored value (also of fields that are archived or don't apply).
+    setCustomFieldValues(
+      task.id
+        ? { ...(task.customFields || {}) }
+        : { ...buildDefaultCustomFieldValues(getProjectCustomFieldDefs(customFieldDefs, task.projectId || currentProjectId || "")), ...(task.customFields || {}) }
+    );
     setInlineSubOpen(false);
     setInlineSubTitle("");
     closeLinkSearch();
@@ -127,8 +147,17 @@ export default function TaskDetailModal({
   const shouldRender = open && task;
   const changed = () => setHasChanges(true);
 
+  // Create: keep only values of fields that apply to the chosen type.
+  const buildCustomFields = () => {
+    const normalized = normalizeCustomFieldValuesMap(projectFieldDefs, customFieldValues);
+    if (!isCreate) return normalized;
+    const allowed = new Set(applicableFields.map((def) => def.id));
+    return Object.fromEntries(Object.entries(normalized).filter(([fieldId]) => allowed.has(fieldId)));
+  };
+
   const buildUpdated = () => ({
     ...task,
+    customFields: buildCustomFields(),
     title,
     description,
     type,
@@ -177,6 +206,19 @@ export default function TaskDetailModal({
       return;
     }
     setTitleError(false);
+    // Required custom fields block creation; malformed values (bad URL,
+    // number) block every save.
+    const fieldCheck = validateCustomFieldValues(applicableFields, buildCustomFields());
+    if (isCreate && fieldCheck.missing.length > 0) {
+      setActiveTab("details");
+      addToast(fieldCheck.message, "error");
+      return;
+    }
+    if (fieldCheck.invalid.length > 0) {
+      setActiveTab("details");
+      addToast(fieldCheck.invalid[0].message, "error");
+      return;
+    }
     // Status changes go through the project's workflow rules (may prompt for
     // a blocker reason); unchanged status saves synchronously.
     if (!isCreate && task.status && status !== task.status) {
@@ -383,6 +425,19 @@ export default function TaskDetailModal({
                           onChange={(event) => { setDescription(event.target.value); changed(); }}
                         />
                       </div>
+
+                      <TaskCustomFields
+                        defs={applicableFields}
+                        values={customFieldValues}
+                        onChange={(fieldId, value) => {
+                          if (isSameCustomFieldDraft(customFieldValues[fieldId], value)) return;
+                          setCustomFieldValues((prev) => ({ ...prev, [fieldId]: value }));
+                          changed();
+                        }}
+                        readOnly={readOnly}
+                        members={projectAssignees}
+                        users={users}
+                      />
 
                       <TaskLabelsPicker labels={labels || []} selected={taskLabels} onToggle={toggleLabel} readOnly={readOnly} />
                       <TaskEpicPicker epics={projectEpics} value={epicId} onChange={(value) => { setEpicId(value); changed(); }} readOnly={readOnly} />

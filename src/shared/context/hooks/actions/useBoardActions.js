@@ -4,6 +4,7 @@ import { DEFAULT_COLUMNS } from "../../AppSeeds";
 import { useAppStore } from "../../../store/useAppStore";
 import { TASK_STATUS_SHORT_LABELS } from "../../../constants/taskMeta";
 import { emitWorkspaceEvent, WORKSPACE_EVENT_TYPES } from "../../../services/workspaceEvents";
+import { describeCustomFieldChanges, withCustomFieldValues } from "../../../utils/customFields";
 
 // ─── Workflow + task helpers (pure, exported for board UI pre-validation) ────
 
@@ -79,6 +80,12 @@ export function stripTransientTaskFields(task) {
   const clean = { ...task };
   TRANSIENT_TASK_FIELDS.forEach((field) => { delete clean[field]; });
   return clean;
+}
+
+/** Drops empty custom field values so tasks only store fields that are set. */
+function compactTaskCustomFields(task) {
+  if (!task || !("customFields" in task)) return task;
+  return withCustomFieldValues(task, task.customFields);
 }
 
 function findTask(activeTasks, perProjectBacklog, taskId) {
@@ -279,7 +286,7 @@ export function useBoardActions({
    * Returns `{ ok: true, task }` or `{ ok: false, code, message }`.
    */
   const updateTask = useCallback((incomingTask, logMsg) => {
-    let updatedTask = stripTransientTaskFields(incomingTask);
+    let updatedTask = compactTaskCustomFields(stripTransientTaskFields(incomingTask));
     if (!updatedTask?.id) return { ok: false, code: "invalid", message: "Task is missing an id." };
     const { activeTasks, perProjectBacklog } = useAppStore.getState();
     const previousTask = findTask(activeTasks, perProjectBacklog, updatedTask.id);
@@ -311,6 +318,19 @@ export function useBoardActions({
         to: updatedTask.status,
         ...(updatedTask.blockReason ? { blockReason: updatedTask.blockReason } : {}),
       });
+    }
+    if (previousTask) {
+      // One activity entry per changed custom field, named after the field.
+      const { customFieldDefs, users } = useAppStore.getState();
+      describeCustomFieldChanges(previousTask.customFields, updatedTask.customFields, customFieldDefs, { users })
+        .forEach((change) => {
+          logActivity(updatedTask.id, change.action, {
+            customFieldId: change.fieldId,
+            fieldName: change.fieldName,
+            from: change.from,
+            to: change.to,
+          });
+        });
     }
     if (logMsg) logActivity(updatedTask.id, logMsg);
     return { ok: true, task: updatedTask };
@@ -390,7 +410,7 @@ export function useBoardActions({
 
   const createTask = useCallback((taskData, sprintValue) => {
     const { activeTasks, perProjectBacklog } = useAppStore.getState();
-    const newTask = {
+    const newTask = compactTaskCustomFields({
       ...stripTransientTaskFields(taskData),
       id: generateId(collectTaskIds(activeTasks, perProjectBacklog)),
       status: taskData.status || "todo",
@@ -403,7 +423,7 @@ export function useBoardActions({
       epicId: taskData.epicId || null,
       reporter: taskData.reporter || currentUser || null,
       projectId: currentProjectId,
-    };
+    });
     let addedToBacklog = false;
     if (typeof sprintValue === "string" && sprintValue.startsWith("backlog-")) {
       const backlogId = parseInt(sprintValue.replace("backlog-", ""), 10);

@@ -141,7 +141,7 @@ export const DOMAIN_FIELDS = {
               "darkMode", "sidebarCollapsed", "projectsViewMode", "perProjectBoardFilters", "templateRegistry",
               "savedViews", "recentItems", "favoriteItems", "pinnedItems", "notificationPreferences",
               "permissionMatrix", "workspaceSettings", "sensitiveActionPolicy"],
-  entities:  ["projects", "teams", "users", "epics", "labels", "deletedUserIds"],
+  entities:  ["projects", "teams", "users", "epics", "labels", "deletedUserIds", "customFieldDefs"],
   tasks:     ["activeTasks", "perProjectBacklog"],
   sprints:   ["perProjectSprint", "projectColumns", "perProjectBoardSettings",
               "perProjectBurndownSnapshots", "perProjectCompletedSprints", "perProjectPlannedSprints"],

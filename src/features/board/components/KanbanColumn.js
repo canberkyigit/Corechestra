@@ -35,6 +35,7 @@ function KanbanColumn({
   epicsById,
   labelsById,
   users,
+  cardFields,
   isCollapsed,
   onToggleCollapse,
 }) {
@@ -186,6 +187,7 @@ function KanbanColumn({
                       epicsById={epicsById}
                       labelsById={labelsById}
                       users={users}
+                      cardFields={cardFields}
                     />
                   </div>
                 )}

@@ -4,6 +4,14 @@ import { FaCheck } from "react-icons/fa";
 import { parseISO, format } from "date-fns";
 import { AppBadge, AppButton, AppEmptyState, getTaskStatusTone } from "../../../shared/components/AppPrimitives";
 import { getStatusTitle, groupTasksByColumn } from "../utils/boardColumns";
+import { useApp } from "../../../shared/context/AppContext";
+import { useCardCustomFields } from "../../custom-fields/hooks/useCustomFields";
+import {
+  fieldAppliesToType,
+  findOption,
+  formatCustomFieldValue,
+  getEffectiveCustomFieldValue,
+} from "../../../shared/utils/customFields";
 
 const safeFormat = (value, pattern) => {
   if (!value) return null;
@@ -18,7 +26,25 @@ const COL_WIDTHS = {
   assignee: 110,
   due: 110,
   points: 60,
+  field: 130,
 };
+
+/** Table cell for a "show on card" custom field. */
+function FieldCell({ def, task, users }) {
+  const value = fieldAppliesToType(def, task.type) ? getEffectiveCustomFieldValue(def, task.customFields?.[def.id]) : undefined;
+  const text = value === undefined ? "" : formatCustomFieldValue(def, value, { users });
+  const color = def.type === "select" ? findOption(def, value)?.color
+    : def.type === "multiselect" && value ? findOption(def, value[0])?.color
+      : null;
+  return (
+    <div className="flex-shrink-0 pr-4 min-w-0" style={{ width: COL_WIDTHS.field }}>
+      <span className="text-xs text-slate-500 dark:text-slate-400 truncate flex items-center gap-1" title={text}>
+        {color && <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />}
+        <span className="truncate">{text || "—"}</span>
+      </span>
+    </div>
+  );
+}
 
 function EmptyState({ onCreateTask, hasActiveFilters, onClearFilters }) {
   return (
@@ -150,7 +176,7 @@ export function ListView({
   );
 }
 
-function TableRow({ task, bulkMode, selectedIds, onToggleSelect, onTaskClick, columns }) {
+function TableRow({ task, bulkMode, selectedIds, onToggleSelect, onTaskClick, columns, fieldColumns = [], users }) {
   const selected = selectedIds.has(task.id);
   return (
     <div
@@ -192,6 +218,7 @@ function TableRow({ task, bulkMode, selectedIds, onToggleSelect, onTaskClick, co
           {safeFormat(task.dueDate, "MMM d, yyyy") || "—"}
         </span>
       </div>
+      {fieldColumns.map((def) => <FieldCell key={def.id} def={def} task={task} users={users} />)}
       <div className="flex-shrink-0 pr-3" style={{ width: COL_WIDTHS.points }}>
         <span className="text-xs text-slate-500 dark:text-slate-400">{task.storyPoint || 0}</span>
       </div>
@@ -212,6 +239,8 @@ export function TableView({
   onClearFilters,
 }) {
   const parentRef = useRef(null);
+  const { users } = useApp();
+  const fieldColumns = useCardCustomFields();
   const virtualizer = useVirtualizer({
     count: tasks.length,
     getScrollElement: () => parentRef.current,
@@ -242,6 +271,9 @@ export function TableView({
         <div className="flex-shrink-0 pr-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider" style={{ width: COL_WIDTHS.priority }}>Priority</div>
         <div className="flex-shrink-0 pr-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider" style={{ width: COL_WIDTHS.assignee }}>Assignee</div>
         <div className="flex-shrink-0 pr-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider" style={{ width: COL_WIDTHS.due }}>Due Date</div>
+        {fieldColumns.map((def) => (
+          <div key={def.id} className="flex-shrink-0 pr-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate" style={{ width: COL_WIDTHS.field }} title={def.name}>{def.name}</div>
+        ))}
         <div className="flex-shrink-0 pr-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider" style={{ width: COL_WIDTHS.points }}>Pts</div>
       </div>
       <div ref={parentRef} className="flex-1 overflow-y-auto px-4">
@@ -258,6 +290,8 @@ export function TableView({
                 onToggleSelect={onToggleSelect}
                 onTaskClick={onTaskClick}
                 columns={columns}
+                fieldColumns={fieldColumns}
+                users={users}
               />
             </div>
           ))}
