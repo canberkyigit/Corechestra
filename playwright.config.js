@@ -15,6 +15,8 @@ module.exports = defineConfig({
     screenshot: "only-on-failure",
     video: "retain-on-failure",
     viewport: { width: 1440, height: 1100 },
+    // Fake camera/microphone so huddle tests can call getUserMedia headlessly.
+    launchOptions: { args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"] },
   },
   webServer: {
     command: "PORT=3100 BROWSER=none REACT_APP_E2E=1 npm start",

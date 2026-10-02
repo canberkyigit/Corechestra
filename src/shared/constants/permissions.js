@@ -1,6 +1,7 @@
 export const MODULE_PERMISSION_META = [
   { key: "dashboard", label: "Dashboard" },
   { key: "board", label: "Board" },
+  { key: "chats", label: "Chats" },
   { key: "roadmap", label: "Roadmap" },
   { key: "reports", label: "Reports" },
   { key: "calendar", label: "Calendar" },
@@ -32,6 +33,7 @@ export const ACTION_PERMISSION_META = [
   { key: "tests:execute", label: "Run tests and record results" },
   { key: "docs:edit", label: "Create and edit docs spaces and pages" },
   { key: "releases:manage", label: "Create and edit releases" },
+  { key: "chat:manage", label: "Create and manage chat channels" },
 ];
 
 const ALL_MODULE_KEYS = MODULE_PERMISSION_META.map((item) => item.key);
@@ -50,6 +52,7 @@ export const DEFAULT_PERMISSION_MATRIX = {
     modules: {
       dashboard: true,
       board: true,
+      chats: true,
       roadmap: true,
       reports: true,
       calendar: true,
@@ -80,12 +83,14 @@ export const DEFAULT_PERMISSION_MATRIX = {
       "tests:execute": true,
       "docs:edit": true,
       "releases:manage": true,
+      "chat:manage": true,
     },
   },
   viewer: {
     modules: {
       dashboard: true,
       board: true,
+      chats: true,
       roadmap: true,
       reports: true,
       calendar: true,
@@ -116,6 +121,7 @@ export const DEFAULT_PERMISSION_MATRIX = {
       "tests:execute": false,
       "docs:edit": false,
       "releases:manage": false,
+      "chat:manage": false,
     },
   },
 };

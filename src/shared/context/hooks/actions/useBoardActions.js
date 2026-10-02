@@ -3,6 +3,7 @@ import { generateId, getTaskProjectId, isInProject } from "../../../utils/helper
 import { DEFAULT_COLUMNS } from "../../AppSeeds";
 import { useAppStore } from "../../../store/useAppStore";
 import { TASK_STATUS_SHORT_LABELS } from "../../../constants/taskMeta";
+import { emitWorkspaceEvent, WORKSPACE_EVENT_TYPES } from "../../../services/workspaceEvents";
 
 // ─── Workflow + task helpers (pure, exported for board UI pre-validation) ────
 
@@ -217,6 +218,32 @@ export function useBoardActions({
   }, [notify, currentUser]);
 
   const emitTaskNotifications = useCallback((previousTask, nextTask, { rules, columns }) => {
+    const taskSummary = {
+      id: nextTask.id, title: nextTask.title, type: nextTask.type || "task", priority: nextTask.priority || null,
+      assignedTo: nextTask.assignedTo || null, status: nextTask.status,
+    };
+    if (previousTask.status !== nextTask.status) {
+      emitWorkspaceEvent({
+        type: WORKSPACE_EVENT_TYPES.TASK_STATUS,
+        projectId: getTaskProjectId(nextTask, currentProjectId),
+        actor: currentUser || null,
+        task: taskSummary,
+        from: previousTask.status,
+        fromLabel: getStatusLabel(previousTask.status, columns),
+        to: nextTask.status,
+        toLabel: getStatusLabel(nextTask.status, columns),
+        blockReason: nextTask.blockReason || "",
+      });
+    }
+    if (previousTask.assignedTo !== nextTask.assignedTo && nextTask.assignedTo && nextTask.assignedTo !== "unassigned") {
+      emitWorkspaceEvent({
+        type: WORKSPACE_EVENT_TYPES.TASK_ASSIGNED,
+        projectId: getTaskProjectId(nextTask, currentProjectId),
+        actor: currentUser || null,
+        task: taskSummary,
+        assignee: nextTask.assignedTo,
+      });
+    }
     if (previousTask.status !== nextTask.status) {
       const label = getStatusLabel(nextTask.status, columns);
       const isBlocked = nextTask.status === "blocked";
@@ -244,7 +271,7 @@ export function useBoardActions({
         text: `You were assigned to "${nextTask.title}"`,
       }, [nextTask.assignedTo]);
     }
-  }, [notifyRecipients]);
+  }, [currentProjectId, currentUser, notifyRecipients]);
 
   /**
    * Full-replace update of a task wherever it lives (active sprint or any
@@ -395,6 +422,16 @@ export function useBoardActions({
       setActiveTasks((prev) => [...prev, newTask]);
     }
     logActivity(newTask.id, "created task");
+    emitWorkspaceEvent({
+      type: WORKSPACE_EVENT_TYPES.TASK_CREATED,
+      projectId: newTask.projectId,
+      actor: currentUser || null,
+      task: {
+        id: newTask.id, title: newTask.title, type: newTask.type || "task", priority: newTask.priority || null,
+        assignedTo: newTask.assignedTo || null, status: newTask.status,
+      },
+      destination: addedToBacklog ? "backlog" : "sprint",
+    });
     notify({
       type: "task_created",
       taskId: newTask.id,
@@ -420,6 +457,12 @@ export function useBoardActions({
     setPerProjectBacklog((prev) => mapBacklogTasks(prev, (tasks) => tasks.filter((item) => item.id !== taskId)));
     if (task) {
       setArchivedTasks((prev) => [{ ...stripTransientTaskFields(task), archivedAt: new Date().toISOString() }, ...prev]);
+      emitWorkspaceEvent({
+        type: WORKSPACE_EVENT_TYPES.TASK_ARCHIVED,
+        projectId: getTaskProjectId(task, currentProjectId),
+        actor: currentUser || null,
+        task: { id: task.id, title: task.title, type: task.type || "task", status: task.status },
+      });
       notify({
         type: "task_archived",
         taskId,
@@ -427,7 +470,7 @@ export function useBoardActions({
         text: `"${task.title}" moved to archive`,
       });
     }
-  }, [notify, setActiveTasks, setArchivedTasks, setPerProjectBacklog]);
+  }, [currentProjectId, currentUser, notify, setActiveTasks, setArchivedTasks, setPerProjectBacklog]);
 
   const restoreTask = useCallback((taskId) => {
     const { archivedTasks } = useAppStore.getState();
@@ -491,7 +534,13 @@ export function useBoardActions({
     setSprint({ ...sprintData, status: "active" });
     logActivity("sprint", "started sprint", { name: sprintData.name });
     notify({ type: "sprint_started", text: `Sprint "${sprintData.name}" started` });
-  }, [notify, logActivity, setSprint]);
+    emitWorkspaceEvent({
+      type: WORKSPACE_EVENT_TYPES.SPRINT_STARTED,
+      projectId: currentProjectId,
+      actor: currentUser || null,
+      sprint: { name: sprintData.name, goal: sprintData.goal || "", startDate: sprintData.startDate || null, endDate: sprintData.endDate || null },
+    });
+  }, [currentProjectId, currentUser, notify, logActivity, setSprint]);
 
   const completeSprint = useCallback((moveToBacklogSectionId) => {
     const { activeTasks, perProjectSprint } = useAppStore.getState();
@@ -558,7 +607,17 @@ export function useBoardActions({
       type: "sprint_completed",
       text: `Sprint completed — ${done.length}/${projectTasks.length} tasks done`,
     });
+    emitWorkspaceEvent({
+      type: WORKSPACE_EVENT_TYPES.SPRINT_COMPLETED,
+      projectId: currentProjectId,
+      actor: currentUser || null,
+      sprint: { name: perProjectSprint?.[currentProjectId]?.name || "Sprint" },
+      done: done.length,
+      total: projectTasks.length,
+      carriedOver: incomplete.length,
+    });
   }, [
+    currentUser,
     notify,
     currentProjectId,
     logActivity,
@@ -632,7 +691,13 @@ export function useBoardActions({
     const newEpic = { ...epicData, id: `epic-${Date.now()}`, projectId: currentProjectId };
     setEpics((prev) => [...prev, newEpic]);
     notify({ type: "epic_created", text: `Epic "${epicData.title}" created` });
-  }, [notify, currentProjectId, setEpics]);
+    emitWorkspaceEvent({
+      type: WORKSPACE_EVENT_TYPES.EPIC_CREATED,
+      projectId: currentProjectId,
+      actor: currentUser || null,
+      epic: { id: newEpic.id, title: newEpic.title, color: newEpic.color || null },
+    });
+  }, [currentUser, notify, currentProjectId, setEpics]);
 
   const updateEpic = useCallback((updatedEpic) => {
     setEpics((prev) => prev.map((epic) => (
