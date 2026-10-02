@@ -402,9 +402,9 @@ function AuthGate() {
   // Not logged in → show login page
   if (!user) return <LoginPage />;
 
-  // Logged in → mount the full app (AppProvider loads Firestore data)
+  // Logged in → mount the full app (AppProvider loads Firestore data + this user's prefs)
   return (
-    <AppProvider>
+    <AppProvider uid={user.uid}>
       <ToastProvider>
         <HRProvider>
           <ChatProvider>

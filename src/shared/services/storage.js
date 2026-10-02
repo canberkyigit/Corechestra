@@ -136,10 +136,11 @@ function mergeConflictArray(baseArray, remoteArray, localArray) {
   return merged;
 }
 
+// Personal fields (currentUser, currentProjectId, darkMode, …) are per user in
+// `userPrefs/{uid}` (see userPrefsStorage.js). Their legacy copies may still
+// sit in `appData/config`; they are only read once, to seed that doc.
 export const DOMAIN_FIELDS = {
-  config:    ["currentUser", "currentProjectId", "sprintDefaults",
-              "darkMode", "sidebarCollapsed", "projectsViewMode", "perProjectBoardFilters", "templateRegistry",
-              "savedViews", "recentItems", "favoriteItems", "pinnedItems", "notificationPreferences",
+  config:    ["sprintDefaults", "templateRegistry",
               "permissionMatrix", "workspaceSettings", "sensitiveActionPolicy"],
   entities:  ["projects", "teams", "users", "epics", "labels", "deletedUserIds", "customFieldDefs"],
   tasks:     ["activeTasks", "perProjectBacklog"],
@@ -234,6 +235,11 @@ export async function loadAllDomains() {
 // ── Per-domain debounced save ───────────────────────────────────────────────
 // Tracks write timestamps so real-time listeners can ignore own writes.
 
+const SAVE_DEBOUNCE_MS = 1500;
+// Delays before re-sending a failed write; after the last one the data stays
+// pending and goes out with the next save or flush of that domain.
+const SAVE_RETRY_DELAYS_MS = [2000, 5000, 15000];
+
 const _timers = {};
 const _lastWriteTs = {};
 const _lastRemoteTs = {};
@@ -241,10 +247,160 @@ const _lastRemoteVersion = {};
 const _lastKnownDomainData = {};
 const _pendingDomainData = {};
 const _pendingBaseData = {};
+const _retryCounts = {};
+// domain -> { field: sequence number of the latest write that carried it }
+const _fieldWriteSeq = {};
+let _writeSeq = 0;
+// Bumped by clearAllDomains so writes that fail after a reset are not re-queued.
+let _storageEpoch = 0;
 let _storageActor = "";
 
 export function setStorageActor(actor) {
   _storageActor = actor || "";
+}
+
+// Diffs the pending patch against the last known remote state, resolving
+// fields that changed on both sides with the 3-way conflict merge.
+function resolveChangedFields(domain, pending, base, known) {
+  const changedFields = {};
+  const mergedFields = [];
+
+  DOMAIN_FIELDS[domain].forEach((field) => {
+    if (pending[field] === undefined) return;
+    const remoteChangedSinceQueue = !isEqualValue(base[field], known[field]);
+    const localPendingChanged = !isEqualValue(base[field], pending[field]);
+
+    if (remoteChangedSinceQueue && localPendingChanged) {
+      const resolved = mergeConflictValue(base[field], known[field], pending[field]);
+      if (!isEqualValue(known[field], resolved)) {
+        changedFields[field] = resolved;
+      }
+      mergedFields.push(field);
+      return;
+    }
+    if (!isEqualValue(known[field], pending[field])) {
+      changedFields[field] = pending[field];
+    }
+  });
+
+  return { changedFields, mergedFields };
+}
+
+// Puts the patch of a failed write back into the pending queue. Values queued
+// after it are newer and win, and fields a later write already carries are
+// left alone so an older value never overwrites a newer one.
+function requeueFailedWrite(domain, seq, failedPending, failedBase) {
+  const fieldSeq = _fieldWriteSeq[domain] || {};
+  const current = _pendingDomainData[domain] || {};
+  const nextBase = _pendingBaseData[domain] || cloneData(_lastKnownDomainData[domain] || {});
+  const restored = {};
+
+  Object.keys(failedPending).forEach((field) => {
+    if (fieldSeq[field] !== seq) return;
+    // The server never saw this write, so the conflict base is the one the
+    // failed batch started from.
+    if (failedBase[field] === undefined) delete nextBase[field];
+    else nextBase[field] = failedBase[field];
+    if (current[field] === undefined) restored[field] = failedPending[field];
+  });
+
+  if (!_pendingDomainData[domain] && Object.keys(restored).length === 0) return;
+  _pendingDomainData[domain] = { ...restored, ...current };
+  _pendingBaseData[domain] = nextBase;
+}
+
+function scheduleRetry(domain) {
+  const attempt = (_retryCounts[domain] || 0) + 1;
+  _retryCounts[domain] = attempt;
+  // A newer debounced save is already queued and will send the data.
+  if (_timers[domain]) return attempt;
+  if (attempt > SAVE_RETRY_DELAYS_MS.length) {
+    // Give up for now; the next failure starts a fresh retry streak.
+    delete _retryCounts[domain];
+    return attempt;
+  }
+  _timers[domain] = setTimeout(() => {
+    delete _timers[domain];
+    writePendingDomain(domain);
+  }, SAVE_RETRY_DELAYS_MS[attempt - 1]);
+  return attempt;
+}
+
+// Sends the pending patch of a domain to Firestore. The write starts
+// synchronously (so the SDK queues it even during page unload); the returned
+// promise never rejects.
+function writePendingDomain(domain) {
+  const pending = _pendingDomainData[domain];
+  if (!pending) return Promise.resolve();
+  const base = _pendingBaseData[domain] || {};
+  const known = _lastKnownDomainData[domain] || {};
+  // Detach the batch so saves made while it is in flight start a new one.
+  delete _pendingDomainData[domain];
+  delete _pendingBaseData[domain];
+
+  const { changedFields, mergedFields } = resolveChangedFields(domain, pending, base, known);
+
+  if (mergedFields.length > 0) {
+    logStorageDiagnostic("info", `[Firestore] save "${domain}" merged conflicting fields:`, mergedFields.join(", "));
+    emitStorageConflict(domain, mergedFields, "merge");
+  }
+
+  if (Object.keys(changedFields).length === 0) {
+    delete _retryCounts[domain];
+    return Promise.resolve();
+  }
+
+  const ts = Date.now();
+  const seq = ++_writeSeq;
+  const epoch = _storageEpoch;
+  const fieldSeq = (_fieldWriteSeq[domain] = _fieldWriteSeq[domain] || {});
+  Object.keys(pending).forEach((field) => { fieldSeq[field] = seq; });
+  _lastWriteTs[domain] = ts;
+  // Optimistic, like Firestore's own latency-compensated snapshot: batches
+  // queued while this write is in flight diff against the state it produces.
+  _lastKnownDomainData[domain] = { ...known, ...changedFields };
+
+  const payload = {
+    ...changedFields,
+    _updatedAt: ts,
+    _updatedBy: _storageActor || null,
+    _version: ((_lastRemoteVersion[domain] || 0) + 1),
+    _lastMutationId: `${domain}-${ts}`,
+  };
+
+  let request;
+  try {
+    // mergeFields replaces each listed top-level field as a whole (so keys
+    // removed from a map are removed in Firestore too) and leaves the other
+    // fields of the domain doc untouched. `merge: true` would deep-merge maps.
+    request = setDoc(doc(db, COLLECTION, domain), payload, { mergeFields: Object.keys(payload) });
+  } catch (e) {
+    request = Promise.reject(e);
+  }
+
+  return Promise.resolve(request).then(() => {
+    _lastRemoteVersion[domain] = (_lastRemoteVersion[domain] || 0) + 1;
+    delete _retryCounts[domain];
+  }, (e) => {
+    if (epoch !== _storageEpoch) return;
+    logStorageDiagnostic("warn", `[Firestore] save "${domain}" failed:`, e?.message);
+
+    // Roll back the optimistic known state where nothing newer replaced it.
+    const currentKnown = { ...(_lastKnownDomainData[domain] || {}) };
+    Object.keys(changedFields).forEach((field) => {
+      if (fieldSeq[field] !== seq || !isEqualValue(currentKnown[field], changedFields[field])) return;
+      if (known[field] === undefined) delete currentKnown[field];
+      else currentKnown[field] = known[field];
+    });
+    _lastKnownDomainData[domain] = currentKnown;
+
+    requeueFailedWrite(domain, seq, pending, base);
+    const attempt = scheduleRetry(domain);
+    // Toast on the first failure and once more when automatic retries stop.
+    if (attempt === 1 || attempt === SAVE_RETRY_DELAYS_MS.length + 1) {
+      emitStorageError(`Failed to save ${domain} data to Firestore.`);
+    }
+  });
 }
 
 export function saveDomain(domain, data) {
@@ -264,28 +420,10 @@ export function saveDomain(domain, data) {
       const known = stripMeta(liveDomainDoc);
       const pending = _pendingDomainData[domain] || {};
       const base = _pendingBaseData[domain] || {};
-      const changedFields = {};
-      const mergedFields = [];
 
       _lastKnownDomainData[domain] = known;
 
-      DOMAIN_FIELDS[domain].forEach((field) => {
-        if (pending[field] === undefined) return;
-        const remoteChangedSinceQueue = !isEqualValue(base[field], known[field]);
-        const localPendingChanged = !isEqualValue(base[field], pending[field]);
-
-        if (remoteChangedSinceQueue && localPendingChanged) {
-          const resolved = mergeConflictValue(base[field], known[field], pending[field]);
-          if (!isEqualValue(known[field], resolved)) {
-            changedFields[field] = resolved;
-          }
-          mergedFields.push(field);
-          return;
-        }
-        if (!isEqualValue(known[field], pending[field])) {
-          changedFields[field] = pending[field];
-        }
-      });
+      const { changedFields, mergedFields } = resolveChangedFields(domain, pending, base, known);
 
       if (mergedFields.length > 0) {
         logStorageDiagnostic("info", `[E2E Storage] save "${domain}" merged conflicting fields:`, mergedFields.join(", "));
@@ -295,6 +433,8 @@ export function saveDomain(domain, data) {
       if (Object.keys(changedFields).length > 0) {
         const ts = Date.now();
         _lastWriteTs[domain] = ts;
+        // Top-level spread: changed fields are replaced whole, matching the
+        // Firestore mergeFields write.
         writeE2EDomains({
           ...liveDomains,
           [domain]: {
@@ -322,71 +462,22 @@ export function saveDomain(domain, data) {
   }
 
   clearTimeout(_timers[domain]);
-  _timers[domain] = setTimeout(async () => {
-    // E2E mode never reaches this timer (handled synchronously above), so
-    // this path is Firestore-only.
-    try {
-      const pending = _pendingDomainData[domain] || {};
-      const known = _lastKnownDomainData[domain] || {};
-      const base = _pendingBaseData[domain] || {};
-      const changedFields = {};
-      const mergedFields = [];
+  _timers[domain] = setTimeout(() => {
+    delete _timers[domain];
+    writePendingDomain(domain);
+  }, SAVE_DEBOUNCE_MS);
+}
 
-      DOMAIN_FIELDS[domain].forEach((field) => {
-        if (pending[field] === undefined) return;
-        const remoteChangedSinceQueue = !isEqualValue(base[field], known[field]);
-        const localPendingChanged = !isEqualValue(base[field], pending[field]);
-
-        if (remoteChangedSinceQueue && localPendingChanged) {
-          const resolved = mergeConflictValue(base[field], known[field], pending[field]);
-          if (!isEqualValue(known[field], resolved)) {
-            changedFields[field] = resolved;
-          }
-          mergedFields.push(field);
-          return;
-        }
-        if (!isEqualValue(known[field], pending[field])) {
-          changedFields[field] = pending[field];
-        }
-      });
-
-      if (mergedFields.length > 0) {
-        logStorageDiagnostic("info", `[Firestore] save "${domain}" merged conflicting fields:`, mergedFields.join(", "));
-        emitStorageConflict(domain, mergedFields, "merge");
-      }
-
-      if (Object.keys(changedFields).length === 0) {
-        delete _pendingDomainData[domain];
-        delete _pendingBaseData[domain];
-        return;
-      }
-
-      const ts = Date.now();
-      _lastWriteTs[domain] = ts;
-      await setDoc(
-        doc(db, COLLECTION, domain),
-        {
-          ...changedFields,
-          _updatedAt: ts,
-          _updatedBy: _storageActor || null,
-          _version: ((_lastRemoteVersion[domain] || 0) + 1),
-          _lastMutationId: `${domain}-${ts}`,
-        },
-        { merge: true }
-      );
-      _lastRemoteVersion[domain] = (_lastRemoteVersion[domain] || 0) + 1;
-      _lastKnownDomainData[domain] = {
-        ...known,
-        ...changedFields,
-      };
-    } catch (e) {
-      logStorageDiagnostic("warn", `[Firestore] save "${domain}" failed:`, e.message);
-      emitStorageError(`Failed to save ${domain} data to Firestore.`);
-    } finally {
-      delete _pendingDomainData[domain];
-      delete _pendingBaseData[domain];
-    }
-  }, 1500);
+// Sends every pending (debounced or retry-scheduled) write right away. Called
+// when the page is hidden or unloading so the last edits are not lost.
+export function flushPendingWrites() {
+  if (isE2EMode()) return Promise.resolve();
+  const domains = Object.keys(_pendingDomainData);
+  return Promise.all(domains.map((domain) => {
+    clearTimeout(_timers[domain]);
+    delete _timers[domain];
+    return writePendingDomain(domain);
+  }));
 }
 
 // ── Real-time listeners ─────────────────────────────────────────────────────
@@ -472,6 +563,8 @@ export async function clearAllDomains() {
         delete _lastKnownDomainData[domain];
         delete _pendingDomainData[domain];
         delete _pendingBaseData[domain];
+        delete _retryCounts[domain];
+        delete _fieldWriteSeq[domain];
       });
       return true;
     } catch (e) {
@@ -482,6 +575,7 @@ export async function clearAllDomains() {
   }
 
   try {
+    _storageEpoch += 1;
     Object.keys(DOMAIN_FIELDS).forEach((domain) => clearTimeout(_timers[domain]));
     await Promise.all(
       Object.keys(DOMAIN_FIELDS).map((d) => deleteDoc(doc(db, COLLECTION, d)))
@@ -494,6 +588,8 @@ export async function clearAllDomains() {
       delete _lastKnownDomainData[domain];
       delete _pendingDomainData[domain];
       delete _pendingBaseData[domain];
+      delete _retryCounts[domain];
+      delete _fieldWriteSeq[domain];
     });
     return true;
   } catch (e) {

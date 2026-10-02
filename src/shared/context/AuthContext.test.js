@@ -36,6 +36,16 @@ jest.mock("firebase/firestore", () => ({
   onSnapshot: (...args) => mockOnSnapshot(...args),
 }));
 
+const mockFlushUserPrefs = jest.fn();
+const mockFlushPendingWrites = jest.fn();
+jest.mock("../services/storage", () => ({
+  flushPendingWrites: (...args) => mockFlushPendingWrites(...args),
+}));
+
+jest.mock("../services/userPrefsStorage", () => ({
+  flushUserPrefs: (...args) => mockFlushUserPrefs(...args),
+}));
+
 function snapshot(data) {
   return { exists: () => data !== null && data !== undefined, data: () => data };
 }
@@ -75,6 +85,8 @@ describe("AuthContext", () => {
     mockSetPersistence.mockResolvedValue(undefined);
     mockSignIn.mockResolvedValue({});
     mockSendReset.mockResolvedValue(undefined);
+    mockFlushUserPrefs.mockResolvedValue(false);
+    mockFlushPendingWrites.mockResolvedValue();
   });
 
   it("refuses a deactivated account and keeps the reason for the login page", async () => {
@@ -179,5 +191,41 @@ describe("AuthContext", () => {
     await waitFor(() => {
       expect(mockSetDoc).toHaveBeenCalledWith({ path: "users/uid-9" }, { name: "Nina" }, { merge: true });
     });
+  });
+
+  it("flushes pending prefs and workspace writes before signing out", async () => {
+    const order = [];
+    mockFlushUserPrefs.mockImplementation(async () => { order.push("flush"); return true; });
+    mockFlushPendingWrites.mockImplementation(async () => { order.push("flushWorkspace"); });
+    mockSignOut.mockImplementation(async () => { order.push("signOut"); });
+    mockDocs({ "users/uid-9": { email: "nina@example.com", role: "member" } });
+    render(<AuthProvider><Probe /></AuthProvider>);
+    await signIn();
+
+    await act(async () => {
+      await latest.logout();
+    });
+
+    expect(order).toEqual(["flush", "flushWorkspace", "signOut"]);
+  });
+
+  it("still signs out when the prefs flush never settles", async () => {
+    jest.useFakeTimers();
+    mockFlushUserPrefs.mockReturnValue(new Promise(() => {}));
+    mockDocs({ "users/uid-9": { email: "nina@example.com", role: "member" } });
+    render(<AuthProvider><Probe /></AuthProvider>);
+    await signIn();
+
+    let done;
+    act(() => {
+      done = latest.logout();
+    });
+    await act(async () => {
+      jest.advanceTimersByTime(2000);
+      await done;
+    });
+
+    expect(mockSignOut).toHaveBeenCalled();
+    jest.useRealTimers();
   });
 });
