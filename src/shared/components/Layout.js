@@ -297,7 +297,6 @@ export default function Layout({
           ? "maestro-nav-active text-white shadow-md shadow-indigo-500/30"
           : `maestro-nav-idle ${darkMode ? "ring-1 ring-inset ring-indigo-400/25 hover:ring-indigo-400/50" : "ring-1 ring-inset ring-indigo-200 hover:ring-indigo-300"}`}`}
       >
-        <span className="maestro-nav-shine" aria-hidden="true" />
         <span className={`relative flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-white ${isActive ? "bg-white/20" : "bg-gradient-to-br from-violet-500 via-indigo-500 to-blue-500 shadow-sm shadow-indigo-500/40"}`}>
           <FaMagic className="h-3.5 w-3.5" />
         </span>

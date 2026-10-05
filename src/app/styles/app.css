@@ -523,27 +523,10 @@
   background-size: 200% 100%;
   animation: maestro-gradient 6s ease-in-out infinite;
 }
-.maestro-nav-shine {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.55) 50%, transparent 65%);
-  transform: translateX(-120%);
-  animation: maestro-shine 3.8s ease-in-out infinite;
-}
-.dark .maestro-nav-shine,
-.maestro-nav-active .maestro-nav-shine {
-  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.22) 50%, transparent 65%);
-}
-@keyframes maestro-shine {
-  0%, 55% { transform: translateX(-120%); }
-  85%, 100% { transform: translateX(120%); }
-}
 @keyframes maestro-gradient {
   0%, 100% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .maestro-nav-shine, .maestro-nav-active { animation: none; }
-  .maestro-nav-shine { display: none; }
+  .maestro-nav-active { animation: none; }
 }
