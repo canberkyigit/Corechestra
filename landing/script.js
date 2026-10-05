@@ -4,6 +4,12 @@ window.addEventListener('scroll', () => {
   nav.classList.toggle('scrolled', window.scrollY > 36);
 }, { passive: true });
 
+// ── Launch app link (local dev server when the landing is opened locally)
+const APP_URL = ['localhost', '127.0.0.1', ''].includes(location.hostname)
+  ? 'http://localhost:3000/'
+  : 'https://corechestra-8e783.web.app/';
+document.querySelectorAll('[data-launch-app]').forEach(a => { a.href = APP_URL; });
+
 // ── Scroll reveal
 const revealEls = document.querySelectorAll('.reveal');
 const ro = new IntersectionObserver((entries) => {
