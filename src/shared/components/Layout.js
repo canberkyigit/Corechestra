@@ -381,18 +381,18 @@ export default function Layout({
         <div className={`h-14 flex-shrink-0 border-b ${borderColor} flex items-center ${(!isMobile && collapsed) ? "justify-center px-2" : "justify-center px-4"}`}>
           {(!isMobile && collapsed) ? (
             <div
-              className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center cursor-pointer"
+              className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center cursor-pointer"
               title="Corechestra"
               onClick={() => setCollapsed(false)}
             >
-              <Logo size={20} color="white" />
+              <Logo size={22} color="white" />
             </div>
           ) : (
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center flex-shrink-0 shadow-sm shadow-indigo-900/30">
-                <Logo size={20} color="white" />
+              <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center flex-shrink-0 shadow-sm shadow-indigo-900/30">
+                <Logo size={25} color="white" />
               </div>
-              <div className={`text-[17px] font-bold ${projNameText}`}>Corechestra</div>
+              <div className={`text-[20px] font-bold tracking-tight ${projNameText}`}>Corechestra</div>
             </div>
           )}
         </div>
