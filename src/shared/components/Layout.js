@@ -302,14 +302,9 @@ export default function Layout({
           <FaMagic className="h-3 w-3" />
         </span>
         {!iconOnly && (
-          <>
-            <span className={`relative flex-1 text-left ${isActive ? "" : "bg-gradient-to-r from-violet-600 via-indigo-600 to-blue-600 bg-clip-text text-transparent dark:from-violet-300 dark:via-indigo-300 dark:to-blue-300"}`}>
-              Maestro
-            </span>
-            <span className={`relative rounded-full px-1.5 py-px text-[9px] font-bold uppercase tracking-wider ${isActive ? "bg-white/20 text-white" : "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-200"}`}>
-              AI
-            </span>
-          </>
+          <span className={`relative flex-1 text-left ${isActive ? "" : "bg-gradient-to-r from-violet-600 via-indigo-600 to-blue-600 bg-clip-text text-transparent dark:from-violet-300 dark:via-indigo-300 dark:to-blue-300"}`}>
+            Maestro
+          </span>
         )}
       </button>
     );
