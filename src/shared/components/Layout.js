@@ -291,15 +291,15 @@ export default function Layout({
         title={iconOnly ? "Maestro — AI assistant (preview)" : undefined}
         aria-current={isActive ? "page" : undefined}
         data-testid="nav-maestro"
-        className={`maestro-nav group relative w-full overflow-hidden rounded-lg text-sm font-semibold transition-all ${
-          iconOnly ? "flex justify-center p-2" : "flex items-center gap-3 px-2.5 py-2"
+        className={`maestro-nav group relative w-full overflow-hidden rounded-lg text-[15px] font-semibold transition-all ${
+          iconOnly ? "flex justify-center p-2" : "flex items-center gap-3 px-2.5 py-2.5"
         } ${isActive
           ? "maestro-nav-active text-white shadow-md shadow-indigo-500/30"
           : `maestro-nav-idle ${darkMode ? "ring-1 ring-inset ring-indigo-400/25 hover:ring-indigo-400/50" : "ring-1 ring-inset ring-indigo-200 hover:ring-indigo-300"}`}`}
       >
         <span className="maestro-nav-shine" aria-hidden="true" />
-        <span className={`relative flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md text-white ${isActive ? "bg-white/20" : "bg-gradient-to-br from-violet-500 via-indigo-500 to-blue-500 shadow-sm shadow-indigo-500/40"}`}>
-          <FaMagic className="h-3 w-3" />
+        <span className={`relative flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-white ${isActive ? "bg-white/20" : "bg-gradient-to-br from-violet-500 via-indigo-500 to-blue-500 shadow-sm shadow-indigo-500/40"}`}>
+          <FaMagic className="h-3.5 w-3.5" />
         </span>
         {!iconOnly && (
           <span className={`relative flex-1 text-left ${isActive ? "" : "bg-gradient-to-r from-violet-600 via-indigo-600 to-blue-600 bg-clip-text text-transparent dark:from-violet-300 dark:via-indigo-300 dark:to-blue-300"}`}>
@@ -324,12 +324,12 @@ export default function Layout({
         onClick={() => { onPageChange && onPageChange(id); setMobileNavOpen(false); }}
         title={(!isMobile && collapsed) ? (badgeCount ? `${label} (${badgeLabel} unread)` : label) : undefined}
         aria-label={badgeCount ? `${label}, ${badgeLabel} unread` : undefined}
-        className={`w-full flex items-center rounded-lg text-sm transition-colors ${
-          (!isMobile && collapsed) ? "justify-center p-2.5" : "gap-3 px-3 py-2"
+        className={`w-full flex items-center rounded-lg text-[15px] transition-colors ${
+          (!isMobile && collapsed) ? "justify-center p-3" : "gap-3 px-3 py-2.5"
         } ${isActive ? navActive : navInactive}`}
       >
         <span className="relative flex-shrink-0">
-          <Icon className="w-4 h-4" />
+          <Icon className="w-[18px] h-[18px]" />
           {(!showLabels && (badgeCount > 0 || showDot)) && (
             <span className={`absolute -top-1 -right-1 rounded-full bg-red-500 ring-2 ${darkMode ? "ring-[#1a1f2e]" : "ring-white"} ${badgeCount ? "h-2.5 w-2.5" : "h-2 w-2"}`} />
           )}
@@ -366,8 +366,8 @@ export default function Layout({
       {/* ── Sidebar ─────────────────────────────────────────────────────────── */}
       <motion.aside
         animate={{
-          width: isMobile ? 256 : (collapsed ? 56 : 224),
-          x: isMobile ? (mobileNavOpen ? 0 : -280) : 0,
+          width: isMobile ? 272 : (collapsed ? 60 : 244),
+          x: isMobile ? (mobileNavOpen ? 0 : -296) : 0,
         }}
         transition={{ duration: 0.2, ease: "easeInOut" }}
         className={`
@@ -412,7 +412,7 @@ export default function Layout({
             </div>
           ) : (
             <div className={`mt-2 pt-2 border-t ${borderColor}`}>
-              <p className={`px-3 py-1 text-[10px] font-semibold uppercase tracking-widest ${subText}`}>Admin</p>
+              <p className={`px-3 py-1.5 text-[11px] font-semibold uppercase tracking-widest ${subText}`}>Admin</p>
               {visibleAdminNavItems.map(({ id, label, icon: Icon }) => (
                 <React.Fragment key={id}>{renderNavBtn({ id, label, Icon })}</React.Fragment>
               ))}
@@ -426,11 +426,11 @@ export default function Layout({
           <button
             onClick={onToggleDark}
             title={darkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
-            className={`w-full flex items-center rounded-lg text-sm transition-colors ${
-              (!isMobile && collapsed) ? "justify-center p-2.5" : "gap-3 px-3 py-2"
+            className={`w-full flex items-center rounded-lg text-[15px] transition-colors ${
+              (!isMobile && collapsed) ? "justify-center p-3" : "gap-3 px-3 py-2.5"
             } ${bottomRowClass}`}
           >
-            {darkMode ? <FaSun className="w-4 h-4 text-yellow-400 flex-shrink-0" /> : <FaMoon className="w-4 h-4 flex-shrink-0" />}
+            {darkMode ? <FaSun className="w-[18px] h-[18px] text-yellow-400 flex-shrink-0" /> : <FaMoon className="w-[18px] h-[18px] flex-shrink-0" />}
             {(isMobile || !collapsed) && <span>{darkMode ? "Light Mode" : "Dark Mode"}</span>}
           </button>
 
@@ -438,11 +438,11 @@ export default function Layout({
             <button
               onClick={onSettingsClick}
               title={(!isMobile && collapsed) ? "Settings" : undefined}
-              className={`w-full flex items-center rounded-lg text-sm transition-colors ${
-                (!isMobile && collapsed) ? "justify-center p-2.5" : "gap-3 px-3 py-2"
+              className={`w-full flex items-center rounded-lg text-[15px] transition-colors ${
+                (!isMobile && collapsed) ? "justify-center p-3" : "gap-3 px-3 py-2.5"
               } ${bottomRowClass}`}
             >
-              <FaCog className="w-4 h-4 flex-shrink-0" />
+              <FaCog className="w-[18px] h-[18px] flex-shrink-0" />
               {(isMobile || !collapsed) && <span>Settings</span>}
             </button>
           )}
@@ -452,7 +452,7 @@ export default function Layout({
             <button
               onClick={toggleCollapsed}
               title="Expand sidebar"
-              className={`w-full flex justify-center p-2.5 rounded-lg text-sm transition-colors ${bottomRowClass}`}
+              className={`w-full flex justify-center p-3 rounded-lg text-[15px] transition-colors ${bottomRowClass}`}
             >
               <FaChevronRight className="w-3.5 h-3.5" />
             </button>
@@ -460,14 +460,14 @@ export default function Layout({
             <div className="flex items-center gap-2 px-3 py-2">
               <button
                 onClick={onProfileClick}
-                className="w-7 h-7 rounded-full bg-indigo-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 hover:ring-2 hover:ring-indigo-400 transition-all uppercase"
+                className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white text-[13px] font-bold flex-shrink-0 hover:ring-2 hover:ring-indigo-400 transition-all uppercase"
                 title="Profile"
               >
                 {(profile?.fullName || user?.email || "U")[0].toUpperCase()}
               </button>
               <div className="flex-1 min-w-0">
-                <div className={`text-xs font-medium truncate ${projNameText}`}>{displayName}</div>
-                <div className={`text-[11px] capitalize ${subText}`}>{role || "Member"}</div>
+                <div className={`text-[13px] font-medium truncate ${projNameText}`}>{displayName}</div>
+                <div className={`text-xs capitalize ${subText}`}>{role || "Member"}</div>
               </div>
               {/* Sign out */}
               <button
@@ -475,7 +475,7 @@ export default function Layout({
                 title="Sign out"
                 className={`p-1 rounded-md transition-colors flex-shrink-0 ${bottomRowClass}`}
               >
-                <FaSignOutAlt className="w-3 h-3" />
+                <FaSignOutAlt className="w-3.5 h-3.5" />
               </button>
               {/* Collapse — desktop only */}
               {!isMobile && (
@@ -484,7 +484,7 @@ export default function Layout({
                   title="Collapse sidebar"
                   className={`p-1 rounded-md transition-colors flex-shrink-0 ${bottomRowClass}`}
                 >
-                  <FaChevronLeft className="w-3 h-3" />
+                  <FaChevronLeft className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>
