@@ -7,7 +7,7 @@ import {
   FaSearch, FaMoon, FaSun,
   FaShieldAlt, FaLayerGroup, FaBook, FaTag, FaFlask,
   FaTimes, FaArchive, FaPlus,
-  FaSignOutAlt, FaBars, FaBuilding, FaStream, FaComments,
+  FaSignOutAlt, FaBars, FaBuilding, FaStream, FaComments, FaBullseye, FaBriefcase,
 } from "react-icons/fa";
 import { useApp } from "../context/AppContext";
 import { TASK_STATUS_BADGE_STYLES, TASK_STATUS_SHORT_LABELS, TASK_TYPE_ICON_META } from "../constants/taskMeta";
@@ -25,6 +25,8 @@ import Logo from "./Logo";
 
 const SEARCH_PAGES = [
   { id: "dashboard", label: "Dashboard",  icon: FaTachometerAlt },
+  { id: "portfolio", label: "Portfolio",  icon: FaBriefcase     },
+  { id: "goals",     label: "Goals",      icon: FaBullseye      },
   { id: "board",     label: "Board",      icon: FaColumns       },
   { id: "chats",     label: "Chats",      icon: FaComments      },
   { id: "roadmap",   label: "Roadmap",    icon: FaRocket        },
@@ -55,6 +57,8 @@ function relativeTime(isoStr) {
 
 const NAV_ITEMS = [
   { id: "dashboard",     label: "Dashboard",     icon: FaTachometerAlt },
+  { id: "portfolio",     label: "Portfolio",     icon: FaBriefcase     },
+  { id: "goals",         label: "Goals",         icon: FaBullseye      },
   { id: "board",         label: "Board",         icon: FaColumns       },
   { id: "chats",         label: "Chats",         icon: FaComments      },
   { id: "roadmap",       label: "Roadmap",       icon: FaRocket        },

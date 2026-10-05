@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { automationInitialState, createAutomationSlice } from "./slices/automationSlice";
 import { boardInitialState, createBoardSlice } from "./slices/boardSlice";
 import { docsInitialState, createDocsSlice } from "./slices/docsSlice";
+import { strategyInitialState, createStrategySlice } from "./slices/strategySlice";
 import { preferencesInitialState, createPreferencesSlice } from "./slices/preferencesSlice";
 import { testingInitialState, createTestingSlice } from "./slices/testingSlice";
 import { workspaceInitialState, createWorkspaceSlice } from "./slices/workspaceSlice";
@@ -14,6 +15,7 @@ export function buildInitialAppStoreState() {
     ...testingInitialState,
     ...preferencesInitialState,
     ...automationInitialState,
+    ...strategyInitialState,
   };
 }
 
@@ -24,6 +26,7 @@ export const useAppStore = create((set) => ({
   ...createTestingSlice(set),
   ...createPreferencesSlice(set),
   ...createAutomationSlice(set),
+  ...createStrategySlice(set),
   resetState: () => set(buildInitialAppStoreState()),
 }));
 

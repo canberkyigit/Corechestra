@@ -85,6 +85,8 @@ export function useAppStoreSync(uid = null) {
     sensitiveActionPolicy,
     automationRules,
     automationLog,
+    goals,
+    projectStatusUpdates,
     dbReady,
     setProjects,
     setCurrentProjectId,
@@ -135,6 +137,8 @@ export function useAppStoreSync(uid = null) {
     setSensitiveActionPolicy,
     setAutomationRules,
     setAutomationLog,
+    setGoals,
+    setProjectStatusUpdates,
     setDbReady,
   } = useAppStore();
 
@@ -188,6 +192,8 @@ export function useAppStoreSync(uid = null) {
     archivedEpics: setArchivedEpics,
     automationRules: setAutomationRules,
     automationLog: setAutomationLog,
+    goals: setGoals,
+    projectStatusUpdates: setProjectStatusUpdates,
   }), [
     setProjects,
     setCurrentProjectId,
@@ -238,6 +244,8 @@ export function useAppStoreSync(uid = null) {
     setArchivedEpics,
     setAutomationRules,
     setAutomationLog,
+    setGoals,
+    setProjectStatusUpdates,
   ]);
 
   const { data: remoteData, isError: loadFailed } = useQuery({
@@ -569,4 +577,9 @@ export function useAppStoreSync(uid = null) {
     if (!dbReady) return;
     saveDomain("automation", { automationLog });
   }, [automationLog, dbReady]);
+
+  useEffect(() => {
+    if (!dbReady) return;
+    saveDomain("strategy", { goals, projectStatusUpdates });
+  }, [goals, projectStatusUpdates, dbReady]);
 }
