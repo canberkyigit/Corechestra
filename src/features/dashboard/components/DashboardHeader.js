@@ -8,6 +8,7 @@ export const DASHBOARD_TABS = [
   { id: "team", label: "Team" },
   { id: "epics", label: "Epics" },
   { id: "history", label: "History" },
+  { id: "portfolio", label: "Portfolio" },
 ];
 
 const actionClass =
@@ -33,7 +34,7 @@ function DashboardHeader({ projectName, sprintName, activeTab, onTabChange, onEx
             {sprintName ? <> · <span className="text-slate-600 dark:text-slate-300">{sprintName}</span></> : " · No active sprint"}
           </p>
         </div>
-        <div className="no-print flex items-center gap-2">
+        <div className={`no-print flex items-center gap-2 ${activeTab === "portfolio" ? "invisible" : ""}`}>
           <button type="button" className={actionClass} onClick={onExport} disabled={exportDisabled} title="Export sprint work items as CSV">
             <FaDownload className="h-3 w-3" aria-hidden="true" />
             Export CSV

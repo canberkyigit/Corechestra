@@ -57,6 +57,7 @@ export function useSystemActions({
   setSensitiveActionPolicy,
   setAutomationRules,
   setAutomationLog,
+  setProjectStatusUpdates,
 }) {
   const resetAllData = useCallback(async () => {
     const cleared = await clearAllDomains();
@@ -133,6 +134,7 @@ export function useSystemActions({
     setSensitiveActionPolicy(preferencesInitialState.sensitiveActionPolicy);
     setAutomationRules?.([]);
     setAutomationLog?.([]);
+    setProjectStatusUpdates?.([]);
     return true;
   }, [
     setActiveTasks,
@@ -185,6 +187,7 @@ export function useSystemActions({
     setSensitiveActionPolicy,
     setAutomationRules,
     setAutomationLog,
+    setProjectStatusUpdates,
   ]);
 
   return {

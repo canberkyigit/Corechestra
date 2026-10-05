@@ -15,7 +15,7 @@ test.describe("auth and route guards", () => {
     await gotoSeeded(page, "/admin", { sessionRole: "member" });
 
     await expect(page).toHaveURL(/\/dashboard$/);
-    await expect(page.getByRole("button", { name: /total tasks/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Dashboard", exact: true })).toBeVisible();
     await expect(page.getByText(/^Admin$/)).toHaveCount(0);
   });
 });

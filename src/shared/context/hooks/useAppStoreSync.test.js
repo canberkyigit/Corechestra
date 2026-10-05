@@ -200,6 +200,28 @@ describe("useAppStoreSync", () => {
     });
   });
 
+  it("hydrates and persists project status updates in the portfolio domain", async () => {
+    storage.loadAllDomains.mockResolvedValue({
+      projectStatusUpdates: [{ id: "psu-1", projectId: "proj-1", health: "on-track" }],
+    });
+
+    renderHook(() => useAppStoreSync(), { wrapper: createWrapper() });
+
+    await waitFor(() => expect(useAppStore.getState().dbReady).toBe(true));
+    expect(useAppStore.getState().projectStatusUpdates).toEqual([{ id: "psu-1", projectId: "proj-1", health: "on-track" }]);
+    storage.saveDomain.mockClear();
+
+    act(() => {
+      useAppStore.getState().setProjectStatusUpdates((previous) => [{ id: "psu-2", projectId: "proj-1", health: "at-risk" }, ...previous]);
+    });
+
+    await waitFor(() => {
+      expect(storage.saveDomain).toHaveBeenCalledWith("portfolio", {
+        projectStatusUpdates: [{ id: "psu-2", projectId: "proj-1", health: "at-risk" }, { id: "psu-1", projectId: "proj-1", health: "on-track" }],
+      });
+    });
+  });
+
   it("hydrates and persists custom field definitions in the entities domain", async () => {
     storage.loadAllDomains.mockResolvedValue({
       customFieldDefs: [{ id: "cf-1", projectId: "proj-1", name: "Severity", type: "select" }],

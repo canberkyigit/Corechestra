@@ -2,6 +2,7 @@ import { useAppStateDomains } from "./useAppStateDomains";
 import { useAppStore } from "../../store/useAppStore";
 import { useActivityActions } from "./actions/useActivityActions";
 import { useAutomationActions } from "./actions/useAutomationActions";
+import { usePortfolioActions } from "./actions/usePortfolioActions";
 import { useBoardActions } from "./actions/useBoardActions";
 import { useCustomFieldActions } from "./actions/useCustomFieldActions";
 import { useDocsActions } from "./actions/useDocsActions";
@@ -11,6 +12,7 @@ import { useTestingActions } from "./actions/useTestingActions";
 import { useWorkspaceActions } from "./actions/useWorkspaceActions";
 import { useWorkspaceEventBridge } from "./actions/useWorkspaceEventBridge";
 import { useAutomationApi } from "./api/useAutomationApi";
+import { usePortfolioApi } from "./api/usePortfolioApi";
 import { useBoardApi } from "./api/useBoardApi";
 import { useCustomFieldApi } from "./api/useCustomFieldApi";
 import { useDocsApi } from "./api/useDocsApi";
@@ -119,6 +121,8 @@ export function useAppFacade() {
     setAutomationRules,
     automationLog,
     setAutomationLog,
+    projectStatusUpdates,
+    setProjectStatusUpdates,
     columns,
     sprint,
     setSprint,
@@ -223,6 +227,12 @@ export function useAppFacade() {
     logAuditEvent,
   });
 
+  const portfolioActions = usePortfolioActions({
+    currentUser,
+    setProjectStatusUpdates,
+    logAuditEvent,
+  });
+
   const customFieldActions = useCustomFieldActions({
     currentUser,
     currentProjectId,
@@ -284,6 +294,7 @@ export function useAppFacade() {
     setSensitiveActionPolicy,
     setAutomationRules,
     setAutomationLog,
+    setProjectStatusUpdates,
   });
 
   const workspaceApi = useWorkspaceApi({
@@ -389,6 +400,11 @@ export function useAppFacade() {
     automationActions,
   });
 
+  const portfolioApi = usePortfolioApi({
+    projectStatusUpdates,
+    portfolioActions,
+  });
+
   const customFieldApi = useCustomFieldApi({
     customFieldDefs,
     customFieldActions,
@@ -401,6 +417,7 @@ export function useAppFacade() {
     ...docsApi,
     ...testingApi,
     ...automationApi,
+    ...portfolioApi,
     ...customFieldApi,
     logAuditEvent,
   };

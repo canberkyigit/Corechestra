@@ -24,6 +24,7 @@ const TaskDetailModal = lazy(() => import("../features/board/components/TaskDeta
 const TaskSidePanel = lazy(() => import("../features/board/components/TaskSidePanel"));
 const CommandPalette = lazy(() => import("../shared/components/CommandPalette"));
 const DashboardPage = lazy(() => import("../features/dashboard/pages/DashboardPage"));
+const MaestroPage = lazy(() => import("../features/maestro/pages/MaestroPage"));
 const ActivityPage = lazy(() => import("../features/activity/pages/ActivityPage"));
 const RoadmapPage = lazy(() => import("../features/roadmap/pages/RoadmapPage"));
 const CalendarPage = lazy(() => import("../features/calendar/pages/CalendarPage"));
@@ -54,6 +55,7 @@ const PATH_TO_PAGE = {
   "/":          "board",
   "/board":     "board",
   "/dashboard": "dashboard",
+  "/maestro":   "maestro",
   "/roadmap":   "roadmap",
   "/calendar":  "calendar",
   "/profile":   "profile",
@@ -323,6 +325,8 @@ function AppInner() {
           <Route path="/board"     element={canAccessPage("board") ? boardPage : <Navigate to={`/${firstAccessiblePage}`} replace />} />
           <Route path="/activity"  element={renderProtectedPage("activity", <ActivityPage />)} />
           <Route path="/dashboard" element={renderProtectedPage("dashboard", <DashboardPage />)} />
+          <Route path="/portfolio" element={<Navigate to="/dashboard?tab=portfolio" replace />} />
+          <Route path="/maestro"   element={renderProtectedPage("maestro", <MaestroPage />, { fullHeight: true })} />
           <Route path="/roadmap"   element={renderProtectedPage("roadmap", <RoadmapPage />)} />
           <Route path="/calendar"  element={renderProtectedPage("calendar", <CalendarPage />, { fullHeight: true })} />
           {/* Reports was merged into the Dashboard; keep old links working. */}

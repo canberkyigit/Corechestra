@@ -13,13 +13,14 @@ import SprintTab from "../tabs/SprintTab";
 import TeamTab from "../tabs/TeamTab";
 import EpicsTab from "../tabs/EpicsTab";
 import HistoryTab from "../tabs/HistoryTab";
+import PortfolioTab from "../../portfolio/components/PortfolioTab";
 import { resolveDrill, useDashboardData } from "../hooks/useDashboardData";
 import { buildDashboardCsv } from "../utils/dashboardMetrics";
 
 export { computeDashboardStats } from "../utils/dashboardMetrics";
 
 const TAB_IDS = new Set(DASHBOARD_TABS.map((tab) => tab.id));
-const TAB_COMPONENTS = { overview: OverviewTab, sprint: SprintTab, team: TeamTab, epics: EpicsTab, history: HistoryTab };
+const TAB_COMPONENTS = { overview: OverviewTab, sprint: SprintTab, team: TeamTab, epics: EpicsTab, history: HistoryTab, portfolio: PortfolioTab };
 
 const PRINT_CSS = `
   @media print {

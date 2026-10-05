@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   FaSearch, FaTimes, FaPlusSquare, FaRocket, FaColumns,
   FaTachometerAlt, FaCalendarAlt, FaShieldAlt, FaLayerGroup, FaStream, FaMoon, FaBook,
-  FaTag, FaFlask, FaArchive, FaBell, FaBuilding, FaHistory, FaComments,
+  FaTag, FaFlask, FaArchive, FaBell, FaBuilding, FaHistory, FaComments, FaMagic,
 } from "react-icons/fa";
 import { useApp } from "../context/AppContext";
 import { TASK_STATUS_BADGE_STYLES, TASK_STATUS_SHORT_LABELS, TASK_TYPE_ICON_META } from "../constants/taskMeta";
@@ -17,6 +17,7 @@ const PAGES = [
   { id: "roadmap",   label: "Roadmap",    icon: FaRocket        },
   { id: "calendar",  label: "Calendar",   icon: FaCalendarAlt   },
   { id: "projects",  label: "Projects",   icon: FaLayerGroup    },
+  { id: "maestro",   label: "Maestro",    icon: FaMagic         },
   { id: "docs",      label: "Documentation", icon: FaBook       },
   { id: "releases",  label: "Releases",   icon: FaTag           },
   { id: "tests",     label: "Tests",      icon: FaFlask         },

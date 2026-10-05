@@ -112,6 +112,8 @@ export function useAppStateDomains() {
     setAutomationRules,
     automationLog,
     setAutomationLog,
+    projectStatusUpdates,
+    setProjectStatusUpdates,
   } = useAppStore();
 
   const [sprint, setSprint] = useProjectScopedState({
@@ -288,6 +290,8 @@ export function useAppStateDomains() {
     setAutomationRules,
     automationLog,
     setAutomationLog,
+    projectStatusUpdates,
+    setProjectStatusUpdates,
     columns,
     sprint,
     setSprint,

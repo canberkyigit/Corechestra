@@ -5,6 +5,7 @@ export const MODULE_PERMISSION_META = [
   { key: "roadmap", label: "Roadmap" },
   { key: "calendar", label: "Calendar" },
   { key: "projects", label: "Projects" },
+  { key: "maestro", label: "Maestro" },
   { key: "docs", label: "Documentation" },
   { key: "releases", label: "Releases" },
   { key: "tests", label: "Tests" },
@@ -35,6 +36,7 @@ export const ACTION_PERMISSION_META = [
   { key: "chat:manage", label: "Create and manage chat channels" },
   { key: "automation:manage", label: "Create and edit automation rules" },
   { key: "fields:manage", label: "Manage project custom fields" },
+  { key: "portfolio:update", label: "Post project status updates" },
 ];
 
 const ALL_MODULE_KEYS = MODULE_PERMISSION_META.map((item) => item.key);
@@ -52,6 +54,7 @@ export const DEFAULT_PERMISSION_MATRIX = {
   member: {
     modules: {
       dashboard: true,
+      maestro: true,
       board: true,
       chats: true,
       roadmap: true,
@@ -86,11 +89,13 @@ export const DEFAULT_PERMISSION_MATRIX = {
       "chat:manage": true,
       "automation:manage": false,
       "fields:manage": false,
+      "portfolio:update": true,
     },
   },
   viewer: {
     modules: {
       dashboard: true,
+      maestro: true,
       board: true,
       chats: true,
       roadmap: true,
@@ -125,6 +130,7 @@ export const DEFAULT_PERMISSION_MATRIX = {
       "chat:manage": false,
       "automation:manage": false,
       "fields:manage": false,
+      "portfolio:update": false,
     },
   },
 };
