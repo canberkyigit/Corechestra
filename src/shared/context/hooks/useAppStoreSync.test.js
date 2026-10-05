@@ -200,26 +200,24 @@ describe("useAppStoreSync", () => {
     });
   });
 
-  it("hydrates and persists goals and project status updates in the strategy domain", async () => {
+  it("hydrates and persists project status updates in the portfolio domain", async () => {
     storage.loadAllDomains.mockResolvedValue({
-      goals: [{ id: "goal-1", title: "Loaded goal" }],
       projectStatusUpdates: [{ id: "psu-1", projectId: "proj-1", health: "on-track" }],
     });
 
     renderHook(() => useAppStoreSync(), { wrapper: createWrapper() });
 
     await waitFor(() => expect(useAppStore.getState().dbReady).toBe(true));
-    expect(useAppStore.getState().goals).toEqual([{ id: "goal-1", title: "Loaded goal" }]);
+    expect(useAppStore.getState().projectStatusUpdates).toEqual([{ id: "psu-1", projectId: "proj-1", health: "on-track" }]);
     storage.saveDomain.mockClear();
 
     act(() => {
-      useAppStore.getState().setGoals((previous) => [...previous, { id: "goal-2", title: "New goal" }]);
+      useAppStore.getState().setProjectStatusUpdates((previous) => [{ id: "psu-2", projectId: "proj-1", health: "at-risk" }, ...previous]);
     });
 
     await waitFor(() => {
-      expect(storage.saveDomain).toHaveBeenCalledWith("strategy", {
-        goals: [{ id: "goal-1", title: "Loaded goal" }, { id: "goal-2", title: "New goal" }],
-        projectStatusUpdates: [{ id: "psu-1", projectId: "proj-1", health: "on-track" }],
+      expect(storage.saveDomain).toHaveBeenCalledWith("portfolio", {
+        projectStatusUpdates: [{ id: "psu-2", projectId: "proj-1", health: "at-risk" }, { id: "psu-1", projectId: "proj-1", health: "on-track" }],
       });
     });
   });

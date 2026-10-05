@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { FaArrowRight, FaCheckCircle, FaColumns, FaExclamationCircle, FaMinusCircle, FaTachometerAlt, FaTrash } from "react-icons/fa";
 import { Avatar } from "../../dashboard/components/DashboardPrimitives";
-import { HEALTH_META, MANUAL_HEALTH_OPTIONS } from "../../goals/utils/goalModel";
+import { HEALTH_META, MANUAL_HEALTH_OPTIONS } from "../utils/healthMeta";
 import {
   Drawer,
   DrawerClose,
@@ -13,7 +13,7 @@ import {
   SECONDARY_BTN,
   TrackBar,
   relativeDays,
-} from "../../goals/components/StrategyPrimitives";
+} from "./PortfolioPrimitives";
 import { STATUS_UPDATE_FRESH_DAYS } from "../utils/portfolioMetrics";
 import { ProjectMark, sprintTimeLabel } from "./PortfolioViews";
 
@@ -160,21 +160,6 @@ export default function ProjectHealthDrawer({ row, updates, ownerName, canUpdate
             ))}
           </div>
         </section>
-
-        {row.goals.length > 0 && (
-          <section>
-            <h3 className="mb-2 text-xs font-semibold uppercase tracking-[0.06em] text-slate-500 dark:text-slate-400">Project goals</h3>
-            <ul className="space-y-2">
-              {row.goals.map((goal) => (
-                <li key={goal.id} className="flex items-center gap-3 rounded-lg px-1 py-1">
-                  <span className="min-w-0 flex-1 truncate text-sm text-slate-700 dark:text-slate-200">{goal.title}</span>
-                  <span className="w-24"><TrackBar value={goal.progress} health={goal.healthKey === "no-data" ? "on-track" : goal.healthKey} className="h-1.5" label={`${goal.title} progress`} /></span>
-                  <span className="w-9 text-right text-xs tabular-nums text-slate-500 dark:text-slate-400">{goal.progress}%</span>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
 
         <section className="space-y-3">
           <h3 className="text-xs font-semibold uppercase tracking-[0.06em] text-slate-500 dark:text-slate-400">Status updates</h3>

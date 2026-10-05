@@ -1,14 +1,14 @@
 import React, { memo } from "react";
 import { format } from "date-fns";
-import { FaDownload, FaMagic, FaPrint } from "react-icons/fa";
+import { FaDownload, FaPrint } from "react-icons/fa";
 
 export const DASHBOARD_TABS = [
-  { id: "maestro", label: "Maestro", icon: FaMagic, accent: true },
   { id: "overview", label: "Overview" },
   { id: "sprint", label: "Sprint" },
   { id: "team", label: "Team" },
   { id: "epics", label: "Epics" },
   { id: "history", label: "History" },
+  { id: "portfolio", label: "Portfolio" },
 ];
 
 const actionClass =
@@ -34,7 +34,7 @@ function DashboardHeader({ projectName, sprintName, activeTab, onTabChange, onEx
             {sprintName ? <> · <span className="text-slate-600 dark:text-slate-300">{sprintName}</span></> : " · No active sprint"}
           </p>
         </div>
-        <div className={`no-print flex items-center gap-2 ${activeTab === "maestro" ? "invisible" : ""}`}>
+        <div className={`no-print flex items-center gap-2 ${activeTab === "portfolio" ? "invisible" : ""}`}>
           <button type="button" className={actionClass} onClick={onExport} disabled={exportDisabled} title="Export sprint work items as CSV">
             <FaDownload className="h-3 w-3" aria-hidden="true" />
             Export CSV
@@ -50,25 +50,6 @@ function DashboardHeader({ projectName, sprintName, activeTab, onTabChange, onEx
         <div role="tablist" className="flex gap-1">
           {DASHBOARD_TABS.map((tab) => {
             const selected = activeTab === tab.id;
-            if (tab.accent) {
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={selected}
-                  onClick={() => onTabChange(tab.id)}
-                  className={`-mb-px inline-flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-[13px] font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 ${
-                    selected ? "border-indigo-500 dark:border-indigo-400" : "border-transparent"
-                  }`}
-                >
-                  <span className="flex h-4 w-4 items-center justify-center rounded bg-gradient-to-br from-violet-500 via-indigo-500 to-blue-500 text-white" aria-hidden="true">
-                    <tab.icon className="h-2.5 w-2.5" />
-                  </span>
-                  <span className="bg-gradient-to-r from-violet-600 via-indigo-600 to-blue-600 bg-clip-text text-transparent dark:from-violet-400 dark:via-indigo-400 dark:to-blue-400">{tab.label}</span>
-                </button>
-              );
-            }
             return (
               <button
                 key={tab.id}

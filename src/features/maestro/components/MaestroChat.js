@@ -3,7 +3,7 @@ import {
   FaArrowUp,
   FaAt,
   FaBook,
-  FaBullseye,
+  FaBriefcase,
   FaBuilding,
   FaCheck,
   FaClipboardList,
@@ -31,13 +31,13 @@ const SUGGESTION_ICONS = {
   people: FaUsers,
   release: FaTag,
   standup: FaComments,
-  goals: FaBullseye,
+  portfolio: FaBriefcase,
 };
 
 const CAPABILITIES = [
   { icon: FaClipboardList, title: "Summarize", text: "Sprints, retros, releases and long doc threads in seconds." },
   { icon: FaShieldAlt, title: "Spot risks early", text: "Blockers, overloaded people and slipping releases across projects." },
-  { icon: FaComments, title: "Draft for you", text: "Stand-ups, status updates, release notes and goal check-ins." },
+  { icon: FaComments, title: "Draft for you", text: "Stand-ups, status updates, release notes and retro summaries." },
   { icon: FaRegLightbulb, title: "Answer anything", text: "Ask in plain language — Maestro finds it across every module." },
 ];
 
@@ -46,7 +46,7 @@ const CONTEXT_SOURCES = [
   { icon: FaBook, label: "Documentation" },
   { icon: FaTag, label: "Releases" },
   { icon: FaFlask, label: "Tests" },
-  { icon: FaBullseye, label: "Goals & portfolio" },
+  { icon: FaBriefcase, label: "Portfolio health" },
   { icon: FaBuilding, label: "HR availability" },
 ];
 
@@ -125,7 +125,7 @@ function PreviewExchange({ answer, userName }) {
  * Maestro — the workspace assistant. This is a design preview: no AI model is
  * connected, so the composer never sends anything; it explains that instead.
  */
-export default function MaestroTab({ data, projectName }) {
+export default function MaestroChat({ data, projectName }) {
   const { profile, user } = useAuth();
   const [draft, setDraft] = useState("");
   const [notice, setNotice] = useState(false);
@@ -148,8 +148,8 @@ export default function MaestroTab({ data, projectName }) {
   };
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px]" data-testid="maestro-tab">
-      <section className="relative flex min-h-[680px] flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:border-[#252b3b] dark:bg-[#1a1f2e]">
+    <div className="grid gap-4 lg:h-full lg:grid-cols-[minmax(0,1fr)_300px]" data-testid="maestro-chat">
+      <section className="relative flex min-h-[640px] flex-col overflow-hidden rounded-2xl lg:h-full lg:min-h-0 border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:border-[#252b3b] dark:bg-[#1a1f2e]">
         <div className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-[radial-gradient(60%_100%_at_50%_0%,rgba(99,102,241,0.12),transparent)] dark:bg-[radial-gradient(60%_100%_at_50%_0%,rgba(99,102,241,0.18),transparent)]" aria-hidden="true" />
 
         <header className="relative flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-3 dark:border-[#232838]">
@@ -182,7 +182,7 @@ export default function MaestroTab({ data, projectName }) {
                 {greetingFor(now)}{name ? `, ${name}` : ""}.
               </h3>
               <p className="mt-2 max-w-lg text-sm leading-relaxed text-slate-500 dark:text-slate-400">
-                I'm <span className={`font-semibold ${MAESTRO_TEXT_GRADIENT}`}>Maestro</span>. I keep every part of {projectName || "your workspace"} in tune — ask me about sprints, people, releases, tests and goals.
+                I'm <span className={`font-semibold ${MAESTRO_TEXT_GRADIENT}`}>Maestro</span>. I keep every part of {projectName || "your workspace"} in tune — ask me about sprints, people, releases, tests and project health.
               </p>
             </div>
 
@@ -253,13 +253,13 @@ export default function MaestroTab({ data, projectName }) {
         </div>
       </section>
 
-      <aside className="space-y-4">
+      <aside className="space-y-4 lg:min-h-0 lg:overflow-y-auto lg:pb-1">
         <section className={`relative overflow-hidden rounded-2xl p-4 text-white shadow-lg shadow-indigo-500/20 ${MAESTRO_GRADIENT}`}>
           <div className="pointer-events-none absolute -right-8 -top-10 h-32 w-32 rounded-full bg-white/10 blur-2xl" aria-hidden="true" />
           <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-white/70">Coming soon</p>
           <p className="mt-1 text-[15px] font-semibold leading-snug">One assistant that hears the whole orchestra.</p>
           <p className="mt-1.5 text-xs leading-relaxed text-white/80">
-            Maestro will connect boards, docs, releases, tests, goals and HR — so the answer to “are we on track?” is one question away.
+            Maestro will connect boards, docs, releases, tests, portfolio health and HR — so the answer to “are we on track?” is one question away.
           </p>
         </section>
 
@@ -296,31 +296,5 @@ export default function MaestroTab({ data, projectName }) {
         </SideCard>
       </aside>
     </div>
-  );
-}
-
-/** Compact entry point shown on top of the Overview tab. */
-export function MaestroLauncher({ projectName, onOpen }) {
-  return (
-    <button
-      type="button"
-      onClick={onOpen}
-      data-testid="maestro-launcher"
-      className="no-print group relative flex w-full items-center gap-3 overflow-hidden rounded-2xl border border-indigo-200/70 bg-gradient-to-r from-violet-50 via-indigo-50/60 to-blue-50 px-4 py-3 text-left transition-all hover:border-indigo-300 hover:shadow-md hover:shadow-indigo-500/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 dark:border-indigo-500/20 dark:from-violet-500/10 dark:via-indigo-500/10 dark:to-blue-500/10 dark:hover:border-indigo-500/40"
-    >
-      <MaestroMark size={32} />
-      <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-2">
-          <span className={`text-sm font-semibold ${MAESTRO_TEXT_GRADIENT}`}>Ask Maestro</span>
-          <PreviewBadge />
-        </span>
-        <span className="mt-0.5 block truncate text-xs text-slate-500 dark:text-slate-400">
-          “Summarize {projectName ? `${projectName}'s` : "this"} sprint”, “Who is overloaded?”, “Is the next release ready?”
-        </span>
-      </span>
-      <span className="hidden flex-shrink-0 items-center gap-1.5 rounded-lg bg-white/80 px-3 py-1.5 text-xs font-medium text-indigo-700 shadow-sm ring-1 ring-indigo-200/70 transition-colors group-hover:bg-white sm:inline-flex dark:bg-[#141720]/80 dark:text-indigo-300 dark:ring-indigo-500/30">
-        Open Maestro <FaArrowUp className="h-2.5 w-2.5 rotate-45" aria-hidden="true" />
-      </span>
-    </button>
   );
 }

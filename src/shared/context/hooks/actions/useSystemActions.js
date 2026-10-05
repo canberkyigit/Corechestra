@@ -57,7 +57,6 @@ export function useSystemActions({
   setSensitiveActionPolicy,
   setAutomationRules,
   setAutomationLog,
-  setGoals,
   setProjectStatusUpdates,
 }) {
   const resetAllData = useCallback(async () => {
@@ -135,7 +134,6 @@ export function useSystemActions({
     setSensitiveActionPolicy(preferencesInitialState.sensitiveActionPolicy);
     setAutomationRules?.([]);
     setAutomationLog?.([]);
-    setGoals?.([]);
     setProjectStatusUpdates?.([]);
     return true;
   }, [
@@ -189,7 +187,6 @@ export function useSystemActions({
     setSensitiveActionPolicy,
     setAutomationRules,
     setAutomationLog,
-    setGoals,
     setProjectStatusUpdates,
   ]);
 

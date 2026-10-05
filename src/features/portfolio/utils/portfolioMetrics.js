@@ -5,7 +5,6 @@ import { isInProject } from "../../../shared/utils/helpers";
 import { normalizeReleases, isActiveStatus } from "../../releases/utils/releaseModel";
 import { buildTaskMap, computeQuality, computeReleaseMetrics } from "../../releases/utils/releaseMetrics";
 import { buildProjectTestingData } from "../../tests/utils/testingModel";
-import { buildEpicWorkIndex, deriveGoal } from "../../goals/utils/goalModel";
 
 const DEFECT_TYPES = new Set(["bug", "defect"]);
 /** A reported status older than this falls back to the calculated health. */
@@ -62,7 +61,6 @@ export function computeProjectHealth({
   releases = [],
   releaseMetrics = new Map(),
   passRate = null,
-  goals = [],
   statusUpdates = [],
   now = new Date(),
 }) {
@@ -136,8 +134,6 @@ export function computeProjectHealth({
   const updateAgeDays = latestUpdate ? differenceInCalendarDays(today, startOfDay(new Date(latestUpdate.createdAt))) : null;
   const reportedFresh = Boolean(latestUpdate && updateAgeDays !== null && updateAgeDays <= STATUS_UPDATE_FRESH_DAYS);
 
-  const goalProgress = goals.length ? Math.round(goals.reduce((sum, goal) => sum + goal.progress, 0) / goals.length) : null;
-
   return {
     project,
     score: hasData ? score : null,
@@ -164,8 +160,6 @@ export function computeProjectHealth({
     nextRelease,
     activeReleases: upcoming.length,
     passRate,
-    goals,
-    goalProgress,
     members: [...new Set([
       ...(project?.memberUsernames || []),
       ...allTasks.map((task) => task.assignedTo).filter((name) => name && name !== "unassigned"),
@@ -186,7 +180,6 @@ export function buildPortfolio({
   testRuns = [],
   testPlans = [],
   testSharedSteps = [],
-  goals = [],
   projectStatusUpdates = [],
   now = new Date(),
 }) {
@@ -198,7 +191,6 @@ export function buildPortfolio({
     allTasks.push(...tasks);
   });
   const taskMap = buildTaskMap(allTasks);
-  const workIndex = buildEpicWorkIndex(allTasks);
   const normalizedReleases = normalizeReleases(releases || []);
 
   return (projects || []).map((project) => {
@@ -211,9 +203,6 @@ export function buildPortfolio({
     ]));
     const { runs } = buildProjectTestingData({ testSuites, testCases, testRuns, testPlans, testSharedSteps, currentProjectId: project.id });
     const passRate = runs.length ? computeQuality(runs).passRate : null;
-    const projectGoals = (goals || [])
-      .filter((goal) => goal.projectId === project.id)
-      .map((goal) => deriveGoal(goal, workIndex, now));
 
     return computeProjectHealth({
       project,
@@ -223,7 +212,6 @@ export function buildPortfolio({
       releases: projectReleases,
       releaseMetrics,
       passRate,
-      goals: projectGoals,
       statusUpdates: projectStatusUpdates,
       now,
     });

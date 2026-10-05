@@ -85,7 +85,6 @@ export function useAppStoreSync(uid = null) {
     sensitiveActionPolicy,
     automationRules,
     automationLog,
-    goals,
     projectStatusUpdates,
     dbReady,
     setProjects,
@@ -137,7 +136,6 @@ export function useAppStoreSync(uid = null) {
     setSensitiveActionPolicy,
     setAutomationRules,
     setAutomationLog,
-    setGoals,
     setProjectStatusUpdates,
     setDbReady,
   } = useAppStore();
@@ -192,7 +190,6 @@ export function useAppStoreSync(uid = null) {
     archivedEpics: setArchivedEpics,
     automationRules: setAutomationRules,
     automationLog: setAutomationLog,
-    goals: setGoals,
     projectStatusUpdates: setProjectStatusUpdates,
   }), [
     setProjects,
@@ -244,7 +241,6 @@ export function useAppStoreSync(uid = null) {
     setArchivedEpics,
     setAutomationRules,
     setAutomationLog,
-    setGoals,
     setProjectStatusUpdates,
   ]);
 
@@ -580,6 +576,6 @@ export function useAppStoreSync(uid = null) {
 
   useEffect(() => {
     if (!dbReady) return;
-    saveDomain("strategy", { goals, projectStatusUpdates });
-  }, [goals, projectStatusUpdates, dbReady]);
+    saveDomain("portfolio", { projectStatusUpdates });
+  }, [projectStatusUpdates, dbReady]);
 }

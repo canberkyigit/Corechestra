@@ -76,13 +76,11 @@ describe("portfolio health", () => {
       perProjectBacklog: { p2: [{ id: 1, tasks: [{ id: "c", status: "done", projectId: "p2", epicId: "e1" }] }] },
       perProjectSprint: { p2: { name: "B1", status: "active" } },
       releases: [{ id: "r1", version: "2.0.0", status: "planned", projectId: "p2", releaseDate: "2026-10-20", taskIds: ["b"] }],
-      goals: [{ id: "g1", projectId: "p2", period: "2026-Q4", keyResults: [{ type: "work", epicIds: ["e1"] }] }],
       now,
     });
     expect(rows.map((row) => row.counts.total)).toEqual([1, 2]);
     const borealis = rows[1];
     expect(borealis.nextRelease).toMatchObject({ version: "2.0.0", daysLeft: 10 });
-    expect(borealis.goals[0].progress).toBe(50);
     expect(borealis.sprint).toMatchObject({ name: "B1", active: true });
 
     const summary = summarizePortfolio(rows, now);

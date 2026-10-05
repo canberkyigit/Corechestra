@@ -112,8 +112,6 @@ export function useAppStateDomains() {
     setAutomationRules,
     automationLog,
     setAutomationLog,
-    goals,
-    setGoals,
     projectStatusUpdates,
     setProjectStatusUpdates,
   } = useAppStore();
@@ -292,8 +290,6 @@ export function useAppStateDomains() {
     setAutomationRules,
     automationLog,
     setAutomationLog,
-    goals,
-    setGoals,
     projectStatusUpdates,
     setProjectStatusUpdates,
     columns,

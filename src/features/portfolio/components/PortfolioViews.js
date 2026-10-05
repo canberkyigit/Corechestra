@@ -1,8 +1,8 @@
 import React, { memo } from "react";
-import { FaExclamationTriangle, FaTag, FaBullseye } from "react-icons/fa";
+import { FaExclamationTriangle, FaFlask, FaTag } from "react-icons/fa";
 import { Avatar } from "../../dashboard/components/DashboardPrimitives";
-import { HEALTH_META } from "../../goals/utils/goalModel";
-import { HealthPill, ScoreRing, TrackBar, relativeDays } from "../../goals/components/StrategyPrimitives";
+import { HEALTH_META } from "../utils/healthMeta";
+import { HealthPill, ScoreRing, TrackBar, relativeDays } from "./PortfolioPrimitives";
 
 export function ProjectMark({ project, size = 36 }) {
   const label = String(project?.key || project?.name || "?").slice(0, 2).toUpperCase();
@@ -100,13 +100,13 @@ export const PortfolioCard = memo(function PortfolioCard({ row, ownerName, onOpe
             ) : <span className="text-slate-400 dark:text-slate-500">No upcoming release</span>}
           </div>
           <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
-            <FaBullseye className="h-2.5 w-2.5 flex-shrink-0 text-slate-400" aria-hidden="true" />
-            {row.goals.length ? (
+            <FaFlask className="h-2.5 w-2.5 flex-shrink-0 text-slate-400" aria-hidden="true" />
+            {row.passRate !== null ? (
               <>
-                <span>{row.goals.length} goal{row.goals.length === 1 ? "" : "s"}</span>
-                <span className="ml-auto tabular-nums text-slate-500 dark:text-slate-400">{row.goalProgress}% avg</span>
+                <span>Test pass rate</span>
+                <span className={`ml-auto tabular-nums ${row.passRate < 80 ? "text-amber-600 dark:text-amber-400" : "text-slate-500 dark:text-slate-400"}`}>{row.passRate}%</span>
               </>
-            ) : <span className="text-slate-400 dark:text-slate-500">No project goals</span>}
+            ) : <span className="text-slate-400 dark:text-slate-500">No test results yet</span>}
           </div>
         </div>
       </div>
@@ -149,7 +149,7 @@ export const PortfolioTable = memo(function PortfolioTable({ rows, onOpen, now }
             <th className={`${TH} text-right`}>Blocked</th>
             <th className={`${TH} text-right`}>Bugs</th>
             <th className={TH}>Next release</th>
-            <th className={`${TH} text-right`}>Goals</th>
+            <th className={`${TH} text-right`}>Tests</th>
             <th className={TH}>Updated</th>
           </tr>
         </thead>
@@ -181,7 +181,7 @@ export const PortfolioTable = memo(function PortfolioTable({ rows, onOpen, now }
                   <span className="text-xs"><span className="font-medium">{row.nextRelease.version}</span> <span className="text-slate-500 dark:text-slate-400">{releaseLabel(row.nextRelease)}</span></span>
                 ) : <span className="text-xs text-slate-400">—</span>}
               </td>
-              <td className={`${TD} text-right tabular-nums`}>{row.goals.length ? `${row.goals.length} · ${row.goalProgress}%` : "—"}</td>
+              <td className={`${TD} text-right tabular-nums`}>{row.passRate !== null ? `${row.passRate}%` : "—"}</td>
               <td className={`${TD} text-xs text-slate-500 dark:text-slate-400`}>{row.latestUpdate ? relativeDays(row.latestUpdate.createdAt, now) : "Never"}</td>
             </tr>
           ))}

@@ -7,7 +7,7 @@ import {
   FaSearch, FaMoon, FaSun,
   FaShieldAlt, FaLayerGroup, FaBook, FaTag, FaFlask,
   FaTimes, FaArchive, FaPlus,
-  FaSignOutAlt, FaBars, FaBuilding, FaStream, FaComments, FaBullseye, FaBriefcase,
+  FaSignOutAlt, FaBars, FaBuilding, FaStream, FaComments, FaMagic,
 } from "react-icons/fa";
 import { useApp } from "../context/AppContext";
 import { TASK_STATUS_BADGE_STYLES, TASK_STATUS_SHORT_LABELS, TASK_TYPE_ICON_META } from "../constants/taskMeta";
@@ -24,9 +24,8 @@ import { useChatUnread } from "../context/ChatContext";
 import Logo from "./Logo";
 
 const SEARCH_PAGES = [
+  { id: "maestro",   label: "Maestro",    icon: FaMagic         },
   { id: "dashboard", label: "Dashboard",  icon: FaTachometerAlt },
-  { id: "portfolio", label: "Portfolio",  icon: FaBriefcase     },
-  { id: "goals",     label: "Goals",      icon: FaBullseye      },
   { id: "board",     label: "Board",      icon: FaColumns       },
   { id: "chats",     label: "Chats",      icon: FaComments      },
   { id: "roadmap",   label: "Roadmap",    icon: FaRocket        },
@@ -57,8 +56,6 @@ function relativeTime(isoStr) {
 
 const NAV_ITEMS = [
   { id: "dashboard",     label: "Dashboard",     icon: FaTachometerAlt },
-  { id: "portfolio",     label: "Portfolio",     icon: FaBriefcase     },
-  { id: "goals",         label: "Goals",         icon: FaBullseye      },
   { id: "board",         label: "Board",         icon: FaColumns       },
   { id: "chats",         label: "Chats",         icon: FaComments      },
   { id: "roadmap",       label: "Roadmap",       icon: FaRocket        },
@@ -282,6 +279,42 @@ export default function Layout({
     ? "text-slate-400 hover:bg-white/5 hover:text-slate-200"
     : "text-slate-600 hover:bg-slate-100 hover:text-slate-900";
 
+  // ── Maestro: the assistant gets its own shiny entry above the navigation ────
+  const canOpenMaestro = canAccessPage("maestro");
+  const renderMaestroBtn = () => {
+    const isActive = activePage === "maestro";
+    const iconOnly = !isMobile && collapsed;
+    return (
+      <button
+        type="button"
+        onClick={() => { onPageChange && onPageChange("maestro"); setMobileNavOpen(false); }}
+        title={iconOnly ? "Maestro — AI assistant (preview)" : undefined}
+        aria-current={isActive ? "page" : undefined}
+        data-testid="nav-maestro"
+        className={`maestro-nav group relative w-full overflow-hidden rounded-lg text-sm font-semibold transition-all ${
+          iconOnly ? "flex justify-center p-2" : "flex items-center gap-3 px-2.5 py-2"
+        } ${isActive
+          ? "maestro-nav-active text-white shadow-md shadow-indigo-500/30"
+          : `maestro-nav-idle ${darkMode ? "ring-1 ring-inset ring-indigo-400/25 hover:ring-indigo-400/50" : "ring-1 ring-inset ring-indigo-200 hover:ring-indigo-300"}`}`}
+      >
+        <span className="maestro-nav-shine" aria-hidden="true" />
+        <span className={`relative flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md text-white ${isActive ? "bg-white/20" : "bg-gradient-to-br from-violet-500 via-indigo-500 to-blue-500 shadow-sm shadow-indigo-500/40"}`}>
+          <FaMagic className="h-3 w-3" />
+        </span>
+        {!iconOnly && (
+          <>
+            <span className={`relative flex-1 text-left ${isActive ? "" : "bg-gradient-to-r from-violet-600 via-indigo-600 to-blue-600 bg-clip-text text-transparent dark:from-violet-300 dark:via-indigo-300 dark:to-blue-300"}`}>
+              Maestro
+            </span>
+            <span className={`relative rounded-full px-1.5 py-px text-[9px] font-bold uppercase tracking-wider ${isActive ? "bg-white/20 text-white" : "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-200"}`}>
+              AI
+            </span>
+          </>
+        )}
+      </button>
+    );
+  };
+
   // ── Nav button (handles collapsed / expanded) ──────────────────────────────
   const renderNavBtn = ({ id, label, Icon }) => {
     const isActive = activePage === id;
@@ -371,6 +404,7 @@ export default function Layout({
 
         {/* Nav */}
         <nav className={`flex-1 overflow-y-auto py-2 ${(!isMobile && collapsed) ? "px-1 space-y-0.5" : "px-2 space-y-0.5"}`}>
+          {canOpenMaestro && <div className={`pb-2 mb-1.5 border-b ${borderColor}`}>{renderMaestroBtn()}</div>}
           {visibleNavItems.map(({ id, label, icon: Icon }) => (
               <React.Fragment key={id}>{renderNavBtn({ id, label, Icon })}</React.Fragment>
             ))}

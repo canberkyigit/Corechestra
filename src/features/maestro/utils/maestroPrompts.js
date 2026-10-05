@@ -72,10 +72,10 @@ export function buildMaestroSuggestions({ data, projectName }) {
       context: `${stats?.completedThisWeek ?? 0} completed in the last 7 days`,
     },
     {
-      id: "goals",
-      icon: "goals",
-      title: "How are our goals tracking this quarter?",
-      context: "Goals · key results · check-ins",
+      id: "portfolio",
+      icon: "portfolio",
+      title: "Which projects need attention this week?",
+      context: "Portfolio health across every project",
     },
   ];
 }

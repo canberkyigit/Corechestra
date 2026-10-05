@@ -2,7 +2,7 @@ import { useAppStateDomains } from "./useAppStateDomains";
 import { useAppStore } from "../../store/useAppStore";
 import { useActivityActions } from "./actions/useActivityActions";
 import { useAutomationActions } from "./actions/useAutomationActions";
-import { useStrategyActions } from "./actions/useStrategyActions";
+import { usePortfolioActions } from "./actions/usePortfolioActions";
 import { useBoardActions } from "./actions/useBoardActions";
 import { useCustomFieldActions } from "./actions/useCustomFieldActions";
 import { useDocsActions } from "./actions/useDocsActions";
@@ -12,7 +12,7 @@ import { useTestingActions } from "./actions/useTestingActions";
 import { useWorkspaceActions } from "./actions/useWorkspaceActions";
 import { useWorkspaceEventBridge } from "./actions/useWorkspaceEventBridge";
 import { useAutomationApi } from "./api/useAutomationApi";
-import { useStrategyApi } from "./api/useStrategyApi";
+import { usePortfolioApi } from "./api/usePortfolioApi";
 import { useBoardApi } from "./api/useBoardApi";
 import { useCustomFieldApi } from "./api/useCustomFieldApi";
 import { useDocsApi } from "./api/useDocsApi";
@@ -121,8 +121,6 @@ export function useAppFacade() {
     setAutomationRules,
     automationLog,
     setAutomationLog,
-    goals,
-    setGoals,
     projectStatusUpdates,
     setProjectStatusUpdates,
     columns,
@@ -229,9 +227,8 @@ export function useAppFacade() {
     logAuditEvent,
   });
 
-  const strategyActions = useStrategyActions({
+  const portfolioActions = usePortfolioActions({
     currentUser,
-    setGoals,
     setProjectStatusUpdates,
     logAuditEvent,
   });
@@ -297,7 +294,6 @@ export function useAppFacade() {
     setSensitiveActionPolicy,
     setAutomationRules,
     setAutomationLog,
-    setGoals,
     setProjectStatusUpdates,
   });
 
@@ -404,10 +400,9 @@ export function useAppFacade() {
     automationActions,
   });
 
-  const strategyApi = useStrategyApi({
-    goals,
+  const portfolioApi = usePortfolioApi({
     projectStatusUpdates,
-    strategyActions,
+    portfolioActions,
   });
 
   const customFieldApi = useCustomFieldApi({
@@ -422,7 +417,7 @@ export function useAppFacade() {
     ...docsApi,
     ...testingApi,
     ...automationApi,
-    ...strategyApi,
+    ...portfolioApi,
     ...customFieldApi,
     logAuditEvent,
   };

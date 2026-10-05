@@ -1,14 +1,12 @@
 import { createFieldSetter } from "../createStoreSetters";
 
-export const strategyInitialState = {
-  goals: [],
+export const portfolioInitialState = {
   projectStatusUpdates: [],
 };
 
-export function createStrategySlice(set) {
+export function createPortfolioSlice(set) {
   return {
-    ...strategyInitialState,
-    setGoals: createFieldSetter("goals", set),
+    ...portfolioInitialState,
     setProjectStatusUpdates: createFieldSetter("projectStatusUpdates", set),
   };
 }

@@ -13,14 +13,14 @@ import SprintTab from "../tabs/SprintTab";
 import TeamTab from "../tabs/TeamTab";
 import EpicsTab from "../tabs/EpicsTab";
 import HistoryTab from "../tabs/HistoryTab";
-import MaestroTab, { MaestroLauncher } from "../../maestro/components/MaestroTab";
+import PortfolioTab from "../../portfolio/components/PortfolioTab";
 import { resolveDrill, useDashboardData } from "../hooks/useDashboardData";
 import { buildDashboardCsv } from "../utils/dashboardMetrics";
 
 export { computeDashboardStats } from "../utils/dashboardMetrics";
 
 const TAB_IDS = new Set(DASHBOARD_TABS.map((tab) => tab.id));
-const TAB_COMPONENTS = { maestro: MaestroTab, overview: OverviewTab, sprint: SprintTab, team: TeamTab, epics: EpicsTab, history: HistoryTab };
+const TAB_COMPONENTS = { overview: OverviewTab, sprint: SprintTab, team: TeamTab, epics: EpicsTab, history: HistoryTab, portfolio: PortfolioTab };
 
 const PRINT_CSS = `
   @media print {
@@ -119,8 +119,6 @@ export default function DashboardPage() {
         now={now}
       />
 
-      {activeTab === "overview" && <MaestroLauncher projectName={project?.name} onOpen={() => setTab("maestro")} />}
-
       {!workspaceSetup.isComplete && workspaceSettings?.emptyStateHints !== false && activeTab === "overview" && (
         <div className="no-print">
           <WorkspaceSetupChecklist
@@ -132,7 +130,7 @@ export default function DashboardPage() {
       )}
 
       <div role="tabpanel" aria-label={DASHBOARD_TABS.find((tab) => tab.id === activeTab)?.label}>
-        <ActiveTab data={data} actions={actions} projectName={project?.name} />
+        <ActiveTab data={data} actions={actions} />
       </div>
 
       {drill && (

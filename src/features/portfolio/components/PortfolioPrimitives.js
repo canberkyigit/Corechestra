@@ -2,34 +2,20 @@ import React from "react";
 import { createPortal } from "react-dom";
 import { FaTimes } from "react-icons/fa";
 import { useEscapeKey } from "../../board/hooks/useEscapeKey";
-import { HEALTH_META } from "../utils/goalModel";
+import { HEALTH_META } from "../utils/healthMeta";
 
-// Shared building blocks of the Goals and Portfolio pages.
+// Building blocks of the Portfolio tab.
 
 /** Field look without a width, for selects that size to their content. */
 export const FIELD_CLS =
   "rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 dark:border-[#2a3044] dark:bg-[#141720] dark:text-slate-200 dark:placeholder-slate-500";
 export const INPUT_CLS = `w-full ${FIELD_CLS}`;
-export const LABEL_CLS = "mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400";
 export const PRIMARY_BTN =
   "inline-flex items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50 disabled:cursor-not-allowed disabled:opacity-50";
 export const SECONDARY_BTN =
   "inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#2a3044] dark:bg-[#1a1f2e] dark:text-slate-200 dark:hover:border-[#3a4054] dark:hover:bg-[#232838]";
 export const GHOST_BTN =
   "inline-flex items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50 dark:text-slate-400 dark:hover:bg-[#232838] dark:hover:text-slate-100";
-
-export function PageHeader({ kicker, title, subtitle, actions }) {
-  return (
-    <header className="flex flex-wrap items-end justify-between gap-3">
-      <div className="min-w-0">
-        {kicker && <p className="text-xs font-medium uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">{kicker}</p>}
-        <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 dark:text-white">{title}</h1>
-        {subtitle && <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{subtitle}</p>}
-      </div>
-      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
-    </header>
-  );
-}
 
 export function HealthPill({ health, size = "sm", suffix }) {
   const meta = HEALTH_META[health] || HEALTH_META["no-data"];
@@ -160,28 +146,6 @@ export function DrawerClose({ onClose }) {
     <button type="button" onClick={onClose} aria-label="Close" className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-[#232838] dark:hover:text-slate-200">
       <FaTimes className="h-3.5 w-3.5" aria-hidden="true" />
     </button>
-  );
-}
-
-/** Centered modal shell. */
-export function ModalShell({ open, onClose, title, kicker, children, footer, width = "max-w-2xl" }) {
-  useEscapeKey(onClose, open);
-  if (!open) return null;
-  return createPortal(
-    <div className="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto bg-slate-900/40 p-4 backdrop-blur-sm sm:p-8" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <div role="dialog" aria-modal="true" aria-label={title} className={`animate-modal-enter w-full ${width} rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-[#2a3044] dark:bg-[#1a1f2e]`}>
-        <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-6 py-4 dark:border-[#2a3044]">
-          <div className="min-w-0">
-            {kicker && <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400 dark:text-slate-500">{kicker}</p>}
-            <h2 className="mt-0.5 text-lg font-semibold text-slate-900 dark:text-white">{title}</h2>
-          </div>
-          <DrawerClose onClose={onClose} />
-        </div>
-        <div className="px-6 py-5">{children}</div>
-        {footer && <div className="flex items-center justify-end gap-2 border-t border-slate-200 px-6 py-3 dark:border-[#2a3044]">{footer}</div>}
-      </div>
-    </div>,
-    document.body
   );
 }
 

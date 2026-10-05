@@ -12,7 +12,7 @@ export function usePortfolioData(app, now) {
   const perProjectSprint = useAppStore((state) => state.perProjectSprint);
   const {
     projects, currentProjectId, activeTasks, releases, testSuites, testCases, testRuns, testPlans, testSharedSteps,
-    goals, projectStatusUpdates,
+    projectStatusUpdates,
   } = app;
 
   const rows = useMemo(() => buildPortfolio({
@@ -27,10 +27,9 @@ export function usePortfolioData(app, now) {
     testRuns,
     testPlans,
     testSharedSteps,
-    goals,
     projectStatusUpdates,
     now,
-  }), [projects, currentProjectId, activeTasks, perProjectBacklog, perProjectSprint, releases, testSuites, testCases, testRuns, testPlans, testSharedSteps, goals, projectStatusUpdates, now]);
+  }), [projects, currentProjectId, activeTasks, perProjectBacklog, perProjectSprint, releases, testSuites, testCases, testRuns, testPlans, testSharedSteps, projectStatusUpdates, now]);
 
   const summary = useMemo(() => summarizePortfolio(rows, now), [rows, now]);
   return { rows, summary };

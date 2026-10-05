@@ -508,3 +508,42 @@
 .dark-transitioning *::after {
   transition: background-color 0.25s ease, border-color 0.25s ease, color 0.2s ease !important;
 }
+
+/* ── Maestro sidebar entry ─────────────────────────────────────────────────── */
+.maestro-nav-idle {
+  background: linear-gradient(110deg, rgba(139, 92, 246, 0.16), rgba(99, 102, 241, 0.10) 45%, rgba(59, 130, 246, 0.16));
+  box-shadow: 0 6px 16px -10px rgba(99, 102, 241, 0.7);
+}
+.maestro-nav-idle:hover {
+  background: linear-gradient(110deg, rgba(139, 92, 246, 0.24), rgba(99, 102, 241, 0.16) 45%, rgba(59, 130, 246, 0.24));
+  box-shadow: 0 8px 20px -10px rgba(99, 102, 241, 0.85);
+}
+.maestro-nav-active {
+  background: linear-gradient(110deg, #7c3aed, #4f46e5 45%, #2563eb);
+  background-size: 200% 100%;
+  animation: maestro-gradient 6s ease-in-out infinite;
+}
+.maestro-nav-shine {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.55) 50%, transparent 65%);
+  transform: translateX(-120%);
+  animation: maestro-shine 3.8s ease-in-out infinite;
+}
+.dark .maestro-nav-shine,
+.maestro-nav-active .maestro-nav-shine {
+  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.22) 50%, transparent 65%);
+}
+@keyframes maestro-shine {
+  0%, 55% { transform: translateX(-120%); }
+  85%, 100% { transform: translateX(120%); }
+}
+@keyframes maestro-gradient {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .maestro-nav-shine, .maestro-nav-active { animation: none; }
+  .maestro-nav-shine { display: none; }
+}

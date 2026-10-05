@@ -4,11 +4,10 @@ import { useApp } from "../../../shared/context/AppContext";
 import { usePermissions } from "../../../shared/context/hooks/usePermissions";
 import { useToast } from "../../../shared/context/ToastContext";
 import { requestNavigate } from "../../../shared/components/appNavigation";
-import { DashboardSkeleton } from "../../../shared/components/Skeleton";
-import { HEALTH_META } from "../../goals/utils/goalModel";
-import { FIELD_CLS, PageHeader, ScoreRing, Segmented, StatTile } from "../../goals/components/StrategyPrimitives";
-import { HealthDistribution, PortfolioCard, PortfolioTable } from "../components/PortfolioViews";
-import ProjectHealthDrawer from "../components/ProjectHealthDrawer";
+import { HEALTH_META } from "../utils/healthMeta";
+import { FIELD_CLS, ScoreRing, Segmented, StatTile } from "./PortfolioPrimitives";
+import { HealthDistribution, PortfolioCard, PortfolioTable } from "./PortfolioViews";
+import ProjectHealthDrawer from "./ProjectHealthDrawer";
 import { usePortfolioData } from "../hooks/usePortfolioData";
 import { sortPortfolio } from "../utils/portfolioMetrics";
 
@@ -20,10 +19,11 @@ const SORT_OPTIONS = [
   { id: "release", label: "Next release" },
 ];
 
-export default function PortfolioPage() {
+/** Dashboard tab: health of every project in the workspace. */
+export default function PortfolioTab({ actions }) {
   const app = useApp();
   const {
-    dbReady, users, projectStatusUpdates, setCurrentProjectId, postProjectStatusUpdate, deleteProjectStatusUpdate,
+    users, projectStatusUpdates, setCurrentProjectId, postProjectStatusUpdate, deleteProjectStatusUpdate,
   } = app;
   const { canPerform } = usePermissions();
   const { addToast } = useToast();
@@ -51,34 +51,31 @@ export default function PortfolioPage() {
   const goToProject = (projectId, page) => {
     setCurrentProjectId(projectId);
     setOpenProjectId(null);
-    requestNavigate(page);
+    if (page === "dashboard" && actions?.setTab) actions.setTab("overview");
+    else requestNavigate(page);
   };
-
-  if (!dbReady) return <DashboardSkeleton />;
 
   const toggleHealth = (key) => setHealthFilter((current) => (current === key ? null : key));
   const avgHex = summary.avgScore === null ? "#94a3b8" : HEALTH_META[summary.avgScore >= 75 ? "on-track" : summary.avgScore >= 50 ? "at-risk" : "off-track"].hex;
 
   return (
-    <div className="mx-auto max-w-[1400px] space-y-5 p-4 md:p-6">
-      <PageHeader
-        kicker="Strategy"
-        title="Portfolio"
-        subtitle={`Health across ${summary.total} project${summary.total === 1 ? "" : "s"} · calculated live from boards, releases and tests`}
-        actions={(
-          <>
-            <select aria-label="Sort projects" className={`${FIELD_CLS} py-1.5 pr-8`} value={sortKey} onChange={(event) => setSortKey(event.target.value)}>
-              {SORT_OPTIONS.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
-            </select>
-            <Segmented
-              ariaLabel="View"
-              value={view}
-              onChange={setView}
-              options={[{ id: "cards", label: "Cards", icon: FaThLarge }, { id: "table", label: "Table", icon: FaTable }]}
-            />
-          </>
-        )}
-      />
+    <div className="space-y-4" data-testid="portfolio-tab">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          Health across {summary.total === 1 ? "1 project" : `all ${summary.total} projects`} · calculated live from boards, releases and tests
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <select aria-label="Sort projects" className={`${FIELD_CLS} py-1.5 pr-8`} value={sortKey} onChange={(event) => setSortKey(event.target.value)}>
+            {SORT_OPTIONS.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
+          </select>
+          <Segmented
+            ariaLabel="Portfolio view"
+            value={view}
+            onChange={setView}
+            options={[{ id: "cards", label: "Cards", icon: FaThLarge }, { id: "table", label: "Table", icon: FaTable }]}
+          />
+        </div>
+      </div>
 
       {rows.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-slate-200 px-6 py-14 text-center dark:border-[#2a3044]">
